@@ -1,0 +1,10 @@
+**/bin/
+**/obj/
+artifacts/
+.vs/
+*.user
+.env
+!.env.example
+TestResults/
+core
+core.*

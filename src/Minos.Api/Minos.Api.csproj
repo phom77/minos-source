@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <UserSecretsId>minos-api-development</UserSecretsId>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Minos.Application/Minos.Application.csproj" />
+    <ProjectReference Include="../Minos.Infrastructure/Minos.Infrastructure.csproj" />
+  </ItemGroup>
+</Project>

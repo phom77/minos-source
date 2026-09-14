@@ -1,0 +1,112 @@
+using Microsoft.EntityFrameworkCore;
+using Minos.Infrastructure.Hosting;
+using Minos.Infrastructure.Persistence;
+using Npgsql;
+using Xunit;
+
+namespace Minos.IntegrationTests;
+
+public sealed class PostgresPrivilegeTests
+{
+    internal static string Connection(string variable) => Environment.GetEnvironmentVariable(variable)
+        ?? throw new InvalidOperationException($"Run scripts/check-foundation.sh; {variable} is required.");
+
+    [Theory]
+    [InlineData("ConnectionStrings__Minos", DatabaseActor.Api)]
+    [InlineData("MINOS_TEST_WORKER_CONNECTION", DatabaseActor.Worker)]
+    [InlineData("MINOS_TEST_MIGRATION_CONNECTION", DatabaseActor.Migrator)]
+    public async Task Operational_roles_have_expected_identity_and_schema_is_current(string variable, DatabaseActor actor)
+    {
+        await using var database = Database(Connection(variable));
+        var token = TestContext.Current.CancellationToken;
+        await new DatabaseOperationalCheck(database).ValidateAsync(actor, token);
+        Assert.Empty(await database.Database.GetPendingMigrationsAsync(token));
+        Assert.Equal(database.Database.GetMigrations(), await database.Database.GetAppliedMigrationsAsync(token));
+        if (actor != DatabaseActor.Migrator) Assert.True(await database.ProblemDrafts.CountAsync(token) >= 0);
+    }
+
+    [Theory]
+    [InlineData("ConnectionStrings__Minos", "CREATE SCHEMA forbidden_schema")]
+    [InlineData("ConnectionStrings__Minos", "CREATE TEMP TABLE forbidden_table (id integer)")]
+    [InlineData("MINOS_TEST_WORKER_CONNECTION", "CREATE SCHEMA forbidden_schema")]
+    [InlineData("MINOS_TEST_WORKER_CONNECTION", "CREATE TEMP TABLE forbidden_table (id integer)")]
+    [InlineData("ConnectionStrings__Minos", "CREATE TABLE public.forbidden_table (id integer)")]
+    [InlineData("MINOS_TEST_WORKER_CONNECTION", "CREATE TABLE problems.forbidden_table (id integer)")]
+    [InlineData("ConnectionStrings__Minos", "CREATE ROLE forbidden_role")]
+    [InlineData("MINOS_TEST_WORKER_CONNECTION", "CREATE ROLE forbidden_role")]
+    [InlineData("ConnectionStrings__Minos", "DELETE FROM problems.problem_drafts")]
+    [InlineData("MINOS_TEST_WORKER_CONNECTION", "UPDATE problems.problem_drafts SET title = 'Changed'")]
+    [InlineData("ConnectionStrings__Minos", "TRUNCATE problems.problem_drafts")]
+    [InlineData("MINOS_TEST_WORKER_CONNECTION", "INSERT INTO problems.problem_drafts VALUES (gen_random_uuid(), 'Title', 'Statement', now())")]
+    [InlineData("ConnectionStrings__Minos", "DELETE FROM public.\"__EFMigrationsHistory\"")]
+    [InlineData("MINOS_TEST_WORKER_CONNECTION", "DELETE FROM public.\"__EFMigrationsHistory\"")]
+    [InlineData("MINOS_TEST_MIGRATION_CONNECTION", "CREATE ROLE forbidden_role")]
+    public async Task PostgreSQL_denies_operations_outside_each_actors_responsibility(string variable, string sql)
+    {
+        await using var connection = new NpgsqlConnection(Connection(variable));
+        await connection.OpenAsync(TestContext.Current.CancellationToken);
+        await using var command = new NpgsqlCommand(sql, connection);
+        var failure = await Assert.ThrowsAsync<PostgresException>(() => command.ExecuteNonQueryAsync(TestContext.Current.CancellationToken));
+        Assert.Equal(PostgresErrorCodes.InsufficientPrivilege, failure.SqlState);
+    }
+
+    [Theory]
+    [InlineData(" ", "Statement")]
+    [InlineData("\t\n", "Statement")]
+    [InlineData("\u00a0\u2003", "Statement")]
+    [InlineData(" Title ", "Statement")]
+    [InlineData("Title", "\t\n")]
+    [InlineData("Title", "\u0085\u3000")]
+    public async Task PostgreSQL_rejects_invalid_text_even_when_domain_is_bypassed(string title, string statement)
+    {
+        await using var connection = new NpgsqlConnection(Connection("ConnectionStrings__Minos"));
+        await connection.OpenAsync(TestContext.Current.CancellationToken);
+        await using var command = new NpgsqlCommand("INSERT INTO problems.problem_drafts VALUES (@id, @title, @statement, @created)", connection);
+        command.Parameters.AddWithValue("id", Guid.NewGuid());
+        command.Parameters.AddWithValue("title", title);
+        command.Parameters.AddWithValue("statement", statement);
+        command.Parameters.AddWithValue("created", DateTimeOffset.UtcNow);
+        var failure = await Assert.ThrowsAsync<PostgresException>(() => command.ExecuteNonQueryAsync(TestContext.Current.CancellationToken));
+        Assert.Equal(PostgresErrorCodes.CheckViolation, failure.SqlState);
+    }
+
+    [Fact]
+    public async Task Runtime_validation_rejects_bootstrap_identity_and_detects_grant_drift()
+    {
+        var token = TestContext.Current.CancellationToken;
+        await using var bootstrap = Database(Connection("MINOS_TEST_BOOTSTRAP_CONNECTION"));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => new DatabaseOperationalCheck(bootstrap).ValidateAsync(DatabaseActor.Api, token));
+        await using var runtime = Database(Connection("ConnectionStrings__Minos"));
+        await bootstrap.Database.ExecuteSqlRawAsync("GRANT DELETE ON problems.problem_drafts TO minos_api", token);
+        try
+        {
+            await Assert.ThrowsAsync<InvalidOperationException>(() => new DatabaseOperationalCheck(runtime).ValidateAsync(DatabaseActor.Api, token));
+        }
+        finally { await bootstrap.Database.ExecuteSqlRawAsync("REVOKE DELETE ON problems.problem_drafts FROM minos_api", CancellationToken.None); }
+        await new DatabaseOperationalCheck(runtime).ValidateAsync(DatabaseActor.Api, token);
+    }
+
+    internal static MinosDbContext Database(string connection) => new(new DbContextOptionsBuilder<MinosDbContext>().UseNpgsql(connection).Options);
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task PostgreSQL_matches_domain_utf16_limits_for_non_bmp_text(bool titleLimit)
+    {
+        var token = TestContext.Current.CancellationToken;
+        await using var connection = new NpgsqlConnection(Connection("ConnectionStrings__Minos"));
+        await connection.OpenAsync(token);
+        await using var transaction = await connection.BeginTransactionAsync(token);
+        await using var command = new NpgsqlCommand("INSERT INTO problems.problem_drafts VALUES (@id, @title, @statement, @created)", connection, transaction);
+        command.Parameters.AddWithValue("id", Guid.NewGuid());
+        command.Parameters.AddWithValue("title", titleLimit ? string.Concat(Enumerable.Repeat("🧩", 60)) : "Title");
+        command.Parameters.AddWithValue("statement", titleLimit ? "Statement" : string.Concat(Enumerable.Repeat("🧩", 32768)));
+        command.Parameters.AddWithValue("created", DateTimeOffset.UtcNow);
+        Assert.Equal(1, await command.ExecuteNonQueryAsync(token));
+        command.Parameters["id"].Value = Guid.NewGuid();
+        command.Parameters[titleLimit ? "title" : "statement"].Value += "🧩";
+        var failure = await Assert.ThrowsAsync<PostgresException>(() => command.ExecuteNonQueryAsync(token));
+        Assert.Equal(PostgresErrorCodes.CheckViolation, failure.SqlState);
+        await transaction.RollbackAsync(token);
+    }
+}
