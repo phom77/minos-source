@@ -1,7 +1,7 @@
 # Minos project design
 
 Date: 2026-09-13\
-Status: M0/M1/M2 complete; M3 awaits approval; D01/D02/D03/D10 baseline accepted
+Status: M0/M1/M2 complete; M3 implemented with live Google validation pending; M4 requires approval
 
 Related documents: [M0 closure](m0-closure.md), [Decision register](decisions.md), [Implementation roadmap](implementation-plan.md)
 
@@ -98,6 +98,8 @@ None of these assumptions is a silently accepted product decision. See the decis
 | Judge Worker | Claim jobs, coordinate execution, persist outcomes | Narrow Evaluation and artifact permissions |
 
 Setter and administrator permissions belong to accounts; they do not require different account entities. Administrator and operator can initially be the same person while retaining separate responsibilities.
+
+M3 implements provider-independent Domain accounts, separate Infrastructure Identity credentials, API-owned protected cookies/CSRF/Google middleware, and Application active-account/owner checks. See [ADR 0006](adr/0006-account-authentication-and-linking.md). Full Setter/Admin permissions are M4 work. Email-based provider merging is prohibited; recovery/verification delivery remains deferred before public release.
 
 These are intended product roles. During development, the developer and automated tests exercise them using separate test identities. There is no real-user cohort and no normal-user enrollment approval responsibility.
 

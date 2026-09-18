@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using Minos.Domain;
 using Minos.Application;
+using Minos.Application.Accounts;
 
 namespace Minos.Api;
 
@@ -13,7 +14,10 @@ internal sealed class DomainExceptionHandler(IProblemDetailsService problemDetai
         ProblemDetails details = exception switch
         {
             DomainValidationException validation => new ValidationProblemDetails(new Dictionary<string, string[]> { [validation.Property] = [validation.Message] })
-                { Status = 400, Title = "Problem draft is invalid." },
+                { Status = 400, Title = "Validation failed." },
+            AccountAuthenticationException => new ProblemDetails { Status = 401, Title = "Authentication failed." },
+            AccountRegistrationException => new ProblemDetails { Status = 400, Title = "Unable to register with those details." },
+            ExternalLoginException => new ProblemDetails { Status = 409, Title = "Unable to complete external sign-in. Sign in to your existing account to link the provider." },
             AccessDeniedException => new ProblemDetails { Status = 403, Title = "Access denied." },
             BadHttpRequestException badRequest => new ProblemDetails { Status = badRequest.StatusCode, Title = "Invalid request." },
             _ => new ProblemDetails { Status = 500, Title = "An unexpected error occurred." }

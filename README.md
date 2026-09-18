@@ -6,7 +6,7 @@ The backend will use C#, ASP.NET Core, PostgreSQL, and Entity Framework Core. It
 
 ## Current status
 
-**M0, M1 and M2 complete. M3 awaits approval.** The five-project backend has a working development-only draft use case, real PostgreSQL migrations, separate operational identities and private artifact-root validation. See [M2 results](docs/milestones/m2-foundation.md).
+**M0–M2 complete. M3 implemented; live Google consent validation pending. M4 has not started.** The five-project backend now has self-service email/password accounts, secure cookie sessions, Google integration with explicit linking, and account-owned development drafts. See [M3 results and Google setup](docs/milestones/m3-accounts.md).
 
 These documents distinguish accepted decisions from proposed architecture and unresolved product choices. D01, D02, D03, and the D10 minimum safety baseline are accepted. Exact numeric limits are validated/tuned in M1; final contestant verdict precedence and resource-accounting semantics remain M6 decisions. Routine choices are resolved in their relevant milestones.
 
@@ -39,7 +39,7 @@ cd /mnt/d/Projects/PetProject/Minos
 bash scripts/check-foundation.sh
 ```
 
-The foundation script and GitHub Actions use the same pipeline: export a clean source tree, restore in locked mode, build Release, provision PostgreSQL 18.6 with separate bootstrap/migrator/API/Worker identities, apply migrations twice, run tests, start both hosts and prove readiness/recovery. Its private Linux Unix socket is not network-accessible. A per-run Docker volume preserves the database across the tested restart; the volume, container and temporary workspace are removed afterward. No real credentials are needed. Docker, .NET 10, Bash, Python 3 and curl are required. Windows builds use SDK 10.0.301; WSL checks use 10.0.401. The M1 spike is archived evidence and is not part of M2 checks.
+The foundation script and GitHub Actions use the same pipeline: clean locked Release build, isolated PostgreSQL 18.6 operational identities, fresh/repeated migrations, tests, real HTTPS account/draft requests, both hosts and readiness/recovery. Google tests use a fake backchannel without Google calls or real credentials. Per-run container/volume/private files are removed afterward. Docker, .NET 10, Bash, Python 3, curl and OpenSSL are required. Windows builds use SDK 10.0.301; WSL checks use 10.0.401. M1 spikes remain archived evidence.
 
 Normal `dotnet restore`/`dotnet build` and IDE builds automatically use `artifacts/windows` on Windows and `artifacts/linux` in WSL. Restore assets are kept separate because they contain absolute paths to each host's NuGet cache. Explicit `--artifacts-path` overrides remain available for CI/private Linux build directories. After pulling build-configuration changes, restore the solution once on each host before using `--no-restore`.
 
@@ -69,7 +69,7 @@ ASPNETCORE_ENVIRONMENT=Development Minos__EnableDevelopmentEndpoints=true dotnet
 
 In a second WSL terminal, configure the same artifact-root variable and read a connection string for `minos_worker`, then run `dotnet run --project src/Minos.JudgeWorker`. `-- --check` validates startup and exits. For Windows API hosting, set the equivalent environment variables or API user secrets and use a private Windows directory ACL permitting only the current account, SYSTEM and Administrators. The Worker always runs in Linux; Linux roots must use a native filesystem, private permissions and no symlinked/writable-public ancestors. Migration mode needs only the migrator connection, not storage.
 
-API health endpoints are `/health/live` and `/health/ready` at `http://127.0.0.1:5080`. Startup checks runtime identity/grants, applied migrations and real private-storage read/write access. Readiness covers the same dependencies; liveness stays available during dependency outages. Opt-in `/_development/problem-drafts/` POST and GET-by-ID endpoints exercise persistence and use-case access checks. They require Development plus `Minos__EnableDevelopmentEndpoints=true`; transport errors use safe ProblemDetails. No artifact directory is served over HTTP. These routes provide no product authentication. Artifact upload, ownership and sharing between Windows/WSL roots are later workflow work; this Worker remains idle and executes no submissions.
+API health endpoints are `/health/live` and `/health/ready`. The `Minos.Api` launch profile uses `https://localhost:49674` and `http://localhost:49675`; account endpoints require HTTPS. Startup/readiness validate runtime privileges, migrations and private storage; liveness remains available during outages. Self-service `/accounts` endpoints use protected cookies and `X-CSRF-TOKEN` from `/accounts/csrf`; obtain a new token after signing in. Opt-in development draft routes require Development, `Minos__EnableDevelopmentEndpoints=true`, a real active account and ownership. Errors use safe ProblemDetails. Private storage and persisted session keys are never served over HTTP. Real problem authoring/artifact uploads/publication and Setter/Admin permissions remain M4 work. Worker remains idle and executes no submissions.
 
 ## Engineering principles
 

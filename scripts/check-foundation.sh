@@ -63,6 +63,9 @@ export MINOS_TEST_MIGRATION_CONNECTION="Host=$workspace/socket;Database=minos;Us
 export MINOS_TEST_WORKER_CONNECTION="Host=$workspace/socket;Database=minos;Username=minos_worker;Password=$worker_password;Timeout=3"
 export MINOS_TEST_BOOTSTRAP_CONNECTION="Host=$workspace/socket;Database=minos;Username=minos_bootstrap;Password=$password;Timeout=3"
 export Minos__Artifacts__Root="$workspace/private-artifacts"
+export Authentication__Google__Enabled=false
+# Provider tests explicitly enable a fake backchannel; local secrets never enable real Google here.
+unset Authentication__Google__ClientId Authentication__Google__ClientSecret
 # Build a clean source export, excluding prior outputs and execution spikes. CI uses this exact pipeline.
 tar -C "$repository" --exclude=bin --exclude=obj --exclude='*.user' -cf - \
     src tests scripts docs .config .github AGENTS.md README.md Directory.Build.props Directory.Packages.props global.json Minos.sln | tar -C "$workspace/source" -xf -
@@ -77,7 +80,9 @@ ConnectionStrings__Minos="$MINOS_TEST_MIGRATION_CONNECTION" "$dotnet_command" "$
 docker exec -i --env "PGPASSWORD=$migrator_password" "$container" psql -X --set ON_ERROR_STOP=1 -U minos_migrator -d minos \
     < "$repository/scripts/postgres-runtime-grants.sql" > "$workspace/grants.log" 2>&1
 printf 'fresh_migration_and_repeat=passed\n'
-"$dotnet_command" test "$workspace/source/Minos.sln" --artifacts-path "$build_directory" --no-build -c Release --nologo \
+test_filter=()
+if [[ -n "${MINOS_TEST_FILTER:-}" ]]; then test_filter=(--filter "$MINOS_TEST_FILTER"); fi
+"$dotnet_command" test "$workspace/source/Minos.sln" "${test_filter[@]}" --artifacts-path "$build_directory" --no-build -c Release --nologo \
     --logger trx --results-directory "$repository/artifacts/tests"
 ConnectionStrings__Minos="$MINOS_TEST_WORKER_CONNECTION" "$dotnet_command" "$worker_dll" --check > "$workspace/worker-check.log" 2>&1
 grep -q 'worker_foundation=passed' "$workspace/worker-check.log"
@@ -95,34 +100,48 @@ kill -0 "$worker_pid"
 kill -TERM "$worker_pid"
 wait "$worker_pid"
 printf 'worker_host_start_and_cancellation=passed\n'
-ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=http://127.0.0.1:0 Minos__EnableDevelopmentEndpoints=true \
-    "$dotnet_command" "$api_dll" > "$workspace/api.log" 2>&1 &
+mkdir -m 700 "$workspace/api-private-artifacts"
+openssl req -x509 -newkey rsa:2048 -nodes -keyout "$workspace/tls.key" -out "$workspace/tls.crt" \
+    -days 1 -subj /CN=localhost > "$workspace/tls.log" 2>&1
+openssl pkcs12 -export -out "$workspace/tls.pfx" -inkey "$workspace/tls.key" -in "$workspace/tls.crt" \
+    -passout pass: > "$workspace/tls-export.log" 2>&1
+(
+umask 022
+ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=https://127.0.0.1:0 Minos__EnableDevelopmentEndpoints=true \
+    Minos__Artifacts__Root="$workspace/api-private-artifacts" \
+    ASPNETCORE_Kestrel__Certificates__Default__Path="$workspace/tls.pfx" \
+    exec "$dotnet_command" "$api_dll" > "$workspace/api.log" 2>&1
+) &
 api_pid=$!
 api_url=''
 for attempt in {1..60}; do
     kill -0 "$api_pid"
-    api_url="$(python3 -c 'import re,sys; m=re.search(r"Now listening on: (http://127\.0\.0\.1:[0-9]+)",open(sys.argv[1]).read()); print(m[1] if m else "")' "$workspace/api.log")"
-    if [[ -n "$api_url" ]] && curl -fsS "$api_url/health/ready" >/dev/null 2>&1; then break; fi
+    api_url="$(python3 -c 'import re,sys; m=re.search(r"Now listening on: (https://127\.0\.0\.1:[0-9]+)",open(sys.argv[1]).read()); print(m[1] if m else "")' "$workspace/api.log")"
+    if [[ -n "$api_url" ]] && curl -kfsS "$api_url/health/ready" >/dev/null 2>&1; then break; fi
     sleep 0.25
 done
-curl -fsS "$api_url/health/ready" >/dev/null
-curl -fsS -H 'Content-Type: application/json' -d '{"title":"A + B","statement":"Print the sum."}' \
+curl -kfsS "$api_url/health/ready" >/dev/null
+csrf="$(curl -kfsS -c "$workspace/cookies" -b "$workspace/cookies" "$api_url/accounts/csrf" | python3 -c 'import json,sys; print(json.load(sys.stdin)["requestToken"])')"
+curl -kfsS -c "$workspace/cookies" -b "$workspace/cookies" -H "X-CSRF-TOKEN: $csrf" -H 'Content-Type: application/json' \
+    -d '{"email":"developer@example.test","password":"correct horse battery staple","displayName":"Developer"}' "$api_url/accounts/register" > "$workspace/account.json"
+csrf="$(curl -kfsS -c "$workspace/cookies" -b "$workspace/cookies" "$api_url/accounts/csrf" | python3 -c 'import json,sys; print(json.load(sys.stdin)["requestToken"])')"
+curl -kfsS -b "$workspace/cookies" -H "X-CSRF-TOKEN: $csrf" -H 'Content-Type: application/json' -d '{"title":"A + B","statement":"Print the sum."}' \
     "$api_url/_development/problem-drafts/" > "$workspace/created.json"
 draft_id="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["id"])' "$workspace/created.json")"
-curl -fsS "$api_url/_development/problem-drafts/$draft_id" | \
+curl -kfsS -b "$workspace/cookies" "$api_url/_development/problem-drafts/$draft_id" | \
     python3 -c 'import json,sys; r=json.load(sys.stdin); assert r["title"] == "A + B" and r["statement"] == "Print the sum."'
-test "$(curl -sS -o /dev/null -w '%{http_code}' "$api_url/private-artifacts/any-file")" = 404
+test "$(curl -ksS -o /dev/null -w '%{http_code}' "$api_url/private-artifacts/any-file")" = 404
 printf 'real_http_draft_roundtrip_and_private_storage=passed\n'
 # Storage must affect readiness, without affecting liveness.
-chmod 755 "$workspace/private-artifacts"
-test "$(curl -sS -o /dev/null -w '%{http_code}' "$api_url/health/ready")" = 503
-curl -fsS "$api_url/health/live" >/dev/null
-chmod 700 "$workspace/private-artifacts"
-curl -fsS "$api_url/health/ready" >/dev/null
+chmod 755 "$workspace/api-private-artifacts"
+test "$(curl -ksS -o /dev/null -w '%{http_code}' "$api_url/health/ready")" = 503
+curl -kfsS "$api_url/health/live" >/dev/null
+chmod 700 "$workspace/api-private-artifacts"
+curl -kfsS "$api_url/health/ready" >/dev/null
 printf 'storage_privacy_readiness=passed\n'
 docker stop --time 5 "$container" >/dev/null
-test "$(curl -sS -o /dev/null -w '%{http_code}' "$api_url/health/ready")" = 503
-curl -fsS "$api_url/health/live" >/dev/null
+test "$(curl -ksS -o /dev/null -w '%{http_code}' "$api_url/health/ready")" = 503
+curl -kfsS "$api_url/health/live" >/dev/null
 if ConnectionStrings__Minos="$MINOS_TEST_WORKER_CONNECTION" "$dotnet_command" "$worker_dll" --check > "$workspace/worker-check.log" 2>&1; then
     printf 'Worker unexpectedly started without PostgreSQL.\n' >&2
     exit 1
@@ -131,10 +150,10 @@ grep -q 'cannot connect to PostgreSQL' "$workspace/worker-check.log"
 docker start "$container" >/dev/null
 wait_for_postgres
 for attempt in {1..60}; do
-    if curl -fsS "$api_url/health/ready" >/dev/null 2>&1; then break; fi
+    if curl -kfsS "$api_url/health/ready" >/dev/null 2>&1; then break; fi
     sleep 0.25
 done
-curl -fsS "$api_url/health/ready" >/dev/null
-curl -fsS "$api_url/_development/problem-drafts/$draft_id" | \
+curl -kfsS "$api_url/health/ready" >/dev/null
+curl -kfsS -b "$workspace/cookies" "$api_url/_development/problem-drafts/$draft_id" | \
     python3 -c 'import json,sys; assert json.load(sys.stdin)["title"] == "A + B"'
 printf 'database_down_readiness_and_worker_startup=passed\nfoundation_checks=passed\n'

@@ -66,10 +66,16 @@ public sealed class ArchitectureTests
     [Fact]
     public void Hosts_use_infrastructure_only_in_composition_and_hosting_files()
     {
-        var hostingFiles = new[] { "Program.cs", "FoundationStartupCheck.cs", "DatabaseHealthCheck.cs", "WorkerFoundationStartupCheck.cs" };
+        var hostingFiles = new[] { "Program.cs", "AuthenticationComposition.cs", "FoundationStartupCheck.cs", "DatabaseHealthCheck.cs", "WorkerFoundationStartupCheck.cs" };
         foreach (var host in new[] { "Minos.Api", "Minos.JudgeWorker" })
             foreach (var file in SourceFiles(host).Where(path => !hostingFiles.Contains(Path.GetFileName(path))))
                 Assert.DoesNotContain("Minos.Infrastructure", File.ReadAllText(file), StringComparison.Ordinal);
+        foreach (var file in SourceFiles("Minos.JudgeWorker"))
+        {
+            var source = File.ReadAllText(file);
+            Assert.DoesNotContain("Microsoft.AspNetCore", source, StringComparison.Ordinal);
+            Assert.DoesNotContain("AddMinosAccountPersistence", source, StringComparison.Ordinal);
+        }
     }
 
     private static IEnumerable<string> SourceFiles(string project) => Directory.GetFiles(Path.Combine(Repository, "src", project), "*.cs", SearchOption.AllDirectories)

@@ -1,7 +1,9 @@
+using Minos.Domain.Problems;
+
 namespace Minos.Application.Problems;
 
 public interface IProblemDraftAccess
 {
-    Task EnsureCanCreateAsync(CancellationToken cancellationToken);
-    Task EnsureCanReadAsync(Guid draftId, CancellationToken cancellationToken);
+    Task<Guid> RequireActiveAccountAsync(CancellationToken cancellationToken);
+    void EnsureCanRead(ProblemDraft draft, Guid accountId);
 }

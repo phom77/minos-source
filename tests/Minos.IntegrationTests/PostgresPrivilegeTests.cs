@@ -41,6 +41,11 @@ public sealed class PostgresPrivilegeTests
     [InlineData("ConnectionStrings__Minos", "DELETE FROM public.\"__EFMigrationsHistory\"")]
     [InlineData("MINOS_TEST_WORKER_CONNECTION", "DELETE FROM public.\"__EFMigrationsHistory\"")]
     [InlineData("MINOS_TEST_MIGRATION_CONNECTION", "CREATE ROLE forbidden_role")]
+    [InlineData("MINOS_TEST_WORKER_CONNECTION", "SELECT * FROM accounts.credentials")]
+    [InlineData("MINOS_TEST_WORKER_CONNECTION", "SELECT * FROM accounts.accounts")]
+    [InlineData("MINOS_TEST_WORKER_CONNECTION", "SELECT * FROM accounts.external_logins")]
+    [InlineData("ConnectionStrings__Minos", "SELECT * FROM accounts.tokens")]
+    [InlineData("ConnectionStrings__Minos", "DELETE FROM accounts.credentials")]
     public async Task PostgreSQL_denies_operations_outside_each_actors_responsibility(string variable, string sql)
     {
         await using var connection = new NpgsqlConnection(Connection(variable));
@@ -61,7 +66,10 @@ public sealed class PostgresPrivilegeTests
     {
         await using var connection = new NpgsqlConnection(Connection("ConnectionStrings__Minos"));
         await connection.OpenAsync(TestContext.Current.CancellationToken);
-        await using var command = new NpgsqlCommand("INSERT INTO problems.problem_drafts VALUES (@id, @title, @statement, @created)", connection);
+        await using var transaction = await connection.BeginTransactionAsync(TestContext.Current.CancellationToken);
+        var owner = await SeedOwnerAsync(connection, transaction);
+        await using var command = new NpgsqlCommand("INSERT INTO problems.problem_drafts (id,title,statement,created_at_utc,owner_account_id) VALUES (@id,@title,@statement,@created,@owner)", connection, transaction);
+        command.Parameters.AddWithValue("owner", owner);
         command.Parameters.AddWithValue("id", Guid.NewGuid());
         command.Parameters.AddWithValue("title", title);
         command.Parameters.AddWithValue("statement", statement);
@@ -97,7 +105,9 @@ public sealed class PostgresPrivilegeTests
         await using var connection = new NpgsqlConnection(Connection("ConnectionStrings__Minos"));
         await connection.OpenAsync(token);
         await using var transaction = await connection.BeginTransactionAsync(token);
-        await using var command = new NpgsqlCommand("INSERT INTO problems.problem_drafts VALUES (@id, @title, @statement, @created)", connection, transaction);
+        var owner = await SeedOwnerAsync(connection, transaction);
+        await using var command = new NpgsqlCommand("INSERT INTO problems.problem_drafts (id,title,statement,created_at_utc,owner_account_id) VALUES (@id,@title,@statement,@created,@owner)", connection, transaction);
+        command.Parameters.AddWithValue("owner", owner);
         command.Parameters.AddWithValue("id", Guid.NewGuid());
         command.Parameters.AddWithValue("title", titleLimit ? string.Concat(Enumerable.Repeat("🧩", 60)) : "Title");
         command.Parameters.AddWithValue("statement", titleLimit ? "Statement" : string.Concat(Enumerable.Repeat("🧩", 32768)));
@@ -108,5 +118,14 @@ public sealed class PostgresPrivilegeTests
         var failure = await Assert.ThrowsAsync<PostgresException>(() => command.ExecuteNonQueryAsync(token));
         Assert.Equal(PostgresErrorCodes.CheckViolation, failure.SqlState);
         await transaction.RollbackAsync(token);
+    }
+
+    private static async Task<Guid> SeedOwnerAsync(NpgsqlConnection connection, NpgsqlTransaction transaction)
+    {
+        var id = Guid.NewGuid();
+        await using var command = new NpgsqlCommand("INSERT INTO accounts.accounts VALUES (@id,'Owner',now(),false)", connection, transaction);
+        command.Parameters.AddWithValue("id", id);
+        await command.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
+        return id;
     }
 }

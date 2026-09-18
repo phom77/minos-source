@@ -1,6 +1,6 @@
 # Minos engineering rules
 
-Minos is a single-developer personal project. Favor working application code and meaningful automated tests. Documentation records material decisions and evidence. M1 is complete; do not repeat execution spikes without a concrete new requirement. Stop after the approved milestone; M3 requires approval.
+Minos is a single-developer personal project. Favor working application code and meaningful automated tests. Documentation records material decisions and evidence. M1/M2 are complete and approved; do not repeat their work without a concrete new correctness/security requirement. M3 is approved. Stop before M4 until the project owner approves it.
 
 ## Production structure and dependencies
 
@@ -31,5 +31,11 @@ Maintain Domain invariant/state-transition tests, Application use-case/authoriza
 Before edits: inspect code/references, identify file-level evidence, explain the smallest coherent change and its layer. Implement only the current slice, add relevant tests, run build/tests and review the diff for unnecessary dependencies or abstractions. Do not rewrite valid working architecture.
 
 Do not introduce MediatR, Redis, brokers, event sourcing, microservices, generic repositories, outbox or more projects/layers without evidence that the current design is insufficient. Do not introduce accounts, queues, judging lifecycle, contests, ratings, SignalR or distributed workers during M2.
+
+## Account and authentication boundaries
+
+Domain accounts/profile/disabled state and immutable draft ownership remain independent of Identity, providers and HTTP. Infrastructure owns Identity credential persistence and stable provider/subject mappings. API owns middleware, framework cookies, CSRF and provider callbacks. JudgeWorker never registers web authentication services and has no credential-table privileges.
+
+Use platform password hashing, OAuth state/correlation/PKCE and protected cookies. Never silently merge accounts by matching email. Explicit linking requires proof of the current account and provider. Enforce active-account and owner checks inside Application, even outside HTTP. Full Setter/Admin policies belong to M4. No invitations or administrator approval for normal registration.
 
 Update these rules when accepted architecture changes. ADRs are for decisions materially affecting correctness, security or long-term evolution, not every implementation choice. No pilot enrollment/admin approval workflow without an explicit pilot decision.

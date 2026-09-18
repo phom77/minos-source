@@ -9,16 +9,17 @@ public sealed class ProblemDraftUseCases(IProblemDraftRepository repository, IPr
 {
     public async Task<ProblemDraftDetails> CreateAsync(CreateProblemDraft request, CancellationToken cancellationToken)
     {
-        await access.EnsureCanCreateAsync(cancellationToken);
-        var draft = ProblemDraft.Create(request.Title, request.Statement, clock.GetUtcNow());
+        var ownerId = await access.RequireActiveAccountAsync(cancellationToken);
+        var draft = ProblemDraft.Create(ownerId, request.Title, request.Statement, clock.GetUtcNow());
         await repository.AddAsync(draft, cancellationToken);
         return Map(draft);
     }
 
     public async Task<ProblemDraftDetails?> FindAsync(Guid id, CancellationToken cancellationToken)
     {
-        await access.EnsureCanReadAsync(id, cancellationToken);
+        var accountId = await access.RequireActiveAccountAsync(cancellationToken);
         var draft = await repository.FindAsync(id, cancellationToken);
+        if (draft is not null) access.EnsureCanRead(draft, accountId);
         return draft is null ? null : Map(draft);
     }
 

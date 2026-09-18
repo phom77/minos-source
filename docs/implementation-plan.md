@@ -1,7 +1,7 @@
 # Minos implementation roadmap
 
 Date: 2026-09-13\
-Status: M0/M1/M2 complete; M3 awaits approval
+Status: M0/M1/M2 complete; M3 implemented, live Google consent check pending; M4 requires approval
 
 Related documents: [M0 closure](m0-closure.md), [Project design](project-design.md), [Decision register](decisions.md)
 
@@ -143,7 +143,7 @@ The sequence prioritizes sandbox feasibility because a failed execution environm
 
 **Boundary:** Infrastructure foundation only. Starting the Worker does not yet expose user-code execution.
 
-**Progress:** M2 complete, 2026-09-14. [Executable results](milestones/m2-foundation.md) cover clean Release builds, fresh/repeat migrations, explicit operational privileges, private storage, Application/HTTP/architecture tests, both hosts and dependency recovery. CI invokes the same locally verified pipeline; the first GitHub-hosted run follows commit/push. M3 remains unstarted pending approval.
+**Progress:** M2 complete, 2026-09-14. [Executable results](milestones/m2-foundation.md) cover clean Release builds, fresh/repeat migrations, explicit operational privileges, private storage, Application/HTTP/architecture tests, both hosts and dependency recovery. M3 was subsequently approved and implemented.
 
 ## M3 — Accounts and authorization
 
@@ -151,10 +151,9 @@ The sequence prioritizes sandbox feasibility because a failed execution environm
 
 ### Deliverables
 
-- Supported identity integration with the cookie/token design selected in M0.
-- Self-service email/password registration, login, logout, Google sign-in as the first external provider, minimal profile, and account lifecycle features selected in M0. Normal users require no administrator approval.
-- Solver, setter, administrator, and operational permission policies.
-- Controlled privileged-account provisioning and permission assignment.
+- Supported Identity integration and protected same-origin web cookies selected during M3 in [ADR 0006](adr/0006-account-authentication-and-linking.md).
+- Self-service email/password registration, login, logout, Google sign-in, minimal profile and the M3-selected account lifecycle. Normal users require no administrator approval.
+- Active-account identity and resource ownership enforced inside Application; complete Setter/Admin policies and privileged provisioning belong to M4 under the approved M3 scope.
 - Sign-in abuse limits and session/token invalidation behavior appropriate to the intended product, validated during developer-only development.
 
 ### Exit criteria
@@ -162,10 +161,12 @@ The sequence prioritizes sandbox feasibility because a failed execution environm
 - A solver can complete the agreed account lifecycle and access their profile.
 - Invalid credentials and duplicate identity fields produce controlled errors without exposing secrets.
 - Profile mutation cannot grant privileges.
-- API tests demonstrate unauthenticated rejection, forbidden privileged operations, and ownership enforcement.
+- API/Application tests demonstrate unauthenticated/disabled rejection, safe profile mutation and ownership enforcement. Privileged workflow tests accompany M4.
 - Disabled-account and logout behavior match the chosen authentication policy.
-- Required verification/recovery flows pass if M0 includes them.
+- Verification/recovery delivery is deferred in ADR 0006 and remains a public-release dependency.
 - Self-service email/password and Google sign-in are demonstrated by the developer; external-provider callbacks and account linking follow the D11 policy. No real-user cohort or enrollment approval gate is needed.
+
+**Progress:** [M3 implementation/results](milestones/m3-accounts.md) pass automated validation. Live Google consent remains pending an OAuth client; M3 is not formally closed and M4 has not started.
 
 ## M4 — Problem authoring, tests, and publication
 
@@ -174,6 +175,7 @@ The sequence prioritizes sandbox feasibility because a failed execution environm
 ### Deliverables
 
 - Problem draft management and setter ownership checks.
+- The Setter/Admin permissions and privileged provisioning required by those workflows.
 - Statement, samples, approved limits, checker configuration, and ordered test metadata.
 - Size-bounded private artifact upload with safe keys, staging, verification, and abandoned-upload cleanup.
 - Immutable published versions and history-preserving archival rules.
@@ -305,4 +307,4 @@ These increments have no committed dates or implementation approval.
 
 For each milestone, record its owner, implementation references, test results, relevant host/environment, observed limitations, and completion date. Update the overview status only when the exit criteria pass. A deferred check must remain visible and cannot be counted as completion.
 
-M0/M1/M2 are complete. [M2 evidence](milestones/m2-foundation.md) records the application, database, storage, host and architecture checks. The validated CI workflow invokes the exact locally passing Release pipeline; a hosted run is pending commit/push. M3 requires approval.
+M0/M1/M2 are complete. [M3 evidence](milestones/m3-accounts.md) records implemented accounts/authentication/ownership and the locally passing Release CI pipeline. Live Google validation remains pending. M4 requires approval; a GitHub-hosted CI run is pending commit/push.

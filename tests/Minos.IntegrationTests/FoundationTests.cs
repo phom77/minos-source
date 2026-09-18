@@ -9,6 +9,7 @@ using Minos.Application.Problems;
 using Minos.Infrastructure.Persistence;
 using Minos.Api;
 using Minos.Application;
+using Minos.Application.Accounts;
 using Minos.Domain.Problems;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Xunit;
@@ -34,9 +35,12 @@ public sealed class FoundationTests
     {
         var token = TestContext.Current.CancellationToken;
         Guid id;
+        var email = AccountTestHost.Email();
         await using (var first = Factory())
         {
-            using var client = first.CreateClient();
+            using var client = AccountTestHost.Client(first);
+            Assert.Equal(HttpStatusCode.Created, (await AccountTestHost.RegisterAsync(client, email)).StatusCode);
+            await AccountTestHost.CsrfAsync(client);
             await using var scope = first.Services.CreateAsyncScope();
             var database = scope.ServiceProvider.GetRequiredService<MinosDbContext>();
             var before = await database.ProblemDrafts.CountAsync(token);
@@ -54,7 +58,8 @@ public sealed class FoundationTests
             id = draft.Id;
         }
         await using var restarted = Factory();
-        using var restartedClient = restarted.CreateClient();
+        using var restartedClient = AccountTestHost.Client(restarted);
+        await AccountTestHost.LoginAsync(restartedClient, email);
         var persisted = await restartedClient.GetFromJsonAsync<ProblemDraftResponse>($"/_development/problem-drafts/{id}", token);
         Assert.NotNull(persisted);
         Assert.Equal("Read a and b.\nPrint their sum.", persisted.Statement);
@@ -74,7 +79,7 @@ public sealed class FoundationTests
         Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
         await using var scope = factory.Services.CreateAsyncScope();
         var useCases = scope.ServiceProvider.GetRequiredService<ProblemDraftUseCases>();
-        await Assert.ThrowsAsync<AccessDeniedException>(() => useCases.FindAsync(Guid.NewGuid(), TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<AccountAuthenticationException>(() => useCases.FindAsync(Guid.NewGuid(), TestContext.Current.CancellationToken));
     }
 
     [Theory]
@@ -102,7 +107,8 @@ public sealed class FoundationTests
     public async Task Invalid_json_returns_safe_problem_details(string json)
     {
         await using var factory = Factory();
-        using var client = factory.CreateClient();
+        using var client = AccountTestHost.Client(factory);
+        await AccountTestHost.CsrfAsync(client);
         using var body = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
         var response = await client.PostAsync("/_development/problem-drafts/", body, TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
@@ -122,7 +128,8 @@ public sealed class FoundationTests
             if (denied) services.Replace(ServiceDescriptor.Singleton<IProblemDraftAccess>(new DenyAccess()));
             else services.Replace(ServiceDescriptor.Scoped<IProblemDraftRepository, FailingRepository>());
         }));
-        using var client = factory.CreateClient();
+        using var client = AccountTestHost.Client(factory);
+        Assert.Equal(HttpStatusCode.Created, (await AccountTestHost.RegisterAsync(client, AccountTestHost.Email())).StatusCode);
         var response = await client.GetAsync($"/_development/problem-drafts/{Guid.NewGuid()}", TestContext.Current.CancellationToken);
         Assert.Equal(expected, response.StatusCode);
         Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
@@ -134,8 +141,8 @@ public sealed class FoundationTests
 
     private sealed class DenyAccess : IProblemDraftAccess
     {
-        public Task EnsureCanCreateAsync(CancellationToken cancellationToken) => throw new AccessDeniedException();
-        public Task EnsureCanReadAsync(Guid draftId, CancellationToken cancellationToken) => throw new AccessDeniedException();
+        public Task<Guid> RequireActiveAccountAsync(CancellationToken cancellationToken) => throw new AccessDeniedException();
+        public void EnsureCanRead(ProblemDraft draft, Guid accountId) => throw new AccessDeniedException();
     }
 
     private sealed class FailingRepository : IProblemDraftRepository

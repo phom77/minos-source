@@ -1,7 +1,7 @@
 # Minos decision register
 
 Date: 2026-09-13\
-Status: M0/M1/M2 complete; D01/D02/D03/D10 baseline accepted; M3 awaits approval
+Status: M0/M1/M2 complete; M3 implemented with automated checks passing, live Google check pending
 
 Related documents: [M0 closure](m0-closure.md), [Project design](project-design.md), [Implementation roadmap](implementation-plan.md)
 
@@ -72,7 +72,7 @@ All 18 existing decision IDs are preserved. Blocking means "must be clear before
 | D07 | Recovery and completion ownership | Prevents stuck jobs and stale result overwrite | No for M1; before M5 claims/results | Leases, bounded retries, attempt tokens, guarded completion | Proposed |
 | D08 | Processing status versus verdict | Distinguishes progress, contestant outcomes, and platform faults | No for M1; during M5/M6 | Separate submission status, attempt phase, and verdict | Proposed |
 | D09 | C++ toolchain and output checker | Makes compilation reproducible and comparison predictable | Toolchain selected in M1; checker in M6 | Digest-pinned GCC 14.3.0, C++20, fixed compilation; trusted byte check only for M1 fixtures | Toolchain selected and verified; official checker open for M6 |
-| D11 | Authentication mechanics and account lifecycle | Implements accepted product sign-in securely | No for M1; before M3 auth | Supported identity integration; email/password plus Google; session/linking/recovery details in M3 | Open; product behavior accepted in D01 |
+| D11 | Authentication mechanics and account lifecycle | Implements accepted product sign-in securely | No for M1; before M3 auth | Separate Domain account/Identity persistence; protected web cookies; explicit provider-subject linking, no email merge; recovery delivery deferred | Selected and implemented in [ADR 0006](adr/0006-account-authentication-and-linking.md); live Google check pending |
 | D12 | Reference-solution validation | Detects incorrect problem/test packages | No for M1; during M4/M6 | Sandbox-check known solutions; start with a development checklist unless automation is justified | Open |
 | D13 | Source and testcase storage | Protects private artifacts and supports reliable access | No M0 block; workspace mechanics in M1, storage in M4 | Bounded source in PostgreSQL; private Linux-native testcase files behind a storage adapter | Proposed; runner isolation fixed in D02 |
 | D14 | Client result updates | Determines how clients observe committed results | No for M1; during M5 | Polling; no separate ADR needed for polling intervals | Proposed |
@@ -98,7 +98,7 @@ Production judge-host selection, Isolate adoption, external brokers/caches, push
 - [x] Final assumptions, MVP boundary, risks, deferred work, and M1 dependencies reconciled in the M0 closure summary.
 - [x] Project owner accepts the baseline and explicitly requests M0 closure. Starting M1 is a separate next action, not a prerequisite for completing M0.
 
-**M0/M1/M2 complete. M3 awaits approval.** Historical M0 closure does not finalize later policies; M6 verdict/accounting remains open. M2 operational credential/storage boundaries are recorded in [ADR 0005](adr/0005-foundation-operational-boundaries.md), with [executable evidence](milestones/m2-foundation.md).
+**M0/M1/M2 complete. M3 code and automated validation complete; live Google check pending.** Historical M0 closure does not finalize later policies; M6 verdict/accounting remains open. See [M3 results](milestones/m3-accounts.md). M4 has not started and requires approval.
 
 ## Decision completion record
 

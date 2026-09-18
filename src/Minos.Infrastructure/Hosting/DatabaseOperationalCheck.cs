@@ -33,6 +33,10 @@ public sealed class DatabaseOperationalCheck(MinosDbContext database)
 
             command.Parameters.Clear();
             command.CommandText = """
+                WITH account_tables AS (
+                    SELECT c.oid, c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+                    WHERE n.nspname = 'accounts' AND c.relname IN ('accounts','credentials','external_logins','claims','tokens')
+                )
                 SELECT NOT has_database_privilege(current_database(), 'CREATE,TEMP')
                     AND NOT EXISTS (SELECT 1 FROM pg_namespace WHERE nspname NOT LIKE 'pg_temp_%'
                         AND nspname NOT LIKE 'pg_toast_temp_%' AND has_schema_privilege(oid, 'CREATE'))
@@ -41,10 +45,18 @@ public sealed class DatabaseOperationalCheck(MinosDbContext database)
                     AND NOT has_table_privilege('problems.problem_drafts', 'UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
                     AND has_table_privilege('public."__EFMigrationsHistory"', 'SELECT')
                     AND NOT has_table_privilege('public."__EFMigrationsHistory"', 'INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
+                    AND has_schema_privilege('accounts', 'USAGE') = @can_insert
+                    AND NOT has_schema_privilege('accounts', 'CREATE')
+                    AND (SELECT count(*) = 5 AND bool_and(
+                        has_table_privilege(oid, 'SELECT') = (@can_insert AND relname <> 'tokens')
+                        AND has_table_privilege(oid, 'INSERT') = (@can_insert AND relname IN ('accounts','credentials','external_logins'))
+                        AND has_table_privilege(oid, 'UPDATE') = (@can_insert AND relname IN ('accounts','credentials'))
+                        AND NOT has_table_privilege(oid, 'DELETE,TRUNCATE,REFERENCES,TRIGGER')
+                    ) FROM account_tables)
                 """;
             command.Parameters.Add(new NpgsqlParameter("can_insert", actor == DatabaseActor.Api));
             if (await command.ExecuteScalarAsync(cancellationToken) is not true)
-                throw new InvalidOperationException("PostgreSQL runtime grants do not match the M2 least-privilege baseline.");
+                throw new InvalidOperationException("PostgreSQL runtime grants do not match the current least-privilege baseline.");
             if ((await database.Database.GetPendingMigrationsAsync(cancellationToken)).Any())
                 throw new InvalidOperationException("Apply database migrations before starting Minos.");
         }
