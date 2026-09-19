@@ -124,14 +124,35 @@ curl -kfsS "$api_url/health/ready" >/dev/null
 csrf="$(curl -kfsS -c "$workspace/cookies" -b "$workspace/cookies" "$api_url/accounts/csrf" | python3 -c 'import json,sys; print(json.load(sys.stdin)["requestToken"])')"
 curl -kfsS -c "$workspace/cookies" -b "$workspace/cookies" -H "X-CSRF-TOKEN: $csrf" -H 'Content-Type: application/json' \
     -d '{"email":"developer@example.test","password":"correct horse battery staple","displayName":"Developer"}' "$api_url/accounts/register" > "$workspace/account.json"
+account_id="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["id"])' "$workspace/account.json")"
+ConnectionStrings__Minos="$MINOS_TEST_MIGRATION_CONNECTION" "$dotnet_command" "$api_dll" \
+    --provision-admin "$account_id" > "$workspace/provision-admin.log" 2>&1
+csrf="$(curl -kfsS -c "$workspace/cookies" -b "$workspace/cookies" "$api_url/accounts/csrf" | python3 -c 'import json,sys; print(json.load(sys.stdin)["requestToken"])')"
+curl -kfsS -c "$workspace/cookies" -b "$workspace/cookies" -H "X-CSRF-TOKEN: $csrf" -H 'Content-Type: application/json' \
+    -d '{"email":"developer@example.test","password":"correct horse battery staple"}' "$api_url/accounts/login" > "$workspace/login.json"
 csrf="$(curl -kfsS -c "$workspace/cookies" -b "$workspace/cookies" "$api_url/accounts/csrf" | python3 -c 'import json,sys; print(json.load(sys.stdin)["requestToken"])')"
 curl -kfsS -b "$workspace/cookies" -H "X-CSRF-TOKEN: $csrf" -H 'Content-Type: application/json' -d '{"title":"A + B","statement":"Print the sum."}' \
-    "$api_url/_development/problem-drafts/" > "$workspace/created.json"
+    "$api_url/api/authoring/problems/" > "$workspace/created.json"
 draft_id="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["id"])' "$workspace/created.json")"
-curl -kfsS -b "$workspace/cookies" "$api_url/_development/problem-drafts/$draft_id" | \
-    python3 -c 'import json,sys; r=json.load(sys.stdin); assert r["title"] == "A + B" and r["statement"] == "Print the sum."'
+curl -kfsS -X PUT -b "$workspace/cookies" -H "X-CSRF-TOKEN: $csrf" -H 'Content-Type: application/json' \
+    -d '{"title":"A + B","statement":"Print the sum.","timeLimitMilliseconds":1000,"memoryLimitMegabytes":64,"checker":"Exact","samples":[{"input":"1 2\n","output":"3\n"}]}' \
+    "$api_url/api/authoring/problems/$draft_id/draft" > "$workspace/configured.json"
+python3 - "$workspace/testcase.zip" <<'PY'
+import sys, zipfile
+with zipfile.ZipFile(sys.argv[1], 'w', zipfile.ZIP_DEFLATED) as archive:
+    archive.writestr('input.txt', '2 3\n')
+    archive.writestr('output.txt', '5\n')
+PY
+curl -kfsS -b "$workspace/cookies" -H "X-CSRF-TOKEN: $csrf" -H 'Content-Type: application/zip' \
+    --data-binary "@$workspace/testcase.zip" "$api_url/api/authoring/problems/$draft_id/draft/tests" > "$workspace/uploaded.json"
+curl -kfsS -b "$workspace/cookies" -H "X-CSRF-TOKEN: $csrf" -H 'Content-Type: application/json' \
+    -d '{"statementReviewed":true,"samplesVerified":true,"referenceSolutionChecked":true}' \
+    "$api_url/api/authoring/problems/$draft_id/publish" > "$workspace/published.json"
+version_id="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["versionId"])' "$workspace/published.json")"
+curl -kfsS "$api_url/api/problems/versions/$version_id" | python3 -c \
+    'import json,sys; r=json.load(sys.stdin); assert r["title"] == "A + B" and r["privateTestCount"] == 1 and "artifact" not in str(r).lower()'
 test "$(curl -ksS -o /dev/null -w '%{http_code}' "$api_url/private-artifacts/any-file")" = 404
-printf 'real_http_draft_roundtrip_and_private_storage=passed\n'
+printf 'real_http_problem_publication_and_private_storage=passed\n'
 # Storage must affect readiness, without affecting liveness.
 chmod 755 "$workspace/api-private-artifacts"
 test "$(curl -ksS -o /dev/null -w '%{http_code}' "$api_url/health/ready")" = 503
@@ -154,6 +175,6 @@ for attempt in {1..60}; do
     sleep 0.25
 done
 curl -kfsS "$api_url/health/ready" >/dev/null
-curl -kfsS -b "$workspace/cookies" "$api_url/_development/problem-drafts/$draft_id" | \
+curl -kfsS "$api_url/api/problems/versions/$version_id" | \
     python3 -c 'import json,sys; assert json.load(sys.stdin)["title"] == "A + B"'
 printf 'database_down_readiness_and_worker_startup=passed\nfoundation_checks=passed\n'

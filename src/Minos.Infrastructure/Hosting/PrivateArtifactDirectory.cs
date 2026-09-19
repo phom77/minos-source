@@ -9,6 +9,7 @@ public sealed class PrivateArtifactDirectory
 {
     private readonly string root;
     private const string ConfigurationError = "Minos:Artifacts:Root must be an existing, absolute, private directory outside the repository, without symbolic links.";
+    internal string RootPath => root;
 
     public PrivateArtifactDirectory(string? configuredRoot, string contentRoot)
     {

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Minos.Application;
 using Minos.Application.Accounts;
 using Minos.Domain.Accounts;
 using Minos.Infrastructure.Persistence;
@@ -95,6 +96,16 @@ public sealed class AccountStore(MinosDbContext database, AccountUserManager use
                 .SetProperty(x => x.IsDisabled, account.IsDisabled), token);
         if (affected != 1) throw new AccountAuthenticationException();
         if (revokeSessions) await RevokeSessionsAsync(account.Id, token);
+        await transaction.CommitAsync(token);
+    }
+
+    public async Task SaveRoleAsync(Guid id, AccountRole role, CancellationToken token)
+    {
+        await using var transaction = await database.Database.BeginTransactionAsync(token);
+        var affected = await database.Accounts.Where(account => account.Id == id && !account.IsDisabled)
+            .ExecuteUpdateAsync(update => update.SetProperty(account => account.Role, role), token);
+        if (affected != 1) throw new ResourceNotFoundException();
+        await RevokeSessionsAsync(id, token);
         await transaction.CommitAsync(token);
     }
 }

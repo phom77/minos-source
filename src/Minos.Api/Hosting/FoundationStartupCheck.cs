@@ -1,4 +1,5 @@
 using Minos.Infrastructure.Hosting;
+using Minos.Application.Problems;
 
 namespace Minos.Api;
 
@@ -12,6 +13,7 @@ internal sealed class FoundationStartupCheck(IServiceScopeFactory scopes, Privat
         await new PrivateArtifactDirectory(keyRoot, environment.ContentRootPath).CheckWritableAsync(cancellationToken);
         await using var scope = scopes.CreateAsyncScope();
         await scope.ServiceProvider.GetRequiredService<DatabaseOperationalCheck>().ValidateAsync(DatabaseActor.Api, cancellationToken);
+        await scope.ServiceProvider.GetRequiredService<ProblemArtifactMaintenanceUseCases>().CleanupAbandonedAsync(cancellationToken);
     }
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;

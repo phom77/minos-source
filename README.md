@@ -6,7 +6,7 @@ The backend will use C#, ASP.NET Core, PostgreSQL, and Entity Framework Core. It
 
 ## Current status
 
-**M0–M2 complete. M3 implemented; live Google consent validation pending. M4 has not started.** The five-project backend now has self-service email/password accounts, secure cookie sessions, Google integration with explicit linking, and account-owned development drafts. See [M3 results and Google setup](docs/milestones/m3-accounts.md).
+**M0–M4 complete and approved. M5 has not started.** The five-project backend now has self-service accounts, secure cookie sessions, explicit Google linking, Setter/Admin authorization, private testcase storage and immutable published problem versions. Live Google consent validation remains deferred because no OAuth client exists. See [M3 results](docs/milestones/m3-accounts.md) and [M4 results](docs/milestones/m4-problems.md).
 
 These documents distinguish accepted decisions from proposed architecture and unresolved product choices. D01, D02, D03, and the D10 minimum safety baseline are accepted. Exact numeric limits are validated/tuned in M1; final contestant verdict precedence and resource-accounting semantics remain M6 decisions. Routine choices are resolved in their relevant milestones.
 
@@ -39,7 +39,7 @@ cd /mnt/d/Projects/PetProject/Minos
 bash scripts/check-foundation.sh
 ```
 
-The foundation script and GitHub Actions use the same pipeline: clean locked Release build, isolated PostgreSQL 18.6 operational identities, fresh/repeated migrations, tests, real HTTPS account/draft requests, both hosts and readiness/recovery. Google tests use a fake backchannel without Google calls or real credentials. Per-run container/volume/private files are removed afterward. Docker, .NET 10, Bash, Python 3, curl and OpenSSL are required. Windows builds use SDK 10.0.301; WSL checks use 10.0.401. M1 spikes remain archived evidence.
+The foundation script and GitHub Actions use the same pipeline: clean locked Release build, isolated PostgreSQL 18.6 operational identities, fresh/repeated migrations, tests, real HTTPS account/problem publication requests, both hosts and readiness/recovery. Google tests use a fake backchannel without Google calls or real credentials. Per-run container/volume/private files are removed afterward. Docker, .NET 10, Bash, Python 3, curl and OpenSSL are required. Windows builds use SDK 10.0.301; WSL checks use 10.0.401. M1 spikes remain archived evidence.
 
 Normal `dotnet restore`/`dotnet build` and IDE builds automatically use `artifacts/windows` on Windows and `artifacts/linux` in WSL. Restore assets are kept separate because they contain absolute paths to each host's NuGet cache. Explicit `--artifacts-path` overrides remain available for CI/private Linux build directories. After pulling build-configuration changes, restore the solution once on each host before using `--no-restore`.
 
@@ -64,12 +64,12 @@ export Minos__Artifacts__Root="$HOME/.local/share/minos/artifacts"
 # Read the API connection string without putting credentials in shell history.
 read -rsp 'API connection string (minos_api): ' ConnectionStrings__Minos; printf '\n'
 export ConnectionStrings__Minos
-ASPNETCORE_ENVIRONMENT=Development Minos__EnableDevelopmentEndpoints=true dotnet run --project src/Minos.Api
+ASPNETCORE_ENVIRONMENT=Development dotnet run --project src/Minos.Api
 ```
 
 In a second WSL terminal, configure the same artifact-root variable and read a connection string for `minos_worker`, then run `dotnet run --project src/Minos.JudgeWorker`. `-- --check` validates startup and exits. For Windows API hosting, set the equivalent environment variables or API user secrets and use a private Windows directory ACL permitting only the current account, SYSTEM and Administrators. The Worker always runs in Linux; Linux roots must use a native filesystem, private permissions and no symlinked/writable-public ancestors. Migration mode needs only the migrator connection, not storage.
 
-API health endpoints are `/health/live` and `/health/ready`. The `Minos.Api` launch profile uses `https://localhost:49674` and `http://localhost:49675`; account endpoints require HTTPS. Startup/readiness validate runtime privileges, migrations and private storage; liveness remains available during outages. Self-service `/accounts` endpoints use protected cookies and `X-CSRF-TOKEN` from `/accounts/csrf`; obtain a new token after signing in. Opt-in development draft routes require Development, `Minos__EnableDevelopmentEndpoints=true`, a real active account and ownership. Errors use safe ProblemDetails. Private storage and persisted session keys are never served over HTTP. Real problem authoring/artifact uploads/publication and Setter/Admin permissions remain M4 work. Worker remains idle and executes no submissions.
+API health endpoints are `/health/live` and `/health/ready`. The `Minos.Api` launch profile uses `https://localhost:49674` and `http://localhost:49675`; account and authoring endpoints require HTTPS. Startup/readiness validate runtime privileges, migrations and private storage; liveness remains available during outages. Self-service `/accounts` endpoints use protected cookies and `X-CSRF-TOKEN` from `/accounts/csrf`; obtain a new token after signing in. New accounts are Solvers. With the migrator connection, `dotnet run --project src/Minos.Api -- --provision-admin <account-guid>` performs the trusted first-administrator operation; administrators assign named roles through `PUT /accounts/{id}/role`. Setter/Admin authoring routes are under `/api/authoring/problems`; public current/version projections are under `/api/problems`. Errors use safe ProblemDetails. Private storage, hidden tests and persisted session keys are never served as static content or exposed through API contracts. Worker remains idle and executes no submissions; submission admission begins only in M5.
 
 ## Engineering principles
 

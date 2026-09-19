@@ -6,6 +6,19 @@ namespace Minos.Domain.Tests;
 
 public sealed class AccountTests
 {
+    [Fact]
+    public void Account_permissions_default_to_solver_and_change_explicitly()
+    {
+        var account = Account.Create("Developer", DateTimeOffset.UtcNow);
+        Assert.Equal(AccountRole.Solver, account.Role);
+        Assert.False(account.CanAuthorProblems);
+        account.AssignRole(AccountRole.Setter);
+        Assert.True(account.CanAuthorProblems);
+        Assert.False(account.CanManageAccountRoles);
+        account.AssignRole(AccountRole.Administrator);
+        Assert.True(account.CanManageAccountRoles);
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData(" ")]

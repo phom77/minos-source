@@ -4,6 +4,10 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
 using Minos.Api.Accounts;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Minos.Domain.Accounts;
+using Minos.Infrastructure.Persistence;
 using Xunit;
 
 namespace Minos.IntegrationTests;
@@ -38,6 +42,13 @@ internal static class AccountTestHost
         await CsrfAsync(client);
     }
     internal static string Email() => $"{Guid.NewGuid():N}@example.test";
+    internal static async Task SetRoleAsync(WebApplicationFactory<Program> factory, Guid accountId, AccountRole role)
+    {
+        await using var scope = factory.Services.CreateAsyncScope();
+        var database = scope.ServiceProvider.GetRequiredService<MinosDbContext>();
+        Assert.Equal(1, await database.Accounts.Where(account => account.Id == accountId)
+            .ExecuteUpdateAsync(update => update.SetProperty(account => account.Role, role), TestContext.Current.CancellationToken));
+    }
     internal static string Cookie(HttpResponseMessage response) => response.Headers.GetValues("Set-Cookie")
         .Single(value => value.StartsWith("__Host-Minos.Session=", StringComparison.Ordinal)).Split(';')[0];
 }

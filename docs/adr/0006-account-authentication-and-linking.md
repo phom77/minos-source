@@ -1,6 +1,6 @@
 # ADR 0006: Provider-independent accounts and framework authentication
 
-- Status: Selected and implemented for the approved M3 scope; live Google validation pending
+- Status: Accepted and implemented for M3; live Google smoke validation deferred
 - Date: 2026-09-14
 - Decision: D11
 
@@ -10,7 +10,7 @@ M3 replaces the development-flag access policy with real self-service accounts a
 
 ## Decision
 
-Domain `Account` owns an immutable GUID, bounded display name, UTC creation time and disabled state. `ProblemDraft` requires an immutable account owner. Application owns active-account and owner checks, account use cases, and focused account/external-login persistence ports.
+Domain `Account` owns an immutable GUID, bounded display name, UTC creation time and disabled state. The M3 foundation draft required an immutable account owner and evolved into M4 `Problem` authoring state. Application owns active-account and owner checks, account use cases, and focused account/external-login persistence ports.
 
 Infrastructure uses ASP.NET Core Identity's role-free user context for credentials, framework password hashing/validation, lockout, normalized unique email, security stamps and external-login mappings. Account and credential rows share an ID but remain separate models. Registration and provider linking use explicit PostgreSQL transactions. Conditional account updates reject edits after concurrent disabling.
 

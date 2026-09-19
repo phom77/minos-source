@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Antiforgery;
 using Minos.Application.Accounts;
+using Minos.Domain.Accounts;
 
 namespace Minos.Api.Accounts;
 
@@ -45,7 +46,15 @@ internal static class AccountEndpoints
             await AccountCookieSession.ClearAsync(context);
             return Results.NoContent();
         }).RequireRateLimiting("authentication");
+        accounts.MapPut("/{id:guid}/role", async (Guid id, AssignAccountRoleRequest request, AccountAdministrationUseCases useCases, CancellationToken token) =>
+        {
+            if (!Enum.GetNames<AccountRole>().Any(name => string.Equals(name, request.Role, StringComparison.OrdinalIgnoreCase)) ||
+                !Enum.TryParse<AccountRole>(request.Role, true, out var role))
+                throw new BadHttpRequestException("Invalid request.");
+            await useCases.AssignRoleAsync(id, role, token);
+            return Results.NoContent();
+        }).RequireAuthorization();
     }
 
-    internal static AccountResponse Map(AccountDetails account) => new(account.Id, account.DisplayName, account.CreatedAtUtc);
+    internal static AccountResponse Map(AccountDetails account) => new(account.Id, account.DisplayName, account.Role.ToString(), account.CreatedAtUtc);
 }

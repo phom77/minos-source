@@ -36,25 +36,34 @@ public sealed class DatabaseOperationalCheck(MinosDbContext database)
                 WITH account_tables AS (
                     SELECT c.oid, c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
                     WHERE n.nspname = 'accounts' AND c.relname IN ('accounts','credentials','external_logins','claims','tokens')
+                ), problem_tables AS (
+                    SELECT c.oid, c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+                    WHERE n.nspname = 'problems' AND c.relname IN (
+                        'problems','problem_samples','problem_test_cases','published_problem_versions',
+                        'published_problem_samples','published_problem_test_cases')
                 )
                 SELECT NOT has_database_privilege(current_database(), 'CREATE,TEMP')
                     AND NOT EXISTS (SELECT 1 FROM pg_namespace WHERE nspname NOT LIKE 'pg_temp_%'
                         AND nspname NOT LIKE 'pg_toast_temp_%' AND has_schema_privilege(oid, 'CREATE'))
-                    AND has_table_privilege('problems.problem_drafts', 'SELECT')
-                    AND has_table_privilege('problems.problem_drafts', 'INSERT') = @can_insert
-                    AND NOT has_table_privilege('problems.problem_drafts', 'UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
+                    AND (SELECT count(*) = 6 AND bool_and(
+                        has_table_privilege(oid, 'SELECT') = (@is_api OR relname = 'problems')
+                        AND has_table_privilege(oid, 'INSERT') = @is_api
+                        AND has_table_privilege(oid, 'UPDATE') = (@is_api AND relname IN ('problems','problem_samples','problem_test_cases'))
+                        AND has_table_privilege(oid, 'DELETE') = (@is_api AND relname IN ('problem_samples','problem_test_cases'))
+                        AND NOT has_table_privilege(oid, 'TRUNCATE,REFERENCES,TRIGGER')
+                    ) FROM problem_tables)
                     AND has_table_privilege('public."__EFMigrationsHistory"', 'SELECT')
                     AND NOT has_table_privilege('public."__EFMigrationsHistory"', 'INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
-                    AND has_schema_privilege('accounts', 'USAGE') = @can_insert
+                    AND has_schema_privilege('accounts', 'USAGE') = @is_api
                     AND NOT has_schema_privilege('accounts', 'CREATE')
                     AND (SELECT count(*) = 5 AND bool_and(
-                        has_table_privilege(oid, 'SELECT') = (@can_insert AND relname <> 'tokens')
-                        AND has_table_privilege(oid, 'INSERT') = (@can_insert AND relname IN ('accounts','credentials','external_logins'))
-                        AND has_table_privilege(oid, 'UPDATE') = (@can_insert AND relname IN ('accounts','credentials'))
+                        has_table_privilege(oid, 'SELECT') = (@is_api AND relname <> 'tokens')
+                        AND has_table_privilege(oid, 'INSERT') = (@is_api AND relname IN ('accounts','credentials','external_logins'))
+                        AND has_table_privilege(oid, 'UPDATE') = (@is_api AND relname IN ('accounts','credentials'))
                         AND NOT has_table_privilege(oid, 'DELETE,TRUNCATE,REFERENCES,TRIGGER')
                     ) FROM account_tables)
                 """;
-            command.Parameters.Add(new NpgsqlParameter("can_insert", actor == DatabaseActor.Api));
+            command.Parameters.Add(new NpgsqlParameter("is_api", actor == DatabaseActor.Api));
             if (await command.ExecuteScalarAsync(cancellationToken) is not true)
                 throw new InvalidOperationException("PostgreSQL runtime grants do not match the current least-privilege baseline.");
             if ((await database.Database.GetPendingMigrationsAsync(cancellationToken)).Any())

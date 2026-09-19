@@ -19,5 +19,6 @@ internal sealed class ChangePasswordRequest
 }
 internal sealed class ConfirmPasswordRequest { public string? Password { get; init; } }
 internal sealed record RenameAccountRequest(string? DisplayName);
-public sealed record AccountResponse(Guid Id, string DisplayName, DateTimeOffset CreatedAtUtc);
+internal sealed record AssignAccountRoleRequest(string? Role);
+public sealed record AccountResponse(Guid Id, string DisplayName, string Role, DateTimeOffset CreatedAtUtc);
 public sealed record CsrfResponse(string RequestToken);

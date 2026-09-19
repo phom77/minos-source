@@ -3,7 +3,7 @@ using Minos.Domain.Accounts;
 
 namespace Minos.Application.Accounts;
 
-public sealed record AccountDetails(Guid Id, string DisplayName, DateTimeOffset CreatedAtUtc);
+public sealed record AccountDetails(Guid Id, string DisplayName, AccountRole Role, DateTimeOffset CreatedAtUtc);
 
 public sealed class AccountUseCases(IAccountStore store, ICurrentAccount current, TimeProvider clock)
 {
@@ -70,5 +70,5 @@ public sealed class AccountUseCases(IAccountStore store, ICurrentAccount current
     internal static bool ValidEmail(string? email) => email is { Length: > 0 and <= 256 }
         && MailAddress.TryCreate(email.Trim(), out var parsed) && parsed.Address == email.Trim();
     internal static bool ValidPassword(string? password) => password is { Length: >= 12 and <= 256 };
-    internal static AccountDetails Map(Account account) => new(account.Id, account.DisplayName, account.CreatedAtUtc);
+    internal static AccountDetails Map(Account account) => new(account.Id, account.DisplayName, account.Role, account.CreatedAtUtc);
 }

@@ -1,7 +1,7 @@
 # Minos project design
 
 Date: 2026-09-13\
-Status: M0/M1/M2 complete; M3 implemented with live Google validation pending; M4 requires approval
+Status: M0–M4 complete and approved; live Google smoke validation deferred; M5 requires approval
 
 Related documents: [M0 closure](m0-closure.md), [Decision register](decisions.md), [Implementation roadmap](implementation-plan.md)
 

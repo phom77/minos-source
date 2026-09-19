@@ -12,5 +12,6 @@ internal sealed class AppAccountStore(Account account) : IAccountStore
     public Task<bool> ConfirmPasswordAsync(Guid id, string password, CancellationToken token) => Task.FromResult(true);
     public Task ChangePasswordAsync(Guid id, string currentPassword, string newPassword, CancellationToken token) => Task.CompletedTask;
     public Task SaveAsync(Account value, bool revokeSessions, CancellationToken token) => Task.CompletedTask;
+    public Task SaveRoleAsync(Guid id, AccountRole role, CancellationToken token) => Task.CompletedTask;
     public Task RevokeSessionsAsync(Guid id, CancellationToken token) => Task.CompletedTask;
 }

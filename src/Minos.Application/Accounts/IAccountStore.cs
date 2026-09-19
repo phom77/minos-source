@@ -11,5 +11,6 @@ public interface IAccountStore
     Task<bool> ConfirmPasswordAsync(Guid id, string password, CancellationToken token);
     Task ChangePasswordAsync(Guid id, string currentPassword, string newPassword, CancellationToken token);
     Task SaveAsync(Account account, bool revokeSessions, CancellationToken token);
+    Task SaveRoleAsync(Guid id, AccountRole role, CancellationToken token);
     Task RevokeSessionsAsync(Guid id, CancellationToken token);
 }

@@ -16,7 +16,8 @@ public sealed class BuildConfigurationTests
         try
         {
             var expectedRoot = temporary?.FullName ?? Path.Combine(repository, "artifacts", OperatingSystem.IsWindows() ? "windows" : "linux");
-            var start = new ProcessStartInfo("dotnet")
+            var dotnet = Environment.GetEnvironmentVariable("MINOS_DOTNET");
+            var start = new ProcessStartInfo(string.IsNullOrWhiteSpace(dotnet) ? "dotnet" : dotnet)
             {
                 WorkingDirectory = repository,
                 RedirectStandardOutput = true,

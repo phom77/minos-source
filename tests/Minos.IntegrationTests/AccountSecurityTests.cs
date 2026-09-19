@@ -89,7 +89,7 @@ public sealed class AccountSecurityTests
         await using var connection = new NpgsqlConnection(PostgresPrivilegeTests.Connection("ConnectionStrings__Minos"));
         await connection.OpenAsync(TestContext.Current.CancellationToken);
         await using var transaction = await connection.BeginTransactionAsync(TestContext.Current.CancellationToken);
-        await using var insert = new NpgsqlCommand("INSERT INTO accounts.accounts VALUES (@id,@name,now(),false)", connection, transaction);
+        await using var insert = new NpgsqlCommand("INSERT INTO accounts.accounts (id,display_name,created_at_utc,is_disabled,role) VALUES (@id,@name,now(),false,0)", connection, transaction);
         insert.Parameters.AddWithValue("id", Guid.NewGuid());
         insert.Parameters.AddWithValue("name", name);
         var error = await Assert.ThrowsAsync<PostgresException>(() => insert.ExecuteNonQueryAsync(TestContext.Current.CancellationToken));
@@ -104,7 +104,7 @@ public sealed class AccountSecurityTests
         await connection.OpenAsync(token);
         await using (var transaction = await connection.BeginTransactionAsync(token))
         {
-            await using var insert = new NpgsqlCommand("INSERT INTO accounts.accounts VALUES (@id,@name,now(),false)", connection, transaction);
+            await using var insert = new NpgsqlCommand("INSERT INTO accounts.accounts (id,display_name,created_at_utc,is_disabled,role) VALUES (@id,@name,now(),false,0)", connection, transaction);
             insert.Parameters.AddWithValue("id", Guid.NewGuid());
             insert.Parameters.AddWithValue("name", string.Concat(Enumerable.Repeat("🧩", 40)));
             Assert.Equal(1, await insert.ExecuteNonQueryAsync(token));
@@ -112,7 +112,7 @@ public sealed class AccountSecurityTests
             insert.Parameters["name"].Value += "🧩";
             Assert.Equal(PostgresErrorCodes.CheckViolation, (await Assert.ThrowsAsync<PostgresException>(() => insert.ExecuteNonQueryAsync(token))).SqlState);
         }
-        await using var ownerInsert = new NpgsqlCommand("INSERT INTO problems.problem_drafts (id,title,statement,created_at_utc,owner_account_id) VALUES (gen_random_uuid(),'Title','Statement',now(),gen_random_uuid())", connection);
+        await using var ownerInsert = new NpgsqlCommand("INSERT INTO problems.problems (id,title,statement,created_at_utc,updated_at_utc,owner_account_id) VALUES (gen_random_uuid(),'Title','Statement',now(),now(),gen_random_uuid())", connection);
         Assert.Equal(PostgresErrorCodes.ForeignKeyViolation, (await Assert.ThrowsAsync<PostgresException>(() => ownerInsert.ExecuteNonQueryAsync(token))).SqlState);
     }
 

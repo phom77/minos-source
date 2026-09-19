@@ -6,6 +6,7 @@ using Minos.Infrastructure.Hosting;
 using Npgsql;
 using Minos.Application.Accounts;
 using Minos.Infrastructure.Accounts;
+using Minos.Infrastructure.Storage;
 
 namespace Minos.Infrastructure;
 
@@ -21,7 +22,8 @@ public static class DependencyInjection
         if (string.IsNullOrWhiteSpace(parsed.Host) || string.IsNullOrWhiteSpace(parsed.Database) || string.IsNullOrWhiteSpace(parsed.Username))
             throw new InvalidOperationException("ConnectionStrings:Minos must specify Host, Database, and Username.");
         services.AddDbContext<MinosDbContext>(options => options.UseNpgsql(connectionString));
-        services.AddScoped<IProblemDraftRepository, ProblemDraftRepository>();
+        services.AddScoped<IProblemRepository, ProblemRepository>();
+        services.AddSingleton<IProblemArtifactStore, ProblemArtifactStore>();
         services.AddSingleton(TimeProvider.System);
         services.AddScoped<DatabaseOperationalCheck>();
         return services;
@@ -33,8 +35,12 @@ public static class DependencyInjection
         services.AddScoped<IExternalLoginStore, ExternalLoginStore>();
         services.AddScoped<ExternalLoginUseCases>();
         services.AddScoped<AccountUseCases>();
-        services.AddScoped<ProblemDraftUseCases>();
-        services.AddScoped<IProblemDraftAccess, ProblemDraftAccess>();
+        services.AddScoped<AccountAdministrationUseCases>();
+        services.AddScoped<TrustedAccountProvisioningUseCases>();
+        services.AddScoped<ProblemAccess>();
+        services.AddScoped<ProblemAuthoringUseCases>();
+        services.AddScoped<ProblemCatalogUseCases>();
+        services.AddScoped<ProblemArtifactMaintenanceUseCases>();
         return services.AddIdentityCore<CredentialUser>(options =>
         {
             options.User.RequireUniqueEmail = true;

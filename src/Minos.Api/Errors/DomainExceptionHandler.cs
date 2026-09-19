@@ -19,6 +19,10 @@ internal sealed class DomainExceptionHandler(IProblemDetailsService problemDetai
             AccountRegistrationException => new ProblemDetails { Status = 400, Title = "Unable to register with those details." },
             ExternalLoginException => new ProblemDetails { Status = 409, Title = "Unable to complete external sign-in. Sign in to your existing account to link the provider." },
             AccessDeniedException => new ProblemDetails { Status = 403, Title = "Access denied." },
+            ResourceNotFoundException => new ProblemDetails { Status = 404, Title = "Resource not found." },
+            ConcurrencyConflictException => new ProblemDetails { Status = 409, Title = "The resource changed. Reload and try again." },
+            ArtifactValidationException => new ProblemDetails { Status = 400, Title = "Invalid test package." },
+            ArgumentOutOfRangeException => new ProblemDetails { Status = 400, Title = "Invalid request." },
             BadHttpRequestException badRequest => new ProblemDetails { Status = badRequest.StatusCode, Title = "Invalid request." },
             _ => new ProblemDetails { Status = 500, Title = "An unexpected error occurred." }
         };

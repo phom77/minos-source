@@ -1,5 +1,7 @@
 namespace Minos.Domain.Accounts;
 
+public enum AccountRole { Solver, Setter, Administrator }
+
 public sealed class Account
 {
     public const int MaximumDisplayNameLength = 80;
@@ -8,6 +10,7 @@ public sealed class Account
     public string DisplayName { get; private set; } = "";
     public DateTimeOffset CreatedAtUtc { get; private set; }
     public bool IsDisabled { get; private set; }
+    public AccountRole Role { get; private set; }
 
     public static Account Create(string? displayName, DateTimeOffset createdAtUtc)
     {
@@ -29,4 +32,16 @@ public sealed class Account
     }
 
     public void Disable() => IsDisabled = true;
+
+    public void AssignRole(AccountRole role)
+    {
+        if (!Enum.IsDefined(role))
+            throw new DomainValidationException(nameof(Role), "Account role is not supported.");
+        if (IsDisabled)
+            throw new DomainValidationException(nameof(IsDisabled), "A disabled account cannot receive permissions.");
+        Role = role;
+    }
+
+    public bool CanAuthorProblems => Role is AccountRole.Setter or AccountRole.Administrator;
+    public bool CanManageAccountRoles => Role is AccountRole.Administrator;
 }

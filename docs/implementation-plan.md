@@ -1,7 +1,7 @@
 # Minos implementation roadmap
 
 Date: 2026-09-13\
-Status: M0/M1/M2 complete; M3 implemented, live Google consent check pending; M4 requires approval
+Status: M0–M4 complete and approved; M5 requires approval
 
 Related documents: [M0 closure](m0-closure.md), [Project design](project-design.md), [Decision register](decisions.md)
 
@@ -63,8 +63,8 @@ The sequence prioritizes sandbox feasibility because a failed execution environm
 | M0 | Agreed MVP scope, execution boundary, and minimum safety contract | None | Complete: D01/D02/D03/D10 baseline accepted; closure documented |
 | M1 | Verified Linux compile/run/check feasibility | M0 | Complete: executable resource/isolation/recovery suite passed; findings recorded |
 | M2 | Buildable architecture, two hosts, real PostgreSQL persistence, CI foundation | M1 | Complete: executable Release pipeline and operational boundaries validated locally |
-| M3 | Working account lifecycle and permission boundaries | M2 | Not started |
-| M4 | Versioned problems and private tests | M3 | Not started |
+| M3 | Working account lifecycle and permission boundaries | M2 | Complete for the approved development scope; live Google smoke check remains deferred |
+| M4 | Versioned problems and private tests | M3 | Complete: immutable versions, private tests, permissions and publication pipeline validated |
 | M5 | Durable submission admission and recoverable job ownership | M4 | Not started |
 | M6 | Correct real submission-to-verdict execution | M1, M5 | Not started |
 | M7 | Demonstrated reliability and developer acceptance readiness | M6 | Not started |
@@ -166,7 +166,7 @@ The sequence prioritizes sandbox feasibility because a failed execution environm
 - Verification/recovery delivery is deferred in ADR 0006 and remains a public-release dependency.
 - Self-service email/password and Google sign-in are demonstrated by the developer; external-provider callbacks and account linking follow the D11 policy. No real-user cohort or enrollment approval gate is needed.
 
-**Progress:** [M3 implementation/results](milestones/m3-accounts.md) pass automated validation. Live Google consent remains pending an OAuth client; M3 is not formally closed and M4 has not started.
+**Progress:** [M3 implementation/results](milestones/m3-accounts.md) pass automated validation and M3 is approved. Live Google consent remains a deferred external smoke check because no OAuth client exists.
 
 ## M4 — Problem authoring, tests, and publication
 
@@ -192,6 +192,8 @@ The sequence prioritizes sandbox feasibility because a failed execution environm
 - A failed database/storage operation does not create a published version referencing unverified or missing files.
 
 **Boundary:** Structural publication checks are testable here. Any reference-code execution occurs through the Linux sandbox, never the API process. Automated execution gates are not considered verified until M6.
+
+**Progress:** Complete. [M4 implementation/results](milestones/m4-problems.md) and [ADR 0007](adr/0007-versioned-problems-and-private-tests.md) record the implemented lifecycle and passing evidence. M5 has not started.
 
 ## M5 — Submissions and durable jobs
 
@@ -307,4 +309,4 @@ These increments have no committed dates or implementation approval.
 
 For each milestone, record its owner, implementation references, test results, relevant host/environment, observed limitations, and completion date. Update the overview status only when the exit criteria pass. A deferred check must remain visible and cannot be counted as completion.
 
-M0/M1/M2 are complete. [M3 evidence](milestones/m3-accounts.md) records implemented accounts/authentication/ownership and the locally passing Release CI pipeline. Live Google validation remains pending. M4 requires approval; a GitHub-hosted CI run is pending commit/push.
+M0–M4 are complete and approved. [M3 evidence](milestones/m3-accounts.md) records accounts/authentication/ownership; live Google validation remains deferred. [M4 evidence](milestones/m4-problems.md) records immutable problem versions and private tests. M5 requires explicit approval. A GitHub-hosted CI run is pending commit/push.

@@ -2,17 +2,17 @@
 
 Date: 2026-09-14. Owner: project developer.
 
-**Implementation and automated checks complete. M3 closure remains pending the live Google consent check. M4 has not started.** The owner approved M3 and confirmed that no Google OAuth client exists yet.
+**M3 is complete and approved for the development scope.** The owner confirmed that no Google OAuth client exists, so live Google consent remains a deferred external smoke check rather than a blocker for M4.
 
 ## Implemented foundation
 
 | Layer / class | Responsibility |
 | --- | --- |
 | Domain `Account` | Identity independent of providers; display-name/UTC invariants; disabling |
-| Domain `ProblemDraft` | Required immutable account ownership |
+| Domain `ProblemDraft` (M3 foundation model) | Required immutable account ownership; evolved into M4 `Problem` |
 | Application `AccountUseCases` | Self-registration/login/profile/logout/password/disable orchestration; active-account authorization |
 | Application `ExternalLoginUseCases` | Resolve stable identities; signup and explicit account-bound linking |
-| Application `ProblemDraftAccess` / use cases | Active identity and owner checks even without HTTP |
+| Application `ProblemDraftAccess` / use cases (M3 foundation) | Active identity and owner checks even without HTTP; replaced by M4 authoring use cases |
 | Infrastructure `AccountStore` / `ExternalLoginStore` | Focused persistence, conditional profile/state updates, explicit transactions, Identity integration |
 | Infrastructure `AccountUserManager` | Framework-supported cancellation override for Identity EF operations |
 | API `AuthenticationComposition` | Middleware/cookie/CSRF/rate-limit/key configuration and framework principal composition |
@@ -31,7 +31,7 @@ PostgreSQL adds `accounts.accounts`, `credentials`, `external_logins`, `claims` 
 - `POST /accounts/logout`, `/password`, `/disable`: Application authorization → revocation/change → clear browser cookies. Disable/password operations require the current password.
 - `GET /accounts/google/login` → standard `/signin-google` middleware → `/accounts/google/complete` → stable identity lookup/signup → cookie → fixed `/accounts/me` redirect.
 - Matching Google/local email returns a controlled conflict. Sign in locally, then `POST /accounts/google/link` with password/CSRF; provider proof is bound to that account. Existing email confirmation is not silently changed.
-- Opt-in development draft endpoints now require a real active account. Creation sets the owner; reads require ownership. Actual setter authoring/publication remains M4 work.
+- At M3 completion, opt-in development draft endpoints required a real active account and immutable ownership. M4 subsequently replaced them with real Setter/Admin authoring and publication routes.
 
 Account HTTP endpoints require HTTPS. See [ADR 0006](../adr/0006-account-authentication-and-linking.md) for session/linking and deferred recovery policies.
 
@@ -80,9 +80,9 @@ If the browser rejects the localhost development certificate, run `dotnet dev-ce
 - [x] Resource authorization in Application; immutable owner/FK
 - [x] Revocation, account state and persistence/restart tests
 - [x] PostgreSQL privileges, migration safety and architecture checks
-- [ ] Live developer Google consent/callback validation with an actual OAuth client
-- [x] Stop before M4
+- [ ] Deferred live developer Google consent/callback validation with an actual OAuth client
+- [x] M3 approved before M4 began
 
 Email confirmation/recovery delivery and provider-only passwordless management remain deferred and block public release. Authentication limiting is local to one API process. Linux development key encryption relies on private filesystem protection. This milestone provides backend endpoints, not a frontend. No Setter/Admin provisioning or later evaluation features are implemented.
 
-M4 adds the actual problem-authoring/testing/publication workflows and their permissions, building on this account/owner foundation. It requires separate approval.
+M4 subsequently added the actual problem-authoring/testing/publication workflows and their permissions; see [M4 results](m4-problems.md).

@@ -22,7 +22,7 @@ public sealed class PostgresPrivilegeTests
         await new DatabaseOperationalCheck(database).ValidateAsync(actor, token);
         Assert.Empty(await database.Database.GetPendingMigrationsAsync(token));
         Assert.Equal(database.Database.GetMigrations(), await database.Database.GetAppliedMigrationsAsync(token));
-        if (actor != DatabaseActor.Migrator) Assert.True(await database.ProblemDrafts.CountAsync(token) >= 0);
+        if (actor != DatabaseActor.Migrator) Assert.True(await database.Problems.CountAsync(token) >= 0);
     }
 
     [Theory]
@@ -34,10 +34,14 @@ public sealed class PostgresPrivilegeTests
     [InlineData("MINOS_TEST_WORKER_CONNECTION", "CREATE TABLE problems.forbidden_table (id integer)")]
     [InlineData("ConnectionStrings__Minos", "CREATE ROLE forbidden_role")]
     [InlineData("MINOS_TEST_WORKER_CONNECTION", "CREATE ROLE forbidden_role")]
-    [InlineData("ConnectionStrings__Minos", "DELETE FROM problems.problem_drafts")]
-    [InlineData("MINOS_TEST_WORKER_CONNECTION", "UPDATE problems.problem_drafts SET title = 'Changed'")]
-    [InlineData("ConnectionStrings__Minos", "TRUNCATE problems.problem_drafts")]
-    [InlineData("MINOS_TEST_WORKER_CONNECTION", "INSERT INTO problems.problem_drafts VALUES (gen_random_uuid(), 'Title', 'Statement', now())")]
+    [InlineData("ConnectionStrings__Minos", "DELETE FROM problems.problems")]
+    [InlineData("ConnectionStrings__Minos", "UPDATE problems.published_problem_versions SET title = 'Changed'")]
+    [InlineData("ConnectionStrings__Minos", "DELETE FROM problems.published_problem_versions")]
+    [InlineData("MINOS_TEST_WORKER_CONNECTION", "UPDATE problems.problems SET title = 'Changed'")]
+    [InlineData("MINOS_TEST_WORKER_CONNECTION", "SELECT * FROM problems.problem_test_cases")]
+    [InlineData("MINOS_TEST_WORKER_CONNECTION", "SELECT * FROM problems.published_problem_versions")]
+    [InlineData("ConnectionStrings__Minos", "TRUNCATE problems.problems")]
+    [InlineData("MINOS_TEST_WORKER_CONNECTION", "INSERT INTO problems.problems (id,owner_account_id,title,statement,created_at_utc,updated_at_utc) VALUES (gen_random_uuid(),gen_random_uuid(),'Title','Statement',now(),now())")]
     [InlineData("ConnectionStrings__Minos", "DELETE FROM public.\"__EFMigrationsHistory\"")]
     [InlineData("MINOS_TEST_WORKER_CONNECTION", "DELETE FROM public.\"__EFMigrationsHistory\"")]
     [InlineData("MINOS_TEST_MIGRATION_CONNECTION", "CREATE ROLE forbidden_role")]
@@ -68,7 +72,7 @@ public sealed class PostgresPrivilegeTests
         await connection.OpenAsync(TestContext.Current.CancellationToken);
         await using var transaction = await connection.BeginTransactionAsync(TestContext.Current.CancellationToken);
         var owner = await SeedOwnerAsync(connection, transaction);
-        await using var command = new NpgsqlCommand("INSERT INTO problems.problem_drafts (id,title,statement,created_at_utc,owner_account_id) VALUES (@id,@title,@statement,@created,@owner)", connection, transaction);
+        await using var command = new NpgsqlCommand("INSERT INTO problems.problems (id,title,statement,created_at_utc,updated_at_utc,owner_account_id) VALUES (@id,@title,@statement,@created,@created,@owner)", connection, transaction);
         command.Parameters.AddWithValue("owner", owner);
         command.Parameters.AddWithValue("id", Guid.NewGuid());
         command.Parameters.AddWithValue("title", title);
@@ -85,12 +89,12 @@ public sealed class PostgresPrivilegeTests
         await using var bootstrap = Database(Connection("MINOS_TEST_BOOTSTRAP_CONNECTION"));
         await Assert.ThrowsAsync<InvalidOperationException>(() => new DatabaseOperationalCheck(bootstrap).ValidateAsync(DatabaseActor.Api, token));
         await using var runtime = Database(Connection("ConnectionStrings__Minos"));
-        await bootstrap.Database.ExecuteSqlRawAsync("GRANT DELETE ON problems.problem_drafts TO minos_api", token);
+        await bootstrap.Database.ExecuteSqlRawAsync("GRANT DELETE ON problems.problems TO minos_api", token);
         try
         {
             await Assert.ThrowsAsync<InvalidOperationException>(() => new DatabaseOperationalCheck(runtime).ValidateAsync(DatabaseActor.Api, token));
         }
-        finally { await bootstrap.Database.ExecuteSqlRawAsync("REVOKE DELETE ON problems.problem_drafts FROM minos_api", CancellationToken.None); }
+        finally { await bootstrap.Database.ExecuteSqlRawAsync("REVOKE DELETE ON problems.problems FROM minos_api", CancellationToken.None); }
         await new DatabaseOperationalCheck(runtime).ValidateAsync(DatabaseActor.Api, token);
     }
 
@@ -106,7 +110,7 @@ public sealed class PostgresPrivilegeTests
         await connection.OpenAsync(token);
         await using var transaction = await connection.BeginTransactionAsync(token);
         var owner = await SeedOwnerAsync(connection, transaction);
-        await using var command = new NpgsqlCommand("INSERT INTO problems.problem_drafts (id,title,statement,created_at_utc,owner_account_id) VALUES (@id,@title,@statement,@created,@owner)", connection, transaction);
+        await using var command = new NpgsqlCommand("INSERT INTO problems.problems (id,title,statement,created_at_utc,updated_at_utc,owner_account_id) VALUES (@id,@title,@statement,@created,@created,@owner)", connection, transaction);
         command.Parameters.AddWithValue("owner", owner);
         command.Parameters.AddWithValue("id", Guid.NewGuid());
         command.Parameters.AddWithValue("title", titleLimit ? string.Concat(Enumerable.Repeat("🧩", 60)) : "Title");
@@ -123,7 +127,7 @@ public sealed class PostgresPrivilegeTests
     private static async Task<Guid> SeedOwnerAsync(NpgsqlConnection connection, NpgsqlTransaction transaction)
     {
         var id = Guid.NewGuid();
-        await using var command = new NpgsqlCommand("INSERT INTO accounts.accounts VALUES (@id,'Owner',now(),false)", connection, transaction);
+        await using var command = new NpgsqlCommand("INSERT INTO accounts.accounts (id,display_name,created_at_utc,is_disabled,role) VALUES (@id,'Owner',now(),false,0)", connection, transaction);
         command.Parameters.AddWithValue("id", id);
         await command.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
         return id;

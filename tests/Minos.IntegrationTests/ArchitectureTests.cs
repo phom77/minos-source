@@ -54,7 +54,7 @@ public sealed class ArchitectureTests
     [Fact]
     public void Compiled_domain_and_application_have_no_forbidden_runtime_dependencies()
     {
-        foreach (var assembly in new[] { typeof(ProblemDraft).Assembly, typeof(ProblemDraftUseCases).Assembly })
+        foreach (var assembly in new[] { typeof(Problem).Assembly, typeof(ProblemAuthoringUseCases).Assembly })
             Assert.All(assembly.GetReferencedAssemblies(), reference => Assert.True(
                 reference.Name != "System.Diagnostics.Process" && reference.Name != "System.Net.Http" &&
                 (reference.Name == "Minos.Domain" || reference.Name == "netstandard" || reference.Name!.StartsWith("System", StringComparison.Ordinal)),
