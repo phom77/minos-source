@@ -1,0 +1,44 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  min-width: 20rem;
+  background: var(--color-cream-50);
+  color: var(--color-charcoal);
+  font-family: var(--font-body);
+  line-height: 1.5;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  background:
+    linear-gradient(rgb(23 63 53 / 3%) 1px, transparent 1px),
+    var(--color-cream-50);
+  background-size: 100% 3rem;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+a {
+  color: inherit;
+}
+
+:focus-visible {
+  border-radius: 2px;
+  outline: 2px solid var(--color-forest-800);
+  outline-offset: 3px;
+}
+
+::selection {
+  background: var(--color-sage-200);
+  color: var(--color-forest-950);
+}
