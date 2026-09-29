@@ -41,6 +41,10 @@ public sealed class DatabaseOperationalCheck(MinosDbContext database)
                     WHERE n.nspname = 'problems' AND c.relname IN (
                         'problems','problem_samples','problem_test_cases','published_problem_versions',
                         'published_problem_samples','published_problem_test_cases')
+                ), evaluation_tables AS (
+                    SELECT c.oid, c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+                    WHERE n.nspname = 'evaluation' AND c.relname IN (
+                        'submissions','judge_jobs','judging_attempts','submission_results')
                 )
                 SELECT NOT has_database_privilege(current_database(), 'CREATE,TEMP')
                     AND NOT EXISTS (SELECT 1 FROM pg_namespace WHERE nspname NOT LIKE 'pg_temp_%'
@@ -52,6 +56,18 @@ public sealed class DatabaseOperationalCheck(MinosDbContext database)
                         AND has_table_privilege(oid, 'DELETE') = (@is_api AND relname IN ('problem_samples','problem_test_cases'))
                         AND NOT has_table_privilege(oid, 'TRUNCATE,REFERENCES,TRIGGER')
                     ) FROM problem_tables)
+                    AND has_schema_privilege('evaluation', 'USAGE')
+                    AND NOT has_schema_privilege('evaluation', 'CREATE')
+                    AND (SELECT count(*) = 4 AND bool_and(
+                        has_table_privilege(oid, 'SELECT') = CASE WHEN @is_api
+                            THEN relname IN ('submissions','judging_attempts')
+                            ELSE relname IN ('submissions','judge_jobs','judging_attempts') END
+                        AND has_table_privilege(oid, 'INSERT') = CASE WHEN @is_api
+                            THEN relname IN ('submissions','judge_jobs')
+                            ELSE relname IN ('judging_attempts','submission_results') END
+                        AND has_table_privilege(oid, 'UPDATE') = (NOT @is_api AND relname IN ('submissions','judge_jobs','judging_attempts'))
+                        AND NOT has_table_privilege(oid, 'DELETE,TRUNCATE,REFERENCES,TRIGGER')
+                    ) FROM evaluation_tables)
                     AND has_table_privilege('public."__EFMigrationsHistory"', 'SELECT')
                     AND NOT has_table_privilege('public."__EFMigrationsHistory"', 'INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
                     AND has_schema_privilege('accounts', 'USAGE') = @is_api

@@ -2,7 +2,7 @@
 
 Date: 2026-09-19. Owner: project developer.
 
-**M4 is complete. M5 has not started.** M4 replaced the foundation draft slice with stable problem identity, editable authoring state, private ordered tests and immutable published versions that future submissions can pin.
+**M4 is complete.** M4 replaced the foundation draft slice with stable problem identity, editable authoring state, private ordered tests and immutable published versions. M5 subsequently added submissions that pin those exact versions.
 
 ## Implemented model and lifecycle
 
@@ -42,4 +42,4 @@ Coverage includes Domain invariants and snapshots; authorization outside HTTP; a
 - Only the exact built-in checker is supported; final checker/verdict behavior belongs to M6.
 - Storage is one private host-local root. Broad quotas, retention policy, backup/restore and production topology belong to M7.
 - There is no frontend, contest configuration, scoring, subtasks, interactive judging, special judge or additional language support.
-- M5 will add submissions that pin `PublishedProblemVersion.Id`, bounded source admission, an atomic PostgreSQL submission/job transaction, leases/retries and private owner status/history. It will use a deterministic executor and will not execute contestant code; real judging remains M6.
+- M5 subsequently added submissions that pin `PublishedProblemVersion.Id`, bounded source admission, an atomic PostgreSQL submission/job transaction, leases/retries and private owner status/history. Its deterministic executor does not execute contestant code; real judging remains M6.

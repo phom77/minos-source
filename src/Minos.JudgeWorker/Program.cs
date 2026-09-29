@@ -20,6 +20,7 @@ try
     builder.Services.AddMinosInfrastructure(builder.Configuration.GetConnectionString("Minos"));
     builder.Services.AddSingleton(new PrivateArtifactDirectory(builder.Configuration["Minos:Artifacts:Root"], builder.Environment.ContentRootPath));
     builder.Services.AddHostedService<WorkerFoundationStartupCheck>();
+    if (!args.Contains("--check", StringComparer.Ordinal)) builder.Services.AddHostedService<SubmissionJobWorker>();
     using var host = builder.Build();
     if (args.Contains("--check", StringComparer.Ordinal))
     {

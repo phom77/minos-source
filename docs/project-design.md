@@ -1,7 +1,7 @@
 # Minos project design
 
 Date: 2026-09-13\
-Status: M0–M4 complete and approved; live Google smoke validation deferred; M5 requires approval
+Status: M0–M5 complete and approved; live Google smoke validation deferred; M6 requires approval
 
 Related documents: [M0 closure](m0-closure.md), [Decision register](decisions.md), [Implementation roadmap](implementation-plan.md)
 
@@ -213,9 +213,9 @@ These candidates guide later aggregate design; they are not a final class hierar
 | Problem | Aggregate candidate for problem identity and authoring/publication controls | Only authorized setters edit drafts or publish. |
 | ProblemVersion | Immutable published model; aggregate boundary to resolve | Statement, limits, tests, and checker references cannot change underneath submissions. |
 | TestCase | Version-owned metadata | Stable order, private artifact references, verified content. |
-| Submission | Aggregate candidate | Source and pinned judging specification do not change after acceptance. |
-| JudgingAttempt | Separately persisted execution record | Only the current authorized attempt can finalize the submission. |
-| SubmissionResult | Result record/value candidate | Verdict and summary derive from the accepted attempt. |
+| Submission | M5 aggregate | Source, owner, toolchain and pinned problem version do not change after acceptance. |
+| JudgingAttempt | M5 separately persisted ownership record | Only the current authorized attempt can finalize the submission; execution evidence is added in M6. |
+| SubmissionResult | M5 authoritative completion marker; extended in M6 | One accepted attempt completes the lifecycle; verdict and resource summary are M6 data. |
 | TestCaseResult | Attempt-owned result record | A test failure remains distinct from an infrastructure fault. |
 | ExecutionRequest | Separate request model for custom runs | No official acceptance or solving credit. |
 | TimeLimit/MemoryLimit | Validated values with explicit units | Positive supported values; measurement semantics are documented. |
@@ -230,16 +230,16 @@ Potential domain events include ProblemPublished and SubmissionCompleted. Introd
 
 ## 9. Judging lifecycle
 
-### Submission status, proposed
+### Submission status, implemented in M5
 
 ```text
-Pending -- current attempt starts --> Judging
-Judging -- contestant outcome ------> Completed + verdict
-Judging -- retryable system fault ---> Pending, with failed attempt retained
+Pending -- current attempt starts ----> Judging
+Judging -- authorized completion -----> Completed
+Judging -- retryable system fault ----> Pending, with failed attempt retained
 Pending/Judging -- retries exhausted -> SystemFailed, with no contestant verdict
 ```
 
-Compiling and Running can be attempt phases shown to clients without becoming permanent submission states. Queue scheduling and leases belong to jobs; execution diagnostics belong to attempts. Do not collapse all three lifecycles into one enum.
+M5 persists the transition to Completed with a deterministic completion marker and no contestant verdict. M6 adds the verdict to the authoritative result. Compiling and Running can be attempt phases shown to clients without becoming permanent submission states. Queue scheduling and leases belong to jobs; execution diagnostics belong to attempts. Do not collapse all three lifecycles into one enum.
 
 ### Outcome policy, proposed
 
@@ -332,7 +332,7 @@ Retention policies must cover source, compiler diagnostics, test results, scratc
 
 ## 12. Initial Clean Architecture structure
 
-This layout is now implemented in [Minos.sln](../Minos.sln) after M1 passed. Only the Problems draft slice has application behavior so far; other modules remain scheduled for their milestones.
+This layout is implemented in [Minos.sln](../Minos.sln). Accounts, Problems, and the M5 Evaluation lifecycle have application behavior; real execution and verdict behavior remain M6 work.
 
 ```text
 Minos/
@@ -346,7 +346,6 @@ Minos/
   tests/
     Minos.Domain.Tests/
     Minos.IntegrationTests/
-    Minos.JudgeTests/
 ```
 
 Domain has no dependency on EF Core, ASP.NET Core, or process-launch APIs. Application depends on Domain. Infrastructure implements application ports. API and Worker compose dependencies; domain rules do not belong in their entry points.
@@ -374,7 +373,7 @@ The create-submission response returns an identifier and result location after p
 
 ## 14. Durable job design
 
-Proposed initial queue: a PostgreSQL table behind a small Evaluation job interface.
+Implemented M5 queue: PostgreSQL tables behind focused Evaluation submission/job ports.
 
 - Commit the submission and job in one transaction.
 - Claim eligible work using a short transaction, record the lease/attempt token, and release locks before execution.
@@ -384,7 +383,7 @@ Proposed initial queue: a PostgreSQL table behind a small Evaluation job interfa
 - Retry infrastructure faults with bounded backoff; do not automatically retry ordinary contestant failures.
 - Bound worker concurrency independently from HTTP request concurrency.
 - Expect at-least-once execution and design completion to be idempotent.
-- Keep operational retry/rejudge actions authorized and auditable.
+- Keep automatic recovery evidence auditable; manual rejudge remains deferred under D18.
 
 PostgreSQL documents SKIP LOCKED as useful for queue-like consumers. It is not a substitute for leases and recovery. [PostgreSQL SELECT documentation](https://www.postgresql.org/docs/current/sql-select.html)
 

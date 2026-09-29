@@ -7,6 +7,8 @@ using Npgsql;
 using Minos.Application.Accounts;
 using Minos.Infrastructure.Accounts;
 using Minos.Infrastructure.Storage;
+using Minos.Application.Evaluation;
+using Minos.Infrastructure.Evaluation;
 
 namespace Minos.Infrastructure;
 
@@ -23,6 +25,10 @@ public static class DependencyInjection
             throw new InvalidOperationException("ConnectionStrings:Minos must specify Host, Database, and Username.");
         services.AddDbContext<MinosDbContext>(options => options.UseNpgsql(connectionString));
         services.AddScoped<IProblemRepository, ProblemRepository>();
+        services.AddScoped<ISubmissionRepository, SubmissionRepository>();
+        services.AddScoped<IJudgeJobRepository, JudgeJobRepository>();
+        services.AddScoped<ISubmissionExecutor, DeterministicSubmissionExecutor>();
+        services.AddScoped<JudgeJobUseCases>();
         services.AddSingleton<IProblemArtifactStore, ProblemArtifactStore>();
         services.AddSingleton(TimeProvider.System);
         services.AddScoped<DatabaseOperationalCheck>();
@@ -41,6 +47,7 @@ public static class DependencyInjection
         services.AddScoped<ProblemAuthoringUseCases>();
         services.AddScoped<ProblemCatalogUseCases>();
         services.AddScoped<ProblemArtifactMaintenanceUseCases>();
+        services.AddScoped<SubmissionUseCases>();
         return services.AddIdentityCore<CredentialUser>(options =>
         {
             options.User.RequireUniqueEmail = true;

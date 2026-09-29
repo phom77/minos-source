@@ -1,6 +1,6 @@
 # Minos engineering rules
 
-Minos is a single-developer personal project. Favor working application code and meaningful automated tests. Documentation records material decisions and evidence. M1–M4 are complete and approved; do not repeat their work without a concrete new correctness/security requirement. Stop before M5 until the project owner approves it.
+Minos is a single-developer personal project. Favor working application code and meaningful automated tests. Documentation records material decisions and evidence. M1–M5 are complete and approved; do not repeat their work without a concrete new correctness/security requirement. Stop before M6 until the project owner approves it.
 
 ## Production structure and dependencies
 
@@ -30,7 +30,7 @@ Maintain Domain invariant/state-transition tests, Application use-case/authoriza
 
 Before edits: inspect code/references, identify file-level evidence, explain the smallest coherent change and its layer. Implement only the current slice, add relevant tests, run build/tests and review the diff for unnecessary dependencies or abstractions. Do not rewrite valid working architecture.
 
-Do not introduce MediatR, Redis, brokers, event sourcing, microservices, generic repositories, outbox or more projects/layers without evidence that the current design is insufficient. Do not introduce submission queues, judging lifecycle, contests, ratings, SignalR or distributed workers before their approved milestone.
+Do not introduce MediatR, Redis, brokers, event sourcing, microservices, generic repositories, outbox or more projects/layers without evidence that the current design is insufficient. Do not introduce real contestant execution, verdict policy, contests, ratings, SignalR or distributed workers before their approved milestone.
 
 ## Account and authentication boundaries
 
@@ -41,5 +41,11 @@ Use platform password hashing, OAuth state/correlation/PKCE and protected cookie
 ## Problem publication boundaries
 
 `Problem` is the stable aggregate and current editable authoring state. Published problem versions are immutable snapshots with distinct version IDs suitable for future submission pinning. Later edits create a new version; archive preserves exact historical versions and artifacts. Private test contents remain behind opaque artifact keys in Infrastructure and never enter public/Application projections as filesystem paths or contents. Publication verifies artifacts and structural prerequisites. M4 records trusted reference-validation checklist evidence; sandbox-backed reference execution and verdict semantics remain M6 concerns.
+
+## Submission and job boundaries
+
+`Submission` derives its owner from the active account and permanently pins the published problem version, supported language/toolchain and bounded source. Submission plus `JudgeJob` are admitted atomically in PostgreSQL. Jobs use short `SKIP LOCKED` claims, expiring leases, unique attempt tokens, bounded retries and guarded idempotent completion. Stale attempts never finalize a submission; retry exhaustion is SystemFailed without a contestant verdict. Owner detail may return source; history omits it and cross-account access is denied in Application.
+
+The M5 Worker uses a deterministic Infrastructure executor that never executes submitted source. Real compilation/execution, hidden-test access, checker behavior, per-test evidence, contestant verdicts and long-running lease renewal belong to M6. Manual rejudge remains deferred.
 
 Update these rules when accepted architecture changes. ADRs are for decisions materially affecting correctness, security or long-term evolution, not every implementation choice. No pilot enrollment/admin approval workflow without an explicit pilot decision.

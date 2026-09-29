@@ -87,10 +87,10 @@ if [[ -n "${MINOS_TEST_FILTER:-}" ]]; then test_filter=(--filter "$MINOS_TEST_FI
 ConnectionStrings__Minos="$MINOS_TEST_WORKER_CONNECTION" "$dotnet_command" "$worker_dll" --check > "$workspace/worker-check.log" 2>&1
 grep -q 'worker_foundation=passed' "$workspace/worker-check.log"
 printf 'worker_foundation=passed\n'
-# Prove the idle Worker actually remains hosted until cancellation, then shuts down cleanly.
+# Prove the M5 Worker remains hosted until cancellation, then shuts down cleanly.
 ConnectionStrings__Minos="$MINOS_TEST_WORKER_CONNECTION" "$dotnet_command" "$worker_dll" > "$workspace/worker-host.log" 2>&1 &
 worker_pid=$!
-for attempt in {1..60}; do
+for attempt in {1..120}; do
     kill -0 "$worker_pid"
     if grep -q 'Application started' "$workspace/worker-host.log"; then break; fi
     sleep 0.25

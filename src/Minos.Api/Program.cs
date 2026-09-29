@@ -6,6 +6,7 @@ using Minos.Infrastructure.Persistence;
 using Minos.Infrastructure.Hosting;
 using Minos.Api.Accounts;
 using Minos.Application.Accounts;
+using Minos.Api.Submissions;
 
 var builder = WebApplication.CreateBuilder(args);
 if (string.IsNullOrWhiteSpace(builder.Configuration["urls"])) builder.WebHost.UseUrls("http://127.0.0.1:5080");
@@ -67,6 +68,7 @@ app.UseAccountRequestProtection();
 app.MapAccountEndpoints();
 app.MapGoogleEndpoints();
 app.MapProblemEndpoints();
+app.MapSubmissionEndpoints();
 app.MapHealthChecks("/health/live", new() { Predicate = _ => false });
 app.MapHealthChecks("/health/ready", new() { Predicate = check => check.Tags.Contains("ready") });
 

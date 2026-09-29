@@ -22,6 +22,7 @@ internal sealed class DomainExceptionHandler(IProblemDetailsService problemDetai
             ResourceNotFoundException => new ProblemDetails { Status = 404, Title = "Resource not found." },
             ConcurrencyConflictException => new ProblemDetails { Status = 409, Title = "The resource changed. Reload and try again." },
             ArtifactValidationException => new ProblemDetails { Status = 400, Title = "Invalid test package." },
+            AdmissionLimitExceededException => new ProblemDetails { Status = 429, Title = "Too many active submissions." },
             ArgumentOutOfRangeException => new ProblemDetails { Status = 400, Title = "Invalid request." },
             BadHttpRequestException badRequest => new ProblemDetails { Status = badRequest.StatusCode, Title = "Invalid request." },
             _ => new ProblemDetails { Status = 500, Title = "An unexpected error occurred." }

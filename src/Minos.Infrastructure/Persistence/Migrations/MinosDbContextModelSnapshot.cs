@@ -125,6 +125,259 @@ namespace Minos.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Minos.Domain.Evaluation.JudgeJob", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("ActiveAttemptId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("active_attempt_id");
+
+                    b.Property<Guid?>("ActiveLeaseToken")
+                        .HasColumnType("uuid")
+                        .HasColumnName("active_lease_token");
+
+                    b.Property<string>("ActiveWorkerId")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("active_worker_id");
+
+                    b.Property<int>("AttemptCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("attempt_count");
+
+                    b.Property<DateTimeOffset>("AvailableAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("available_at_utc");
+
+                    b.Property<Guid?>("CompletedAttemptId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("completed_attempt_id");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<DateTimeOffset?>("LeaseExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("lease_expires_at_utc");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer")
+                        .HasColumnName("status");
+
+                    b.Property<Guid>("SubmissionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("submission_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at_utc");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActiveAttemptId");
+
+                    b.HasIndex("CompletedAttemptId");
+
+                    b.HasIndex("SubmissionId")
+                        .IsUnique();
+
+                    b.HasIndex("Status", "AvailableAtUtc");
+
+                    b.HasIndex("Status", "LeaseExpiresAtUtc");
+
+                    b.ToTable("judge_jobs", "evaluation", t =>
+                        {
+                            t.HasCheckConstraint("ck_judge_jobs_attempt_count", "attempt_count BETWEEN 0 AND 3");
+
+                            t.HasCheckConstraint("ck_judge_jobs_lease_state", "(status = 0 AND active_attempt_id IS NULL AND active_lease_token IS NULL AND active_worker_id IS NULL AND lease_expires_at_utc IS NULL AND completed_attempt_id IS NULL) OR (status = 1 AND active_attempt_id IS NOT NULL AND active_lease_token IS NOT NULL AND active_worker_id IS NOT NULL AND lease_expires_at_utc IS NOT NULL AND completed_attempt_id IS NULL) OR (status IN (2,3) AND active_attempt_id IS NULL AND active_lease_token IS NULL AND active_worker_id IS NULL AND lease_expires_at_utc IS NULL AND completed_attempt_id IS NOT NULL)");
+
+                            t.HasCheckConstraint("ck_judge_jobs_status", "status BETWEEN 0 AND 3");
+                        });
+                });
+
+            modelBuilder.Entity("Minos.Domain.Evaluation.JudgingAttempt", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("AttemptNumber")
+                        .HasColumnType("integer")
+                        .HasColumnName("attempt_number");
+
+                    b.Property<int?>("FailureKind")
+                        .HasColumnType("integer")
+                        .HasColumnName("failure_kind");
+
+                    b.Property<DateTimeOffset?>("FinishedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("finished_at_utc");
+
+                    b.Property<Guid>("JudgeJobId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("judge_job_id");
+
+                    b.Property<DateTimeOffset>("LeaseExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("lease_expires_at_utc");
+
+                    b.Property<Guid>("LeaseToken")
+                        .HasColumnType("uuid")
+                        .HasColumnName("lease_token");
+
+                    b.Property<DateTimeOffset>("StartedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("started_at_utc");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer")
+                        .HasColumnName("status");
+
+                    b.Property<Guid>("SubmissionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("submission_id");
+
+                    b.Property<string>("WorkerId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("worker_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LeaseToken")
+                        .IsUnique();
+
+                    b.HasIndex("JudgeJobId", "AttemptNumber")
+                        .IsUnique();
+
+                    b.HasIndex("SubmissionId", "AttemptNumber");
+
+                    b.ToTable("judging_attempts", "evaluation", t =>
+                        {
+                            t.HasCheckConstraint("ck_judging_attempts_failure", "(status = 0 AND failure_kind IS NULL AND finished_at_utc IS NULL) OR (status = 1 AND failure_kind IS NULL AND finished_at_utc IS NOT NULL) OR (status IN (2,3) AND failure_kind IS NOT NULL AND finished_at_utc IS NOT NULL)");
+
+                            t.HasCheckConstraint("ck_judging_attempts_failure_kind", "failure_kind IS NULL OR failure_kind BETWEEN 0 AND 2");
+
+                            t.HasCheckConstraint("ck_judging_attempts_lease", "lease_expires_at_utc > started_at_utc");
+
+                            t.HasCheckConstraint("ck_judging_attempts_number", "attempt_number BETWEEN 1 AND 3");
+
+                            t.HasCheckConstraint("ck_judging_attempts_status", "status BETWEEN 0 AND 3");
+                        });
+                });
+
+            modelBuilder.Entity("Minos.Domain.Evaluation.Submission", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset?>("CompletedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("completed_at_utc");
+
+                    b.Property<Guid?>("CompletedAttemptId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("completed_attempt_id");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<Guid?>("CurrentAttemptId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("current_attempt_id");
+
+                    b.Property<string>("Language")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("language");
+
+                    b.Property<Guid>("OwnerAccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("owner_account_id");
+
+                    b.Property<Guid>("ProblemId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("problem_id");
+
+                    b.Property<Guid>("ProblemVersionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("problem_version_id");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("source");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer")
+                        .HasColumnName("status");
+
+                    b.Property<string>("ToolchainId")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("toolchain_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompletedAttemptId");
+
+                    b.HasIndex("CurrentAttemptId");
+
+                    b.HasIndex("ProblemId");
+
+                    b.HasIndex("ProblemVersionId");
+
+                    b.HasIndex("OwnerAccountId", "CreatedAtUtc");
+
+                    b.HasIndex("OwnerAccountId", "Status");
+
+                    b.ToTable("submissions", "evaluation", t =>
+                        {
+                            t.HasCheckConstraint("ck_submissions_attempt_state", "(status = 1) = (current_attempt_id IS NOT NULL)");
+
+                            t.HasCheckConstraint("ck_submissions_completion", "((status IN (0,1)) AND completed_attempt_id IS NULL AND completed_at_utc IS NULL) OR ((status IN (2,3)) AND completed_attempt_id IS NOT NULL AND completed_at_utc IS NOT NULL)");
+
+                            t.HasCheckConstraint("ck_submissions_language", "language = 'cpp20'");
+
+                            t.HasCheckConstraint("ck_submissions_source", "octet_length(source) BETWEEN 1 AND 65536 AND length(btrim(source, E' \\t\\n\\r\\f\\v\\u0085\\u00a0\\u1680\\u2000\\u2001\\u2002\\u2003\\u2004\\u2005\\u2006\\u2007\\u2008\\u2009\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000')) > 0");
+
+                            t.HasCheckConstraint("ck_submissions_status", "status BETWEEN 0 AND 3");
+
+                            t.HasCheckConstraint("ck_submissions_toolchain", "toolchain_id = 'gcc-14.3.0-cpp20-o2-pipe@sha256:5e927c284bf55a7dc796262e311a0703344f62f41f5621eb56843111b1d37e15'");
+                        });
+                });
+
+            modelBuilder.Entity("Minos.Domain.Evaluation.SubmissionResult", b =>
+                {
+                    b.Property<Guid>("SubmissionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("submission_id");
+
+                    b.Property<Guid>("AttemptId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("attempt_id");
+
+                    b.Property<DateTimeOffset>("CompletedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("completed_at_utc");
+
+                    b.HasKey("SubmissionId");
+
+                    b.HasIndex("AttemptId")
+                        .IsUnique();
+
+                    b.ToTable("submission_results", "evaluation");
+                });
+
             modelBuilder.Entity("Minos.Domain.Problems.Problem", b =>
                 {
                     b.Property<Guid>("Id")
@@ -514,6 +767,86 @@ namespace Minos.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Minos.Domain.Evaluation.JudgeJob", b =>
+                {
+                    b.HasOne("Minos.Domain.Evaluation.JudgingAttempt", null)
+                        .WithMany()
+                        .HasForeignKey("ActiveAttemptId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Minos.Domain.Evaluation.JudgingAttempt", null)
+                        .WithMany()
+                        .HasForeignKey("CompletedAttemptId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Minos.Domain.Evaluation.Submission", null)
+                        .WithOne()
+                        .HasForeignKey("Minos.Domain.Evaluation.JudgeJob", "SubmissionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Minos.Domain.Evaluation.JudgingAttempt", b =>
+                {
+                    b.HasOne("Minos.Domain.Evaluation.JudgeJob", null)
+                        .WithMany()
+                        .HasForeignKey("JudgeJobId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Minos.Domain.Evaluation.Submission", null)
+                        .WithMany()
+                        .HasForeignKey("SubmissionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Minos.Domain.Evaluation.Submission", b =>
+                {
+                    b.HasOne("Minos.Domain.Evaluation.JudgingAttempt", null)
+                        .WithMany()
+                        .HasForeignKey("CompletedAttemptId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Minos.Domain.Evaluation.JudgingAttempt", null)
+                        .WithMany()
+                        .HasForeignKey("CurrentAttemptId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Minos.Domain.Accounts.Account", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerAccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Minos.Domain.Problems.Problem", null)
+                        .WithMany()
+                        .HasForeignKey("ProblemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Minos.Domain.Problems.PublishedProblemVersion", null)
+                        .WithMany()
+                        .HasForeignKey("ProblemVersionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Minos.Domain.Evaluation.SubmissionResult", b =>
+                {
+                    b.HasOne("Minos.Domain.Evaluation.JudgingAttempt", null)
+                        .WithOne()
+                        .HasForeignKey("Minos.Domain.Evaluation.SubmissionResult", "AttemptId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Minos.Domain.Evaluation.Submission", null)
+                        .WithOne()
+                        .HasForeignKey("Minos.Domain.Evaluation.SubmissionResult", "SubmissionId")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
 

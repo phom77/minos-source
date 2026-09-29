@@ -1,7 +1,7 @@
 # Minos implementation roadmap
 
 Date: 2026-09-13\
-Status: M0–M4 complete and approved; M5 requires approval
+Status: M0–M5 complete and approved; M6 requires approval
 
 Related documents: [M0 closure](m0-closure.md), [Project design](project-design.md), [Decision register](decisions.md)
 
@@ -65,7 +65,7 @@ The sequence prioritizes sandbox feasibility because a failed execution environm
 | M2 | Buildable architecture, two hosts, real PostgreSQL persistence, CI foundation | M1 | Complete: executable Release pipeline and operational boundaries validated locally |
 | M3 | Working account lifecycle and permission boundaries | M2 | Complete for the approved development scope; live Google smoke check remains deferred |
 | M4 | Versioned problems and private tests | M3 | Complete: immutable versions, private tests, permissions and publication pipeline validated |
-| M5 | Durable submission admission and recoverable job ownership | M4 | Not started |
+| M5 | Durable submission admission and recoverable job ownership | M4 | Complete: atomic admission, leases, retries, authorization and recovery validated |
 | M6 | Correct real submission-to-verdict execution | M1, M5 | Not started |
 | M7 | Demonstrated reliability and developer acceptance readiness | M6 | Not started |
 | M8 | Bounded custom-input execution | Reliable official judging and M7 acceptance | Deferred scope accepted in D03; implementation not started |
@@ -193,7 +193,7 @@ The sequence prioritizes sandbox feasibility because a failed execution environm
 
 **Boundary:** Structural publication checks are testable here. Any reference-code execution occurs through the Linux sandbox, never the API process. Automated execution gates are not considered verified until M6.
 
-**Progress:** Complete. [M4 implementation/results](milestones/m4-problems.md) and [ADR 0007](adr/0007-versioned-problems-and-private-tests.md) record the implemented lifecycle and passing evidence. M5 has not started.
+**Progress:** Complete. [M4 implementation/results](milestones/m4-problems.md) and [ADR 0007](adr/0007-versioned-problems-and-private-tests.md) record the implemented lifecycle and passing evidence. M5 was subsequently approved and implemented.
 
 ## M5 — Submissions and durable jobs
 
@@ -219,6 +219,8 @@ The sequence prioritizes sandbox feasibility because a failed execution environm
 - Owners can retrieve their status/history; unauthorized users cannot inspect private source or results.
 
 **Boundary:** Passing with a test executor verifies scheduling and persistence. It does not count as asynchronous judging completion or sandbox validation.
+
+**Progress:** Complete. [M5 implementation/results](milestones/m5-submissions.md) and [ADR 0008](adr/0008-postgresql-submission-jobs-and-leases.md) record the atomic admission, PostgreSQL ownership/recovery model, owner API and passing executable evidence. M6 has not started.
 
 ## M6 — Complete official judging workflow
 
@@ -309,4 +311,4 @@ These increments have no committed dates or implementation approval.
 
 For each milestone, record its owner, implementation references, test results, relevant host/environment, observed limitations, and completion date. Update the overview status only when the exit criteria pass. A deferred check must remain visible and cannot be counted as completion.
 
-M0–M4 are complete and approved. [M3 evidence](milestones/m3-accounts.md) records accounts/authentication/ownership; live Google validation remains deferred. [M4 evidence](milestones/m4-problems.md) records immutable problem versions and private tests. M5 requires explicit approval. A GitHub-hosted CI run is pending commit/push.
+M0–M5 are complete and approved. [M3 evidence](milestones/m3-accounts.md) records accounts/authentication/ownership; live Google validation remains deferred. [M4 evidence](milestones/m4-problems.md) records immutable problem versions and private tests. [M5 evidence](milestones/m5-submissions.md) records durable submission/job ownership and recovery. M6 requires explicit approval. A GitHub-hosted CI run for the current revision is pending commit/push.
