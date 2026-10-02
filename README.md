@@ -22,6 +22,7 @@ The repository stays on Windows D:. The Worker runs in WSL2 Ubuntu and uses Dock
 | [Project design](docs/project-design.md) | Product requirements, MVP boundary, domain ownership, architecture, judging lifecycle, and engineering policies |
 | [Decision register](docs/decisions.md) | Confirmed constraints, proposed choices, alternatives, and questions to resolve |
 | [Implementation roadmap](docs/implementation-plan.md) | Ordered milestones, dependencies, deliverables, validation, and release gates |
+| [Approved visual reference](docs/design/minos-visual-reference.md) | Owner-provided brand/UI images, approved palette, visual patterns, and future frontend design guidance |
 
 ## First milestone
 

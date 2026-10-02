@@ -14,18 +14,16 @@ export const routes: Routes = [
       },
       {
         path: 'problems',
-        title: 'Problems — Minos',
-        loadComponent: () =>
-          import('./features/problems/problem-catalog-page').then(
-            ({ ProblemCatalogPage }) => ProblemCatalogPage,
+        loadChildren: () =>
+          import('./features/problems/problems.routes').then(
+            ({ problemsRoutes }) => problemsRoutes,
           ),
       },
       {
         path: 'account',
-        title: 'Account — Minos',
-        loadComponent: () =>
-          import('./features/accounts/account-entry-page').then(
-            ({ AccountEntryPage }) => AccountEntryPage,
+        loadChildren: () =>
+          import('./features/accounts/accounts.routes').then(
+            ({ accountsRoutes }) => accountsRoutes,
           ),
       },
       {

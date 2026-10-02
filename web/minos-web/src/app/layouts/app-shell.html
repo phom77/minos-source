@@ -1,0 +1,24 @@
+<a class="skip-link" href="#main-content">Skip to content</a>
+
+<header class="site-header">
+  <a class="brand" routerLink="/" aria-label="Minos home">
+    <span class="brand-mark" aria-hidden="true">M</span>
+    <span>Minos</span>
+  </a>
+
+  <nav aria-label="Primary navigation">
+    <a routerLink="/problems" routerLinkActive="active">Problems</a>
+    <a routerLink="/account" routerLinkActive="active">Account</a>
+  </nav>
+
+  <p class="edition"><span aria-hidden="true"></span> Foundation edition</p>
+</header>
+
+<main id="main-content" tabindex="-1">
+  <router-outlet />
+</main>
+
+<footer>
+  <p>Minos</p>
+  <p>Practice with intent. Judge with evidence.</p>
+</footer>

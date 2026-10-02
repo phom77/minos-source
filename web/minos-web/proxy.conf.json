@@ -1,10 +1,10 @@
 {
-  "/accounts": {
+  "/accounts/**": {
     "target": "https://localhost:49674",
     "secure": false,
     "changeOrigin": true
   },
-  "/health": {
+  "/health/**": {
     "target": "https://localhost:49674",
     "secure": false,
     "changeOrigin": true

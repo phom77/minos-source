@@ -49,3 +49,7 @@ Use platform password hashing, OAuth state/correlation/PKCE and protected cookie
 The M5 Worker uses a deterministic Infrastructure executor that never executes submitted source. Real compilation/execution, hidden-test access, checker behavior, per-test evidence, contestant verdicts and long-running lease renewal belong to M6. Manual rejudge remains deferred.
 
 Update these rules when accepted architecture changes. ADRs are for decisions materially affecting correctness, security or long-term evolution, not every implementation choice. No pilot enrollment/admin approval workflow without an explicit pilot decision.
+
+## Frontend visual reference
+
+Before designing or changing the Minos UI, read [docs/design/minos-visual-reference.md](docs/design/minos-visual-reference.md) and inspect the original images in `docs/design/references/`. These record the owner's approved visual direction and take precedence over generic design suggestions and the earlier frontend scaffold styling. Keep originals unchanged; record intentional deviations. Features and data pictured on the brand board do not expand approved implementation scope or override milestone boundaries.

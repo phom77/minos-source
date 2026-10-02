@@ -1,0 +1,43 @@
+<article class="page">
+  <minos-section-heading
+    eyebrow="Accounts"
+    heading="Your work, kept together."
+    summary="Minos uses protected browser sessions backed by the existing ASP.NET Core account boundary. Forms and session state will arrive as the next focused feature slice."
+  />
+
+  <section class="account-panel" aria-labelledby="account-foundation-heading">
+    <div class="panel-copy">
+      <p class="index">02 / Identity</p>
+      <h2 id="account-foundation-heading">Session-first by design.</h2>
+      <p>
+        Angular will request a CSRF token, submit account operations through feature-local data access,
+        and ask <code>/accounts/me</code> for the current account. Cookies stay under browser and server control.
+      </p>
+      <a routerLink="/problems">Return to problems <span aria-hidden="true">→</span></a>
+    </div>
+
+    <ol class="flow" aria-label="Planned authentication request flow">
+      <li>
+        <span>01</span>
+        <div>
+          <strong>Request protection</strong>
+          <p>Fetch a fresh anti-forgery token before a state-changing account request.</p>
+        </div>
+      </li>
+      <li>
+        <span>02</span>
+        <div>
+          <strong>Protected session</strong>
+          <p>Let the API issue and validate its secure HttpOnly authentication cookie.</p>
+        </div>
+      </li>
+      <li>
+        <span>03</span>
+        <div>
+          <strong>Current account</strong>
+          <p>Keep one small application-wide signal sourced from the authoritative endpoint.</p>
+        </div>
+      </li>
+    </ol>
+  </section>
+</article>
