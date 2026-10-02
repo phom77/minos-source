@@ -79,15 +79,16 @@ public sealed class Submission
         CurrentAttemptId = null;
     }
 
-    public SubmissionResult Complete(Guid attemptId, DateTimeOffset completedAtUtc)
+    public SubmissionResult Complete(Guid attemptId, JudgingOutcome outcome, DateTimeOffset completedAtUtc)
     {
         RequireCurrent(attemptId);
+        ArgumentNullException.ThrowIfNull(outcome);
         EnsureUtc(completedAtUtc, nameof(CompletedAtUtc));
         Status = SubmissionStatus.Completed;
         CurrentAttemptId = null;
         CompletedAttemptId = attemptId;
         CompletedAtUtc = completedAtUtc;
-        return SubmissionResult.Create(Id, attemptId, completedAtUtc);
+        return SubmissionResult.Create(Id, attemptId, outcome, completedAtUtc);
     }
 
     public void FailSystem(Guid attemptId, DateTimeOffset completedAtUtc)
@@ -121,12 +122,39 @@ public sealed class Submission
 
 public sealed class SubmissionResult
 {
+    private readonly List<TestCaseResult> testCaseResults = [];
     private SubmissionResult() { }
 
     public Guid SubmissionId { get; private set; }
     public Guid AttemptId { get; private set; }
+    // Null is retained only for pre-M6 lifecycle markers migrated from M5.
+    public SubmissionVerdict? Verdict { get; private set; }
+    public string CompilerDiagnostics { get; private set; } = "";
+    public long? MaximumCpuTimeMilliseconds { get; private set; }
+    public long? MaximumWallTimeMilliseconds { get; private set; }
+    public long? MaximumMemoryBytes { get; private set; }
     public DateTimeOffset CompletedAtUtc { get; private set; }
+    public IReadOnlyList<TestCaseResult> TestCaseResults => testCaseResults.AsReadOnly();
 
-    internal static SubmissionResult Create(Guid submissionId, Guid attemptId, DateTimeOffset completedAtUtc) =>
-        new() { SubmissionId = submissionId, AttemptId = attemptId, CompletedAtUtc = completedAtUtc };
+    internal static SubmissionResult Create(
+        Guid submissionId,
+        Guid attemptId,
+        JudgingOutcome outcome,
+        DateTimeOffset completedAtUtc)
+    {
+        var executed = outcome.TestCases.Where(test => test.Status != TestCaseResultStatus.NotExecuted).ToArray();
+        var result = new SubmissionResult
+        {
+            SubmissionId = submissionId,
+            AttemptId = attemptId,
+            Verdict = outcome.Verdict,
+            CompilerDiagnostics = outcome.CompilerDiagnostics,
+            MaximumCpuTimeMilliseconds = executed.Length == 0 ? null : executed.Max(test => test.CpuTimeMilliseconds),
+            MaximumWallTimeMilliseconds = executed.Length == 0 ? null : executed.Max(test => test.WallTimeMilliseconds),
+            MaximumMemoryBytes = executed.Length == 0 ? null : executed.Max(test => test.MemoryPeakBytes),
+            CompletedAtUtc = completedAtUtc
+        };
+        result.testCaseResults.AddRange(outcome.TestCases.Select(test => TestCaseResult.Create(submissionId, attemptId, test)));
+        return result;
+    }
 }

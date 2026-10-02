@@ -99,10 +99,11 @@ public sealed class SubmissionUseCaseTests
             Job = job;
             return Task.FromResult(Accept);
         }
-        public Task<(Submission Submission, IReadOnlyList<JudgingAttempt> Attempts)?> FindAsync(Guid id, CancellationToken token) =>
-            Task.FromResult<(Submission, IReadOnlyList<JudgingAttempt>)?>(Submission is null ? null : (Submission, []));
-        public Task<(IReadOnlyList<Submission> Items, int Total)> ListByOwnerAsync(Guid ownerAccountId, int offset, int limit, CancellationToken token) =>
-            Task.FromResult(((IReadOnlyList<Submission>)(Submission is null ? [] : [Submission]), Submission is null ? 0 : 1));
+        public Task<(Submission Submission, IReadOnlyList<JudgingAttempt> Attempts, SubmissionResult? Result)?> FindAsync(Guid id, CancellationToken token) =>
+            Task.FromResult<(Submission, IReadOnlyList<JudgingAttempt>, SubmissionResult?)?>(Submission is null ? null : (Submission, [], null));
+        public Task<(IReadOnlyList<(Submission Submission, SubmissionVerdict? Verdict)> Items, int Total)> ListByOwnerAsync(
+            Guid ownerAccountId, int offset, int limit, CancellationToken token) =>
+            Task.FromResult(((IReadOnlyList<(Submission, SubmissionVerdict?)>)(Submission is null ? [] : [(Submission, null)]), Submission is null ? 0 : 1));
     }
 
     private sealed class ProblemRepositoryStub(PublishedProblemVersion version) : IProblemRepository
@@ -114,7 +115,8 @@ public sealed class SubmissionUseCaseTests
         public Task SaveAsync(Problem problem, CancellationToken token) => throw new NotSupportedException();
         public Task PublishAsync(Problem problem, PublishedProblemVersion published, CancellationToken token) => throw new NotSupportedException();
         public Task<(IReadOnlyList<PublishedProblemSummary> Items, int Total)> ListPublishedAsync(int offset, int limit, CancellationToken token) => throw new NotSupportedException();
-        public Task<PublishedProblemVersion?> FindPublishedVersionAsync(Guid versionId, CancellationToken token) => throw new NotSupportedException();
+        public Task<PublishedProblemVersion?> FindPublishedVersionAsync(Guid versionId, CancellationToken token) =>
+            Task.FromResult<PublishedProblemVersion?>(version.Id == versionId ? version : null);
         public Task<IReadOnlySet<string>> ReferencedArtifactKeysAsync(CancellationToken token) => throw new NotSupportedException();
     }
 }

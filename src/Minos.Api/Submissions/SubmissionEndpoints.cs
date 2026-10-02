@@ -45,6 +45,7 @@ internal static class SubmissionEndpoints
             item.ProblemId,
             item.ProblemVersionId,
             item.Status.ToString(),
+            item.Verdict?.ToString(),
             item.CreatedAtUtc,
             item.CompletedAtUtc)).ToArray(), result.Page, result.PageSize, result.Total));
     }
@@ -65,5 +66,24 @@ internal static class SubmissionEndpoints
             attempt.Status.ToString(),
             attempt.FailureKind?.ToString(),
             attempt.StartedAtUtc,
-            attempt.FinishedAtUtc)).ToArray());
+            attempt.FinishedAtUtc)).ToArray(),
+        submission.Result is null ? null : new SubmissionResultResponse(
+            submission.Result.AttemptId,
+            submission.Result.Verdict?.ToString(),
+            submission.Result.CompilerDiagnostics,
+            submission.Result.MaximumCpuTimeMilliseconds,
+            submission.Result.MaximumWallTimeMilliseconds,
+            submission.Result.MaximumMemoryBytes,
+            submission.Result.CompletedAtUtc,
+            submission.Result.Tests.Select(test => new SubmissionTestResultResponse(
+                test.Order,
+                test.Status.ToString(),
+                test.CpuTimeMilliseconds,
+                test.WallTimeMilliseconds,
+                test.MemoryPeakBytes)).ToArray()),
+        submission.Configuration is null ? null : new SubmissionJudgingConfigurationResponse(
+            submission.Configuration.TimeLimitMilliseconds,
+            submission.Configuration.MemoryLimitMegabytes,
+            submission.Configuration.Checker,
+            submission.Configuration.TestCount));
 }

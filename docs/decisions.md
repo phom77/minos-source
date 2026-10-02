@@ -1,7 +1,7 @@
 # Minos decision register
 
 Date: 2026-09-13\
-Status: M0–M5 complete and approved; M6 requires approval
+Status: M0–M5 complete and approved; M6 policies implemented and verified; M7 requires approval
 
 Related documents: [M0 closure](m0-closure.md), [Project design](project-design.md), [Implementation roadmap](implementation-plan.md)
 
@@ -22,7 +22,7 @@ Keep ADRs for material correctness, security, or evolution decisions. Record ord
 - Accepted: [D01 — Development access and future registration behavior](adr/0001-initial-audience-and-access-policy.md).
 - Accepted: [D02 — WSL2 Ubuntu with a Docker execution backend](adr/0002-judge-development-environment.md). The M1 executable development validation suite subsequently passed.
 - Accepted: [D03 — Official judging in the first end-to-end MVP](adr/0003-official-judging-mvp.md); custom Run follows reliable official judging.
-- Accepted baseline: [D10 — Minimum execution safety](adr/0004-minimum-execution-safety-baseline.md); numeric tuning is M1 work, final verdict/accounting policy is M6 work.
+- Accepted baseline: [D10 — Minimum execution safety](adr/0004-minimum-execution-safety-baseline.md); M1 verified development bounds and [ADR 0009](adr/0009-official-judging-and-evidence.md) accepts official verdict/accounting policy.
 - Accepted ADR records at M0 closure: **4 of 18**, with D10 counted only for its minimum baseline. This historical count is not an implementation gate; later implementation selections are tracked in the register below.
 - Before-M1 gate: **4 of 4 accepted**.
 - M0 status: **complete**. M1 subsequently passed compile/run, resource/isolation, replacement-adapter and recovery experiments. [M1 evidence](milestones/m1-execution-feasibility.md) records the results; M2 began after they passed.
@@ -60,7 +60,7 @@ All 18 existing decision IDs are preserved. Blocking means "must be clear before
 | D01 | Development access and future registration | Keeps temporary development access separate from product behavior | Resolved | Developer-only; future email/password and Google self-service; no approval workflow | Accepted |
 | D02 | Development judge environment and execution boundary | Establishes filesystem isolation and replaceable execution | Resolved; M1 validation passed | WSL2 Ubuntu Worker, Docker first; private Linux-native copies; future direct-Linux Isolate adapter; no dedicated VM | Accepted; development validation passed |
 | D03 | Core MVP versus custom Run | Defines the first end-to-end outcome and acceptance scope | Resolved | Official judging first; custom Run follows reliable judging, planned at M8 | Accepted |
-| D10 | Minimum execution safety and resource contract | Prevents uncontrolled compilation/execution and ambiguous evidence | Baseline resolved; validation in M1 | No direct host execution; network off by default; bounded wall/CPU/memory/processes/threads/stdout/stderr/scratch; non-root, reduced capabilities; structured evidence | Accepted baseline; numeric tuning M1, final verdict/accounting M6 |
+| D10 | Minimum execution safety and resource contract | Prevents uncontrolled compilation/execution and ambiguous evidence | Baseline resolved; validation in M1/M6 | No direct host execution; network off by default; bounded wall/CPU/memory/processes/threads/stdout/stderr/scratch; non-root, reduced capabilities; complete structured evidence | Accepted baseline; development bounds verified in M1, official accounting accepted in [ADR 0009](adr/0009-official-judging-and-evidence.md) |
 
 ### Can decide during later milestones
 
@@ -70,14 +70,14 @@ All 18 existing decision IDs are preserved. Blocking means "must be clear before
 | D05 | Publication/version semantics | Keeps queued and historical evaluation specifications stable | No for M1; before M4 publication | Stable Problem ID plus immutable version ID and unique version number; future submissions pin version ID | Accepted and implemented in [ADR 0007](adr/0007-versioned-problems-and-private-tests.md) |
 | D06 | Durable job transport | Prevents lost submissions and enqueueing gaps | No for M1; before M5 jobs | PostgreSQL queue; submission and job in one transaction | Accepted and implemented in [ADR 0008](adr/0008-postgresql-submission-jobs-and-leases.md) |
 | D07 | Recovery and completion ownership | Prevents stuck jobs and stale result overwrite | No for M1; before M5 claims/results | Leases, bounded retries, attempt tokens, guarded completion | Accepted and implemented in [ADR 0008](adr/0008-postgresql-submission-jobs-and-leases.md) |
-| D08 | Processing status versus verdict | Distinguishes progress, contestant outcomes, and platform faults | No for M1; during M5/M6 | Separate submission status, attempt phase, and verdict | M5 processing/system-failure separation accepted in [ADR 0008](adr/0008-postgresql-submission-jobs-and-leases.md); contestant verdict policy remains M6 |
-| D09 | C++ toolchain and output checker | Makes compilation reproducible and comparison predictable | Toolchain selected in M1; checker in M6 | Digest-pinned GCC 14.3.0, C++20, fixed compilation; trusted byte check only for M1 fixtures | Toolchain selected, verified and pinned by M5 submissions; official checker open for M6 |
+| D08 | Processing status versus verdict | Distinguishes progress, contestant outcomes, and platform faults | No for M1; during M5/M6 | Separate processing state, contestant verdict and infrastructure failure; approved limit precedence | Accepted in [ADR 0008](adr/0008-postgresql-submission-jobs-and-leases.md) and [ADR 0009](adr/0009-official-judging-and-evidence.md) |
+| D09 | C++ toolchain and output checker | Makes compilation reproducible and comparison predictable | Toolchain selected in M1; checker in M6 | Digest-pinned GCC 14.3.0, C++20, fixed compilation; exact byte comparison including whitespace/newlines | Accepted in [ADR 0009](adr/0009-official-judging-and-evidence.md) |
 | D11 | Authentication mechanics and account lifecycle | Implements accepted product sign-in securely | No for M1; before M3 auth | Separate Domain account/Identity persistence; protected web cookies; explicit provider-subject linking, no email merge; recovery delivery deferred | Selected and implemented in [ADR 0006](adr/0006-account-authentication-and-linking.md); live Google check pending |
-| D12 | Reference-solution validation | Detects incorrect problem/test packages | No for M1; during M4/M6 | Trusted M4 publication checklist; sandbox-backed automation remains M6 | M4 mechanism accepted and implemented in [ADR 0007](adr/0007-versioned-problems-and-private-tests.md); M6 automation deferred |
+| D12 | Reference-solution validation | Detects incorrect problem/test packages | No for M1; during M4/M6 | Trusted publication checklist plus developer-run real sandbox fixture validation; no stored reference solution or new publication gate | Accepted in [ADR 0007](adr/0007-versioned-problems-and-private-tests.md) and [ADR 0009](adr/0009-official-judging-and-evidence.md) |
 | D13 | Source and testcase storage | Protects private artifacts and supports reliable access | No M0 block; workspace mechanics in M1, storage in M4 | Bounded source in PostgreSQL; bounded private testcase files behind an opaque-key storage port | Testcase portion implemented in [ADR 0007](adr/0007-versioned-problems-and-private-tests.md); bounded submission source implemented in [ADR 0008](adr/0008-postgresql-submission-jobs-and-leases.md) |
 | D14 | Client result updates | Determines how clients observe committed results | No for M1; during M5 | Polling; no separate ADR needed for polling intervals | Selected and implemented in M5 |
 | D15 | Layer/module packaging | Supports understandable dependencies and tests | No for M1; selected in M2 | Domain/Application/Infrastructure/API/Worker projects, module folders, two meaningful test projects; sandbox experiments remain separate | Initial scaffold implemented and built |
-| D16 | Official test execution order | Determines diagnostic depth, cost, and verdict consistency | No for M1; during M6 | Sequential tests; first failure in fixed order | Proposed |
+| D16 | Official test execution order | Determines diagnostic depth, cost, and verdict consistency | No for M1; during M6 | Sequential tests; first failure in fixed order; later tests NotExecuted | Accepted in [ADR 0009](adr/0009-official-judging-and-evidence.md) |
 | D17 | Visibility, retention, and history | Prevents data leakage and uncontrolled storage growth | No for M1; before relevant M3/M4/M7 work | Owner-private source/results, private hidden tests, preserved version history; durations in M7 | M4 hidden-test/version history and M5 owner-private source/history implemented; broad retention remains M7 |
 
 ### Can safely defer
@@ -98,7 +98,7 @@ Production judge-host selection, Isolate adoption, external brokers/caches, push
 - [x] Final assumptions, MVP boundary, risks, deferred work, and M1 dependencies reconciled in the M0 closure summary.
 - [x] Project owner accepts the baseline and explicitly requests M0 closure. Starting M1 is a separate next action, not a prerequisite for completing M0.
 
-**M0–M5 complete and approved.** Live Google validation remains deferred because no OAuth client exists. Historical M0 closure does not finalize later policies; M6 verdict/checker/resource accounting remain open. See [M4 results](milestones/m4-problems.md) and [M5 results](milestones/m5-submissions.md). M6 requires approval.
+**M0–M5 complete and approved; M6 implemented and verified.** Live Google validation remains deferred because no OAuth client exists. [ADR 0009](adr/0009-official-judging-and-evidence.md) records the accepted M6 verdict/checker/resource policies; [M6 evidence](milestones/m6-official-judging.md) records passing execution and persistence checks. Historical M0 closure remains unchanged. M7 requires approval.
 
 ## Decision completion record
 

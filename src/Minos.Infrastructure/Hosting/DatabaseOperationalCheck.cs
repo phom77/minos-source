@@ -44,13 +44,13 @@ public sealed class DatabaseOperationalCheck(MinosDbContext database)
                 ), evaluation_tables AS (
                     SELECT c.oid, c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
                     WHERE n.nspname = 'evaluation' AND c.relname IN (
-                        'submissions','judge_jobs','judging_attempts','submission_results')
+                        'submissions','judge_jobs','judging_attempts','submission_results','test_case_results')
                 )
                 SELECT NOT has_database_privilege(current_database(), 'CREATE,TEMP')
                     AND NOT EXISTS (SELECT 1 FROM pg_namespace WHERE nspname NOT LIKE 'pg_temp_%'
                         AND nspname NOT LIKE 'pg_toast_temp_%' AND has_schema_privilege(oid, 'CREATE'))
                     AND (SELECT count(*) = 6 AND bool_and(
-                        has_table_privilege(oid, 'SELECT') = (@is_api OR relname = 'problems')
+                        has_table_privilege(oid, 'SELECT') = (@is_api OR relname IN ('problems','published_problem_versions','published_problem_test_cases'))
                         AND has_table_privilege(oid, 'INSERT') = @is_api
                         AND has_table_privilege(oid, 'UPDATE') = (@is_api AND relname IN ('problems','problem_samples','problem_test_cases'))
                         AND has_table_privilege(oid, 'DELETE') = (@is_api AND relname IN ('problem_samples','problem_test_cases'))
@@ -58,13 +58,13 @@ public sealed class DatabaseOperationalCheck(MinosDbContext database)
                     ) FROM problem_tables)
                     AND has_schema_privilege('evaluation', 'USAGE')
                     AND NOT has_schema_privilege('evaluation', 'CREATE')
-                    AND (SELECT count(*) = 4 AND bool_and(
+                    AND (SELECT count(*) = 5 AND bool_and(
                         has_table_privilege(oid, 'SELECT') = CASE WHEN @is_api
-                            THEN relname IN ('submissions','judging_attempts')
+                            THEN relname IN ('submissions','judging_attempts','submission_results','test_case_results')
                             ELSE relname IN ('submissions','judge_jobs','judging_attempts') END
                         AND has_table_privilege(oid, 'INSERT') = CASE WHEN @is_api
                             THEN relname IN ('submissions','judge_jobs')
-                            ELSE relname IN ('judging_attempts','submission_results') END
+                            ELSE relname IN ('judging_attempts','submission_results','test_case_results') END
                         AND has_table_privilege(oid, 'UPDATE') = (NOT @is_api AND relname IN ('submissions','judge_jobs','judging_attempts'))
                         AND NOT has_table_privilege(oid, 'DELETE,TRUNCATE,REFERENCES,TRIGGER')
                     ) FROM evaluation_tables)

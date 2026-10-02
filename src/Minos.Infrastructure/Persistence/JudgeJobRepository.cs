@@ -92,6 +92,7 @@ internal sealed class JudgeJobRepository(MinosDbContext database) : IJudgeJobRep
         Guid attemptId,
         Guid leaseToken,
         string workerId,
+        JudgingOutcome outcome,
         DateTimeOffset nowUtc,
         CancellationToken token)
     {
@@ -116,9 +117,14 @@ internal sealed class JudgeJobRepository(MinosDbContext database) : IJudgeJobRep
         }
 
         var submission = await database.Submissions.SingleAsync(candidate => candidate.Id == job.SubmissionId, token);
+        var privateTestCount = await database.PublishedProblemVersions
+            .Where(version => version.Id == submission.ProblemVersionId)
+            .Select(version => version.PrivateTestCount).SingleAsync(token);
+        if (outcome.TestCases.Count != privateTestCount)
+            throw new Minos.Domain.DomainValidationException(nameof(outcome), "Judging evidence must cover the pinned version's complete test set.");
         job.Complete(attemptId, leaseToken, workerId, nowUtc);
         attempt.Succeed(nowUtc);
-        database.SubmissionResults.Add(submission.Complete(attemptId, nowUtc));
+        database.SubmissionResults.Add(submission.Complete(attemptId, outcome, nowUtc));
         await database.SaveChangesAsync(token);
         await transaction.CommitAsync(token);
         return LeaseMutationResult.Accepted;
@@ -164,6 +170,8 @@ internal sealed class JudgeJobRepository(MinosDbContext database) : IJudgeJobRep
 
     private async Task<JudgeJob?> LockForAttemptAsync(Guid attemptId, CancellationToken token)
     {
+        // Renewal uses a separate scope. Re-read the locked persisted lease rather than the claim's tracked copy.
+        database.ChangeTracker.Clear();
         var jobs = await database.JudgeJobs.FromSqlInterpolated($"""
             SELECT job.* FROM evaluation.judge_jobs AS job
             INNER JOIN evaluation.judging_attempts AS attempt ON attempt.judge_job_id = job.id

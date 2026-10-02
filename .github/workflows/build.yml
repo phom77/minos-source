@@ -13,7 +13,10 @@ jobs:
           dotnet-version: '10.0.x'
           cache: true
           cache-dependency-path: '**/packages.lock.json'
-      - name: Clean Release build, least-privilege PostgreSQL, tests and both hosts
+      - name: Prepare pinned C++ toolchain
+        # Download on cold hosts before applying the runner's short execution deadlines.
+        run: timeout 180s docker pull gcc@sha256:5e927c284bf55a7dc796262e311a0703344f62f41f5621eb56843111b1d37e15
+      - name: Foundation and official judging acceptance
         run: bash scripts/check-foundation.sh
       - name: Upload test evidence
         if: always()

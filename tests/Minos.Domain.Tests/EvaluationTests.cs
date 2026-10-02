@@ -35,9 +35,9 @@ public sealed class EvaluationTests
         var attempt = Guid.NewGuid();
         submission.StartAttempt(attempt);
         Assert.Equal(SubmissionStatus.Judging, submission.Status);
-        Assert.Throws<DomainValidationException>(() => submission.Complete(Guid.NewGuid(), Now));
+        Assert.Throws<DomainValidationException>(() => submission.Complete(Guid.NewGuid(), AcceptedOutcome(), Now));
 
-        var result = submission.Complete(attempt, Now);
+        var result = submission.Complete(attempt, AcceptedOutcome(), Now);
         Assert.Equal(SubmissionStatus.Completed, submission.Status);
         Assert.Equal(attempt, result.AttemptId);
         Assert.Throws<DomainValidationException>(() => submission.StartAttempt(Guid.NewGuid()));
@@ -62,7 +62,7 @@ public sealed class EvaluationTests
         submission.StartAttempt(second.Id);
         Assert.Equal(2, second.AttemptNumber);
         Assert.False(job.OwnsActiveLease(first.Id, first.LeaseToken, "worker-a"));
-        Assert.Throws<DomainValidationException>(() => submission.Complete(first.Id, Now.AddMinutes(1)));
+        Assert.Throws<DomainValidationException>(() => submission.Complete(first.Id, AcceptedOutcome(), Now.AddMinutes(1)));
     }
 
     [Fact]
@@ -94,6 +94,98 @@ public sealed class EvaluationTests
         Assert.Equal(JudgeJob.MaximumAttempts, job.AttemptCount);
     }
 
+    [Fact]
+    public void Accepted_requires_every_test_and_calculates_maximum_resource_summary()
+    {
+        var outcome = JudgingOutcome.Create(
+            SubmissionVerdict.Accepted,
+            "",
+            [
+                new(1, TestCaseResultStatus.Passed, 4, 8, 1024, 0),
+                new(2, TestCaseResultStatus.Passed, 7, 6, 2048, 0)
+            ]);
+        var submission = CreateSubmission();
+        var attempt = Guid.NewGuid();
+        submission.StartAttempt(attempt);
+
+        var result = submission.Complete(attempt, outcome, Now);
+
+        Assert.Equal(SubmissionVerdict.Accepted, result.Verdict);
+        Assert.Equal(7, result.MaximumCpuTimeMilliseconds);
+        Assert.Equal(8, result.MaximumWallTimeMilliseconds);
+        Assert.Equal(2048, result.MaximumMemoryBytes);
+        Assert.Equal(2, result.TestCaseResults.Count);
+    }
+
+    [Fact]
+    public void Failure_must_match_first_failed_test_and_leave_later_tests_unexecuted()
+    {
+        var valid = JudgingOutcome.Create(
+            SubmissionVerdict.WrongAnswer,
+            "",
+            [
+                new(1, TestCaseResultStatus.Passed, 1, 1, 1024, 0),
+                new(2, TestCaseResultStatus.WrongAnswer, 1, 1, 1024, 0),
+                new(3, TestCaseResultStatus.NotExecuted, null, null, null, null)
+            ]);
+
+        Assert.Equal(SubmissionVerdict.WrongAnswer, valid.Verdict);
+        Assert.Throws<DomainValidationException>(() => JudgingOutcome.Create(
+            SubmissionVerdict.WrongAnswer,
+            "",
+            [
+                new(1, TestCaseResultStatus.WrongAnswer, 1, 1, 1024, 0),
+                new(2, TestCaseResultStatus.Passed, 1, 1, 1024, 0)
+            ]));
+        Assert.Throws<DomainValidationException>(() => JudgingOutcome.Create(
+            SubmissionVerdict.Accepted,
+            "",
+            [new(1, TestCaseResultStatus.RuntimeError, 1, 1, 1024, 9)]));
+    }
+
+    [Fact]
+    public void Compilation_error_keeps_bounded_diagnostics_and_executes_no_tests()
+    {
+        var outcome = JudgingOutcome.Create(
+            SubmissionVerdict.CompilationError,
+            "main.cpp: error",
+            [new(1, TestCaseResultStatus.NotExecuted, null, null, null, null)]);
+
+        Assert.Equal("main.cpp: error", outcome.CompilerDiagnostics);
+        Assert.Throws<DomainValidationException>(() => JudgingOutcome.Create(
+            SubmissionVerdict.CompilationError,
+            new string('x', JudgingOutcome.MaximumCompilerDiagnosticsBytes + 1),
+            [new(1, TestCaseResultStatus.NotExecuted, null, null, null, null)]));
+    }
+
     private static Submission CreateSubmission() => Submission.Create(
         Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "cpp20", "toolchain", "int main(){}", Now);
+
+    [Fact]
+    public void Verdict_cannot_disagree_with_limit_evidence_or_omit_measurements()
+    {
+        Assert.Throws<DomainValidationException>(() => JudgingOutcome.Create(SubmissionVerdict.Accepted, "",
+            [new(1, TestCaseResultStatus.Passed, 1, 1, 1024, 0, OutputLimit: true)]));
+        Assert.Throws<DomainValidationException>(() => JudgingOutcome.Create(SubmissionVerdict.RuntimeError, "",
+            [new(1, TestCaseResultStatus.RuntimeError, 1, 1, 1024, 9, MemoryFailure: true)]));
+        Assert.Throws<DomainValidationException>(() => JudgingOutcome.Create(SubmissionVerdict.Accepted, "",
+            [new(1, TestCaseResultStatus.Passed, null, 1, 1024, 0)]));
+        Assert.Throws<DomainValidationException>(() => JudgingOutcome.Create(SubmissionVerdict.CompilationError, "",
+            [new(1, TestCaseResultStatus.NotExecuted, null, null, null, null, CpuLimit: true)]));
+    }
+
+    [Fact]
+    public void Completion_evidence_copies_and_protects_the_test_collection()
+    {
+        var tests = new[] { new JudgingTestOutcome(1, TestCaseResultStatus.Passed, 1, 1, 1024, 0) };
+        var outcome = JudgingOutcome.Create(SubmissionVerdict.Accepted, "", tests);
+        tests[0] = new(1, TestCaseResultStatus.WrongAnswer, 1, 1, 1024, 0);
+        Assert.Equal(TestCaseResultStatus.Passed, outcome.TestCases[0].Status);
+        Assert.Throws<NotSupportedException>(() => ((IList<JudgingTestOutcome>)outcome.TestCases).Clear());
+    }
+
+    private static JudgingOutcome AcceptedOutcome() => JudgingOutcome.Create(
+        SubmissionVerdict.Accepted,
+        "",
+        [new(1, TestCaseResultStatus.Passed, 1, 1, 1024, 0)]);
 }

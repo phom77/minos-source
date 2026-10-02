@@ -16,6 +16,7 @@ public sealed record SubmissionSummary(
     Guid ProblemId,
     Guid ProblemVersionId,
     SubmissionStatus Status,
+    SubmissionVerdict? Verdict,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset? CompletedAtUtc);
 
@@ -37,7 +38,32 @@ public sealed record SubmissionDetails(
     SubmissionStatus Status,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset? CompletedAtUtc,
-    IReadOnlyList<SubmissionAttemptDetails> Attempts);
+    IReadOnlyList<SubmissionAttemptDetails> Attempts,
+    SubmissionResultDetails? Result,
+    SubmissionJudgingConfiguration? Configuration);
+
+public sealed record SubmissionJudgingConfiguration(
+    int TimeLimitMilliseconds,
+    int MemoryLimitMegabytes,
+    string Checker,
+    int TestCount);
+
+public sealed record SubmissionTestResultDetails(
+    int Order,
+    TestCaseResultStatus Status,
+    long? CpuTimeMilliseconds,
+    long? WallTimeMilliseconds,
+    long? MemoryPeakBytes);
+
+public sealed record SubmissionResultDetails(
+    Guid AttemptId,
+    SubmissionVerdict? Verdict,
+    string CompilerDiagnostics,
+    long? MaximumCpuTimeMilliseconds,
+    long? MaximumWallTimeMilliseconds,
+    long? MaximumMemoryBytes,
+    DateTimeOffset CompletedAtUtc,
+    IReadOnlyList<SubmissionTestResultDetails> Tests);
 
 public sealed record SubmissionPage(IReadOnlyList<SubmissionSummary> Items, int Page, int PageSize, int Total);
 
@@ -55,8 +81,16 @@ public sealed record ClaimedSubmissionWork(
 
 public enum LeaseMutationResult { Accepted, Stale }
 public enum AttemptFailureResult { RetryScheduled, SystemFailed, Stale }
-public enum DeterministicExecutionOutcome { Succeeded, InfrastructureFailed }
+public enum SubmissionExecutionStatus { Completed, InfrastructureFailed }
 
-public sealed record DeterministicExecutionResult(
-    DeterministicExecutionOutcome Outcome,
-    InfrastructureFailureKind? FailureKind = null);
+public sealed record SubmissionExecutionResult(
+    SubmissionExecutionStatus Status,
+    JudgingOutcome? Outcome = null,
+    InfrastructureFailureKind? FailureKind = null)
+{
+    public static SubmissionExecutionResult Completed(JudgingOutcome outcome) =>
+        new(SubmissionExecutionStatus.Completed, outcome);
+
+    public static SubmissionExecutionResult InfrastructureFailed(InfrastructureFailureKind kind = InfrastructureFailureKind.ExecutorFailure) =>
+        new(SubmissionExecutionStatus.InfrastructureFailed, null, kind);
+}

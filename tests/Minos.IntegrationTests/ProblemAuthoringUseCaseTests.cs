@@ -117,6 +117,8 @@ public sealed class ProblemAuthoringUseCaseTests
             if (FailVerification) throw new ArtifactValidationException("invalid");
             return Task.CompletedTask;
         }
+        public Task<byte[]> ReadVerifiedAsync(ProblemArtifactReference artifact, CancellationToken token) =>
+            Task.FromResult(Array.Empty<byte>());
         public Task DeleteAsync(IEnumerable<string> keys, CancellationToken token)
         {
             Deleted.AddRange(keys);

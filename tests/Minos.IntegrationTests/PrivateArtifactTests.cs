@@ -3,6 +3,11 @@ using Minos.Infrastructure.Hosting;
 using Xunit;
 using System.Security.AccessControl;
 using System.Security.Principal;
+using System.IO.Compression;
+using Microsoft.Extensions.DependencyInjection;
+using Minos.Application;
+using Minos.Application.Problems;
+using Minos.Infrastructure;
 
 namespace Minos.IntegrationTests;
 
@@ -99,5 +104,42 @@ public sealed class PrivateArtifactTests
             Directory.Delete(privateRoot);
         }
         finally { parent.Delete(); }
+    }
+
+    [Fact(Skip = "Linux artifact link validation runs on Linux.", SkipUnless = nameof(IsLinux))]
+    public async Task Verified_test_reads_reject_changed_files_and_symbolic_links()
+    {
+        if (!OperatingSystem.IsLinux()) return;
+        var directory = Directory.CreateTempSubdirectory("minos-verified-artifacts-");
+        try
+        {
+            File.SetUnixFileMode(directory.FullName, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            var services = new ServiceCollection();
+            services.AddMinosInfrastructure("Host=localhost;Database=unused;Username=unused");
+            services.AddSingleton(new PrivateArtifactDirectory(directory.FullName, ArchitectureTests.Repository));
+            await using var provider = services.BuildServiceProvider();
+            var store = provider.GetRequiredService<IProblemArtifactStore>();
+            var token = TestContext.Current.CancellationToken;
+            using var package = new MemoryStream();
+            using (var archive = new ZipArchive(package, ZipArchiveMode.Create, true))
+                foreach (var name in new[] { "input.txt", "output.txt" })
+                    await using (var stream = archive.CreateEntry(name).Open())
+                        await stream.WriteAsync("42\n"u8.ToArray(), token);
+            package.Position = 0;
+            var stored = await store.StorePackageAsync(package, token);
+            Assert.Equal("42\n"u8.ToArray(), await store.ReadVerifiedAsync(stored.Input, token));
+            var path = Path.Combine(directory.FullName, "problem-artifacts", stored.Input.Key);
+            await File.WriteAllTextAsync(path, "99\n", token);
+            await Assert.ThrowsAsync<ArtifactValidationException>(() => store.ReadVerifiedAsync(stored.Input, token));
+            await File.WriteAllTextAsync(path, "oversized", token);
+            await Assert.ThrowsAsync<ArtifactValidationException>(() => store.ReadVerifiedAsync(stored.Input, token));
+            File.Delete(path);
+            var outside = Path.Combine(directory.FullName, "unmanaged.bin");
+            await File.WriteAllTextAsync(outside, "42\n", token);
+            File.CreateSymbolicLink(path, outside);
+            await Assert.ThrowsAsync<ArtifactValidationException>(() => store.ReadVerifiedAsync(stored.Input, token));
+            File.Delete(path);
+        }
+        finally { directory.Delete(true); }
     }
 }

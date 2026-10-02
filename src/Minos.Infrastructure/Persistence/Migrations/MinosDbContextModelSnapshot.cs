@@ -366,16 +366,119 @@ namespace Minos.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("attempt_id");
 
+                    b.Property<string>("CompilerDiagnostics")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("compiler_diagnostics");
+
                     b.Property<DateTimeOffset>("CompletedAtUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("completed_at_utc");
+
+                    b.Property<long?>("MaximumCpuTimeMilliseconds")
+                        .HasColumnType("bigint")
+                        .HasColumnName("maximum_cpu_time_ms");
+
+                    b.Property<long?>("MaximumMemoryBytes")
+                        .HasColumnType("bigint")
+                        .HasColumnName("maximum_memory_bytes");
+
+                    b.Property<long?>("MaximumWallTimeMilliseconds")
+                        .HasColumnType("bigint")
+                        .HasColumnName("maximum_wall_time_ms");
+
+                    b.Property<int?>("Verdict")
+                        .HasColumnType("integer")
+                        .HasColumnName("verdict");
 
                     b.HasKey("SubmissionId");
 
                     b.HasIndex("AttemptId")
                         .IsUnique();
 
-                    b.ToTable("submission_results", "evaluation");
+                    b.ToTable("submission_results", "evaluation", t =>
+                        {
+                            t.HasCheckConstraint("ck_submission_results_diagnostics", "octet_length(compiler_diagnostics) <= 32768");
+
+                            t.HasCheckConstraint("ck_submission_results_summary", "(verdict IS NULL AND maximum_cpu_time_ms IS NULL AND maximum_wall_time_ms IS NULL AND maximum_memory_bytes IS NULL AND compiler_diagnostics = '') OR (verdict = 2 AND maximum_cpu_time_ms IS NULL AND maximum_wall_time_ms IS NULL AND maximum_memory_bytes IS NULL) OR (verdict IS NOT NULL AND verdict <> 2 AND maximum_cpu_time_ms IS NOT NULL AND maximum_cpu_time_ms >= 0 AND maximum_wall_time_ms IS NOT NULL AND maximum_wall_time_ms >= 0 AND maximum_memory_bytes IS NOT NULL AND maximum_memory_bytes >= 0 AND compiler_diagnostics = '')");
+
+                            t.HasCheckConstraint("ck_submission_results_verdict", "verdict IS NULL OR verdict BETWEEN 0 AND 6");
+                        });
+                });
+
+            modelBuilder.Entity("Minos.Domain.Evaluation.TestCaseResult", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AttemptId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("attempt_id");
+
+                    b.Property<bool>("CpuLimit")
+                        .HasColumnType("boolean")
+                        .HasColumnName("cpu_limit");
+
+                    b.Property<long?>("CpuTimeMilliseconds")
+                        .HasColumnType("bigint")
+                        .HasColumnName("cpu_time_ms");
+
+                    b.Property<int?>("ExitCode")
+                        .HasColumnType("integer")
+                        .HasColumnName("exit_code");
+
+                    b.Property<bool>("MemoryFailure")
+                        .HasColumnType("boolean")
+                        .HasColumnName("memory_failure");
+
+                    b.Property<long?>("MemoryPeakBytes")
+                        .HasColumnType("bigint")
+                        .HasColumnName("memory_peak_bytes");
+
+                    b.Property<int>("Order")
+                        .HasColumnType("integer")
+                        .HasColumnName("test_order");
+
+                    b.Property<bool>("OutputLimit")
+                        .HasColumnType("boolean")
+                        .HasColumnName("output_limit");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer")
+                        .HasColumnName("status");
+
+                    b.Property<Guid>("SubmissionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("submission_id");
+
+                    b.Property<long?>("WallTimeMilliseconds")
+                        .HasColumnType("bigint")
+                        .HasColumnName("wall_time_ms");
+
+                    b.Property<bool>("WallTimeout")
+                        .HasColumnType("boolean")
+                        .HasColumnName("wall_timeout");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AttemptId");
+
+                    b.HasIndex("SubmissionId", "AttemptId");
+
+                    b.HasIndex("SubmissionId", "Order")
+                        .IsUnique();
+
+                    b.ToTable("test_case_results", "evaluation", t =>
+                        {
+                            t.HasCheckConstraint("ck_test_case_results_execution", "(status = 0 AND exit_code IS NULL AND NOT wall_timeout AND NOT cpu_limit AND NOT memory_failure AND NOT output_limit) OR (status <> 0 AND exit_code IS NOT NULL)");
+
+                            t.HasCheckConstraint("ck_test_case_results_measurements", "(status = 0 AND cpu_time_ms IS NULL AND wall_time_ms IS NULL AND memory_peak_bytes IS NULL) OR (status <> 0 AND cpu_time_ms IS NOT NULL AND cpu_time_ms >= 0 AND wall_time_ms IS NOT NULL AND wall_time_ms >= 0 AND memory_peak_bytes IS NOT NULL AND memory_peak_bytes >= 0)");
+
+                            t.HasCheckConstraint("ck_test_case_results_order", "test_order > 0");
+
+                            t.HasCheckConstraint("ck_test_case_results_status", "status BETWEEN 0 AND 6");
+                        });
                 });
 
             modelBuilder.Entity("Minos.Domain.Problems.Problem", b =>
@@ -850,6 +953,22 @@ namespace Minos.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Minos.Domain.Evaluation.TestCaseResult", b =>
+                {
+                    b.HasOne("Minos.Domain.Evaluation.JudgingAttempt", null)
+                        .WithMany()
+                        .HasForeignKey("AttemptId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Minos.Domain.Evaluation.SubmissionResult", null)
+                        .WithMany("TestCaseResults")
+                        .HasForeignKey("SubmissionId", "AttemptId")
+                        .HasPrincipalKey("SubmissionId", "AttemptId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Minos.Domain.Problems.Problem", b =>
                 {
                     b.HasOne("Minos.Domain.Accounts.Account", null)
@@ -1045,6 +1164,11 @@ namespace Minos.Infrastructure.Persistence.Migrations
                         .HasForeignKey("Minos.Infrastructure.Accounts.CredentialUser", "Id")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("Minos.Domain.Evaluation.SubmissionResult", b =>
+                {
+                    b.Navigation("TestCaseResults");
                 });
 
             modelBuilder.Entity("Minos.Domain.Problems.Problem", b =>

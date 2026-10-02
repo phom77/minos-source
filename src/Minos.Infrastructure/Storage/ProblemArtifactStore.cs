@@ -83,10 +83,40 @@ internal sealed class ProblemArtifactStore : IProblemArtifactStore
                 new FileInfo(path).Length != artifact.SizeBytes)
                 throw new ArtifactValidationException("A required private test artifact is missing or invalid.");
             await using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 81920, FileOptions.Asynchronous | FileOptions.SequentialScan);
-            var checksum = Convert.ToHexString(await SHA256.HashDataAsync(stream, token)).ToLowerInvariant();
-            if (!CryptographicOperations.FixedTimeEquals(Convert.FromHexString(checksum), Convert.FromHexString(artifact.Sha256)))
+            using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+            var buffer = new byte[81920];
+            long total = 0;
+            int count;
+            while ((count = await stream.ReadAsync(buffer, token)) != 0)
+            {
+                total += count;
+                if (total > artifact.SizeBytes)
+                    throw new ArtifactValidationException("A required private test artifact is missing or invalid.");
+                hash.AppendData(buffer, 0, count);
+            }
+            if (total != artifact.SizeBytes ||
+                !CryptographicOperations.FixedTimeEquals(hash.GetHashAndReset(), Convert.FromHexString(artifact.Sha256)))
                 throw new ArtifactValidationException("A required private test artifact is missing or invalid.");
         }
+    }
+
+    public async Task<byte[]> ReadVerifiedAsync(ProblemArtifactReference artifact, CancellationToken token)
+    {
+        var path = ResolveKey(artifact.Key);
+        if (!File.Exists(path) || (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0 ||
+            new FileInfo(path).Length != artifact.SizeBytes)
+            throw new ArtifactValidationException("A required private test artifact is missing or invalid.");
+        await using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read,
+            81920, FileOptions.Asynchronous | FileOptions.SequentialScan);
+        var content = new byte[checked((int)artifact.SizeBytes)];
+        try { await stream.ReadExactlyAsync(content, token); }
+        catch (EndOfStreamException) { throw new ArtifactValidationException("A required private test artifact is missing or invalid."); }
+        if (await stream.ReadAsync(new byte[1], token) != 0)
+            throw new ArtifactValidationException("A required private test artifact is missing or invalid.");
+        var checksum = SHA256.HashData(content);
+        if (!CryptographicOperations.FixedTimeEquals(checksum, Convert.FromHexString(artifact.Sha256)))
+            throw new ArtifactValidationException("A required private test artifact is missing or invalid.");
+        return content;
     }
 
     public Task DeleteAsync(IEnumerable<string> keys, CancellationToken token)
@@ -166,9 +196,9 @@ internal sealed class ProblemArtifactStore : IProblemArtifactStore
         var path = Path.GetFullPath(Path.Combine(artifactRoot, parts[0], parts[1], parts[2]));
         if (!path.StartsWith(testsRoot + Path.DirectorySeparatorChar, PathComparison()))
             throw new ArtifactValidationException("Artifact key is invalid.");
-        var directory = Path.GetDirectoryName(path)!;
-        if (Directory.Exists(directory) && (new DirectoryInfo(directory).Attributes & FileAttributes.ReparsePoint) != 0)
-            throw new ArtifactValidationException("Artifact storage contains an unsafe path.");
+        foreach (var directory in new[] { artifactRoot, testsRoot, Path.GetDirectoryName(path)! })
+            if (Directory.Exists(directory) && (new DirectoryInfo(directory).Attributes & FileAttributes.ReparsePoint) != 0)
+                throw new ArtifactValidationException("Artifact storage contains an unsafe path.");
         return path;
     }
 

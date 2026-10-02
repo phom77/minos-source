@@ -48,13 +48,59 @@ internal sealed class SubmissionResultConfiguration : IEntityTypeConfiguration<S
 {
     public void Configure(EntityTypeBuilder<SubmissionResult> result)
     {
-        result.ToTable("submission_results", "evaluation");
+        result.ToTable("submission_results", "evaluation", table =>
+        {
+            table.HasCheckConstraint("ck_submission_results_verdict", "verdict IS NULL OR verdict BETWEEN 0 AND 6");
+            table.HasCheckConstraint("ck_submission_results_diagnostics", $"octet_length(compiler_diagnostics) <= {JudgingOutcome.MaximumCompilerDiagnosticsBytes}");
+            table.HasCheckConstraint("ck_submission_results_summary", "(verdict IS NULL AND maximum_cpu_time_ms IS NULL AND maximum_wall_time_ms IS NULL AND maximum_memory_bytes IS NULL AND compiler_diagnostics = '') OR (verdict = 2 AND maximum_cpu_time_ms IS NULL AND maximum_wall_time_ms IS NULL AND maximum_memory_bytes IS NULL) OR (verdict IS NOT NULL AND verdict <> 2 AND maximum_cpu_time_ms IS NOT NULL AND maximum_cpu_time_ms >= 0 AND maximum_wall_time_ms IS NOT NULL AND maximum_wall_time_ms >= 0 AND maximum_memory_bytes IS NOT NULL AND maximum_memory_bytes >= 0 AND compiler_diagnostics = '')");
+        });
         result.HasKey(x => x.SubmissionId);
+        result.HasAlternateKey(x => new { x.SubmissionId, x.AttemptId });
         result.Property(x => x.SubmissionId).HasColumnName("submission_id").ValueGeneratedNever();
         result.HasOne<Submission>().WithOne().HasForeignKey<SubmissionResult>(x => x.SubmissionId).OnDelete(DeleteBehavior.Restrict);
         result.Property(x => x.AttemptId).HasColumnName("attempt_id").IsRequired();
         result.HasOne<JudgingAttempt>().WithOne().HasForeignKey<SubmissionResult>(x => x.AttemptId).OnDelete(DeleteBehavior.Restrict);
         result.HasIndex(x => x.AttemptId).IsUnique();
+        result.Property(x => x.Verdict).HasColumnName("verdict").HasConversion<int?>();
+        result.Property(x => x.CompilerDiagnostics).HasColumnName("compiler_diagnostics").HasColumnType("text").IsRequired();
+        result.Property(x => x.MaximumCpuTimeMilliseconds).HasColumnName("maximum_cpu_time_ms");
+        result.Property(x => x.MaximumWallTimeMilliseconds).HasColumnName("maximum_wall_time_ms");
+        result.Property(x => x.MaximumMemoryBytes).HasColumnName("maximum_memory_bytes");
         result.Property(x => x.CompletedAtUtc).HasColumnName("completed_at_utc").IsRequired();
+        result.HasMany(x => x.TestCaseResults).WithOne()
+            .HasForeignKey(x => new { x.SubmissionId, x.AttemptId })
+            .HasPrincipalKey(x => new { x.SubmissionId, x.AttemptId }).OnDelete(DeleteBehavior.Restrict);
+        result.Navigation(x => x.TestCaseResults).UsePropertyAccessMode(PropertyAccessMode.Field);
+    }
+}
+
+internal sealed class TestCaseResultConfiguration : IEntityTypeConfiguration<TestCaseResult>
+{
+    public void Configure(EntityTypeBuilder<TestCaseResult> test)
+    {
+        test.ToTable("test_case_results", "evaluation", table =>
+        {
+            table.HasCheckConstraint("ck_test_case_results_order", "test_order > 0");
+            table.HasCheckConstraint("ck_test_case_results_status", "status BETWEEN 0 AND 6");
+            table.HasCheckConstraint("ck_test_case_results_measurements", "(status = 0 AND cpu_time_ms IS NULL AND wall_time_ms IS NULL AND memory_peak_bytes IS NULL) OR (status <> 0 AND cpu_time_ms IS NOT NULL AND cpu_time_ms >= 0 AND wall_time_ms IS NOT NULL AND wall_time_ms >= 0 AND memory_peak_bytes IS NOT NULL AND memory_peak_bytes >= 0)");
+            table.HasCheckConstraint("ck_test_case_results_execution", "(status = 0 AND exit_code IS NULL AND NOT wall_timeout AND NOT cpu_limit AND NOT memory_failure AND NOT output_limit) OR (status <> 0 AND exit_code IS NOT NULL)");
+        });
+        test.HasKey(x => x.Id);
+        test.Property(x => x.Id).HasColumnName("id").ValueGeneratedNever();
+        test.Property(x => x.SubmissionId).HasColumnName("submission_id").IsRequired();
+        test.Property(x => x.AttemptId).HasColumnName("attempt_id").IsRequired();
+        test.HasOne<JudgingAttempt>().WithMany().HasForeignKey(x => x.AttemptId).OnDelete(DeleteBehavior.Restrict);
+        test.Property(x => x.Order).HasColumnName("test_order").IsRequired();
+        test.Property(x => x.Status).HasColumnName("status").HasConversion<int>().IsRequired();
+        test.Property(x => x.CpuTimeMilliseconds).HasColumnName("cpu_time_ms");
+        test.Property(x => x.WallTimeMilliseconds).HasColumnName("wall_time_ms");
+        test.Property(x => x.MemoryPeakBytes).HasColumnName("memory_peak_bytes");
+        test.Property(x => x.ExitCode).HasColumnName("exit_code");
+        test.Property(x => x.WallTimeout).HasColumnName("wall_timeout").IsRequired();
+        test.Property(x => x.CpuLimit).HasColumnName("cpu_limit").IsRequired();
+        test.Property(x => x.MemoryFailure).HasColumnName("memory_failure").IsRequired();
+        test.Property(x => x.OutputLimit).HasColumnName("output_limit").IsRequired();
+        test.HasIndex(x => new { x.SubmissionId, x.Order }).IsUnique();
+        test.HasIndex(x => x.AttemptId);
     }
 }

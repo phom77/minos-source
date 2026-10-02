@@ -5,8 +5,9 @@ namespace Minos.Application.Evaluation;
 public interface ISubmissionRepository
 {
     Task<bool> AdmitAsync(Submission submission, JudgeJob job, int maximumActive, CancellationToken token);
-    Task<(Submission Submission, IReadOnlyList<JudgingAttempt> Attempts)?> FindAsync(Guid id, CancellationToken token);
-    Task<(IReadOnlyList<Submission> Items, int Total)> ListByOwnerAsync(Guid ownerAccountId, int offset, int limit, CancellationToken token);
+    Task<(Submission Submission, IReadOnlyList<JudgingAttempt> Attempts, SubmissionResult? Result)?> FindAsync(Guid id, CancellationToken token);
+    Task<(IReadOnlyList<(Submission Submission, SubmissionVerdict? Verdict)> Items, int Total)> ListByOwnerAsync(
+        Guid ownerAccountId, int offset, int limit, CancellationToken token);
 }
 
 public interface IJudgeJobRepository
@@ -15,7 +16,12 @@ public interface IJudgeJobRepository
     Task<LeaseMutationResult> RenewAsync(
         Guid attemptId, Guid leaseToken, string workerId, DateTimeOffset nowUtc, CancellationToken token);
     Task<LeaseMutationResult> CompleteAsync(
-        Guid attemptId, Guid leaseToken, string workerId, DateTimeOffset nowUtc, CancellationToken token);
+        Guid attemptId,
+        Guid leaseToken,
+        string workerId,
+        JudgingOutcome outcome,
+        DateTimeOffset nowUtc,
+        CancellationToken token);
     Task<AttemptFailureResult> FailAsync(
         Guid attemptId,
         Guid leaseToken,
@@ -27,5 +33,5 @@ public interface IJudgeJobRepository
 
 public interface ISubmissionExecutor
 {
-    Task<DeterministicExecutionResult> ExecuteAsync(ClaimedSubmissionWork work, CancellationToken token);
+    Task<SubmissionExecutionResult> ExecuteAsync(ClaimedSubmissionWork work, CancellationToken token);
 }

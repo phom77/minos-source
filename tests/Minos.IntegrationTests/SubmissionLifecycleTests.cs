@@ -187,7 +187,7 @@ public sealed class SubmissionLifecycleTests
         {
             var repository = duplicateScope.ServiceProvider.GetRequiredService<IJudgeJobRepository>();
             Assert.Equal(LeaseMutationResult.Accepted,
-                await repository.CompleteAsync(work.AttemptId, work.LeaseToken, work.WorkerId, now.AddSeconds(1), token));
+                await repository.CompleteAsync(work.AttemptId, work.LeaseToken, work.WorkerId, AcceptedOutcome(), now.AddSeconds(1), token));
         }
 
         await using var database = PostgresPrivilegeTests.Database(PostgresPrivilegeTests.Connection("MINOS_TEST_MIGRATION_CONNECTION"));
@@ -226,10 +226,10 @@ public sealed class SubmissionLifecycleTests
         {
             var repository = scope.ServiceProvider.GetRequiredService<IJudgeJobRepository>();
             Assert.Equal(LeaseMutationResult.Stale,
-                await repository.CompleteAsync(first.AttemptId, first.LeaseToken, first.WorkerId, now.AddSeconds(33), token));
+                await repository.CompleteAsync(first.AttemptId, first.LeaseToken, first.WorkerId, AcceptedOutcome(), now.AddSeconds(33), token));
             Assert.Equal(LeaseMutationResult.Accepted,
                 await repository.CompleteAsync(replacement.AttemptId, replacement.LeaseToken, replacement.WorkerId,
-                    now.AddSeconds(33), token));
+                    AcceptedOutcome(), now.AddSeconds(33), token));
         }
 
         await using var database = PostgresPrivilegeTests.Database(PostgresPrivilegeTests.Connection("MINOS_TEST_MIGRATION_CONNECTION"));
@@ -271,7 +271,7 @@ public sealed class SubmissionLifecycleTests
     }
 
     [Fact]
-    public async Task M5_upgrade_preserves_published_M4_problem_and_adds_evaluation_schema()
+    public async Task M6_upgrade_preserves_published_problem_and_truthfully_retains_M5_lifecycle_result()
     {
         var token = TestContext.Current.CancellationToken;
         var name = $"minos_m5_upgrade_{Guid.NewGuid():N}";
@@ -300,11 +300,37 @@ public sealed class SubmissionLifecycleTests
             database.PublishedProblemVersions.Add(problem.Version);
             await database.SaveChangesAsync(token);
 
+            await database.GetService<IMigrator>().MigrateAsync("20260924174220_M5SubmissionJobs", token);
+            var submissionId = Guid.NewGuid();
+            var jobId = Guid.NewGuid();
+            var attemptId = Guid.NewGuid();
+            var leaseToken = Guid.NewGuid();
+            var completed = DateTimeOffset.UtcNow;
+            await database.Database.ExecuteSqlInterpolatedAsync($$"""
+                INSERT INTO evaluation.submissions
+                    (id,owner_account_id,problem_id,problem_version_id,language,toolchain_id,source,status,created_at_utc)
+                VALUES ({{submissionId}},{{account.Id}},{{problem.Problem.Id}},{{problem.Version.Id}},'cpp20',{{SupportedSubmission.ToolchainId}},'int main(){}',0,{{completed}});
+                INSERT INTO evaluation.judge_jobs
+                    (id,submission_id,status,attempt_count,available_at_utc,created_at_utc,updated_at_utc)
+                VALUES ({{jobId}},{{submissionId}},0,1,{{completed}},{{completed}},{{completed}});
+                INSERT INTO evaluation.judging_attempts
+                    (id,judge_job_id,submission_id,attempt_number,lease_token,worker_id,status,started_at_utc,lease_expires_at_utc,finished_at_utc)
+                VALUES ({{attemptId}},{{jobId}},{{submissionId}},1,{{leaseToken}},'m5-worker',1,{{completed.AddSeconds(-1)}},{{completed.AddSeconds(29)}},{{completed}});
+                UPDATE evaluation.judge_jobs SET status=2,completed_attempt_id={{attemptId}} WHERE id={{jobId}};
+                UPDATE evaluation.submissions SET status=2,completed_attempt_id={{attemptId}},completed_at_utc={{completed}} WHERE id={{submissionId}};
+                INSERT INTO evaluation.submission_results (submission_id,attempt_id,completed_at_utc)
+                VALUES ({{submissionId}},{{attemptId}},{{completed}});
+                """, token);
+
             await database.Database.MigrateAsync(token);
             database.ChangeTracker.Clear();
             Assert.Equal("M5 problem", (await database.PublishedProblemVersions
                 .SingleAsync(version => version.Id == problem.Version.Id, token)).Title);
-            Assert.Equal(0, await database.Submissions.CountAsync(token));
+            Assert.Equal(1, await database.Submissions.CountAsync(token));
+            var legacy = await database.SubmissionResults.SingleAsync(result => result.SubmissionId == submissionId, token);
+            Assert.Null(legacy.Verdict);
+            Assert.Empty(legacy.CompilerDiagnostics);
+            Assert.Empty(await database.TestCaseResults.Where(result => result.SubmissionId == submissionId).ToArrayAsync(token));
             Assert.Empty(await database.Database.GetPendingMigrationsAsync(token));
         }
         finally
@@ -386,6 +412,7 @@ public sealed class SubmissionLifecycleTests
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddMinosInfrastructure(PostgresPrivilegeTests.Connection("MINOS_TEST_WORKER_CONNECTION"));
+        services.AddScoped<ISubmissionExecutor, SuccessfulExecutor>();
         return services.BuildServiceProvider();
     }
 
@@ -399,7 +426,7 @@ public sealed class SubmissionLifecycleTests
             var work = await repository.ClaimNextAsync("drain-worker", now, token);
             if (work is null) return;
             Assert.Equal(LeaseMutationResult.Accepted,
-                await repository.CompleteAsync(work.AttemptId, work.LeaseToken, work.WorkerId, now.AddMilliseconds(1), token));
+                await repository.CompleteAsync(work.AttemptId, work.LeaseToken, work.WorkerId, AcceptedOutcome(), now.AddMilliseconds(1), token));
             now = now.AddMilliseconds(2);
         }
         throw new InvalidOperationException("Unexpected number of pending M5 test jobs.");
@@ -410,5 +437,16 @@ public sealed class SubmissionLifecycleTests
         await using var database = PostgresPrivilegeTests.Database(PostgresPrivilegeTests.Connection("MINOS_TEST_MIGRATION_CONNECTION"));
         return await database.JudgingAttempts.Where(attempt => attempt.Id == attemptId)
             .Select(attempt => attempt.AttemptNumber).SingleAsync(token);
+    }
+
+    private static JudgingOutcome AcceptedOutcome() => JudgingOutcome.Create(
+        SubmissionVerdict.Accepted,
+        "",
+        [new(1, TestCaseResultStatus.Passed, 1, 1, 1024, 0)]);
+
+    private sealed class SuccessfulExecutor : ISubmissionExecutor
+    {
+        public Task<SubmissionExecutionResult> ExecuteAsync(ClaimedSubmissionWork work, CancellationToken token) =>
+            Task.FromResult(SubmissionExecutionResult.Completed(AcceptedOutcome()));
     }
 }

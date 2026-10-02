@@ -29,7 +29,25 @@ cleanup() {
     else failed=1; fi
     return "$failed"
 }
-finish() { local status=$?; trap - EXIT; cleanup || status=1; exit "$status"; }
+finish() {
+    local status=$?
+    trap - EXIT
+    if [[ "$status" != 0 && -f "$workspace/m6-worker.log" ]]; then
+        printf '%s\n' '--- M6 Worker diagnostics ---' >&2
+        python3 - "$workspace/m6-worker.log" <<'PY' >&2
+import json, sys
+events = []
+for line in open(sys.argv[1]):
+    try: event = json.loads(line)
+    except ValueError: continue
+    if event.get('Category', '').startswith('Minos.'):
+        events.append(event.get('Message', ''))
+for event in events[-30:]: print(event)
+PY
+    fi
+    cleanup || status=1
+    exit "$status"
+}
 trap finish EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
@@ -64,6 +82,7 @@ export MINOS_TEST_WORKER_CONNECTION="Host=$workspace/socket;Database=minos;Usern
 export MINOS_TEST_BOOTSTRAP_CONNECTION="Host=$workspace/socket;Database=minos;Username=minos_bootstrap;Password=$password;Timeout=3"
 export Minos__Artifacts__Root="$workspace/private-artifacts"
 export Authentication__Google__Enabled=false
+export MINOS_TEST_SANDBOX="${MINOS_TEST_SANDBOX:-1}"
 # Provider tests explicitly enable a fake backchannel; local secrets never enable real Google here.
 unset Authentication__Google__ClientId Authentication__Google__ClientSecret
 # Build a clean source export, excluding prior outputs and execution spikes. CI uses this exact pipeline.
@@ -87,10 +106,10 @@ if [[ -n "${MINOS_TEST_FILTER:-}" ]]; then test_filter=(--filter "$MINOS_TEST_FI
 ConnectionStrings__Minos="$MINOS_TEST_WORKER_CONNECTION" "$dotnet_command" "$worker_dll" --check > "$workspace/worker-check.log" 2>&1
 grep -q 'worker_foundation=passed' "$workspace/worker-check.log"
 printf 'worker_foundation=passed\n'
-# Prove the M5 Worker remains hosted until cancellation, then shuts down cleanly.
+# Prove the Worker remains hosted until cancellation, then shuts down cleanly.
 ConnectionStrings__Minos="$MINOS_TEST_WORKER_CONNECTION" "$dotnet_command" "$worker_dll" > "$workspace/worker-host.log" 2>&1 &
 worker_pid=$!
-for attempt in {1..120}; do
+for attempt in {1..240}; do
     kill -0 "$worker_pid"
     if grep -q 'Application started' "$workspace/worker-host.log"; then break; fi
     sleep 0.25
@@ -100,7 +119,6 @@ kill -0 "$worker_pid"
 kill -TERM "$worker_pid"
 wait "$worker_pid"
 printf 'worker_host_start_and_cancellation=passed\n'
-mkdir -m 700 "$workspace/api-private-artifacts"
 openssl req -x509 -newkey rsa:2048 -nodes -keyout "$workspace/tls.key" -out "$workspace/tls.crt" \
     -days 1 -subj /CN=localhost > "$workspace/tls.log" 2>&1
 openssl pkcs12 -export -out "$workspace/tls.pfx" -inkey "$workspace/tls.key" -in "$workspace/tls.crt" \
@@ -108,13 +126,13 @@ openssl pkcs12 -export -out "$workspace/tls.pfx" -inkey "$workspace/tls.key" -in
 (
 umask 022
 ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=https://127.0.0.1:0 Minos__EnableDevelopmentEndpoints=true \
-    Minos__Artifacts__Root="$workspace/api-private-artifacts" \
+    Minos__Artifacts__Root="$workspace/private-artifacts" \
     ASPNETCORE_Kestrel__Certificates__Default__Path="$workspace/tls.pfx" \
     exec "$dotnet_command" "$api_dll" > "$workspace/api.log" 2>&1
 ) &
 api_pid=$!
 api_url=''
-for attempt in {1..60}; do
+for attempt in {1..240}; do
     kill -0 "$api_pid"
     api_url="$(python3 -c 'import re,sys; m=re.search(r"Now listening on: (https://127\.0\.0\.1:[0-9]+)",open(sys.argv[1]).read()); print(m[1] if m else "")' "$workspace/api.log")"
     if [[ -n "$api_url" ]] && curl -kfsS "$api_url/health/ready" >/dev/null 2>&1; then break; fi
@@ -137,27 +155,146 @@ draft_id="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["id"
 curl -kfsS -X PUT -b "$workspace/cookies" -H "X-CSRF-TOKEN: $csrf" -H 'Content-Type: application/json' \
     -d '{"title":"A + B","statement":"Print the sum.","timeLimitMilliseconds":1000,"memoryLimitMegabytes":64,"checker":"Exact","samples":[{"input":"1 2\n","output":"3\n"}]}' \
     "$api_url/api/authoring/problems/$draft_id/draft" > "$workspace/configured.json"
-python3 - "$workspace/testcase.zip" <<'PY'
-import sys, zipfile
-with zipfile.ZipFile(sys.argv[1], 'w', zipfile.ZIP_DEFLATED) as archive:
-    archive.writestr('input.txt', '2 3\n')
-    archive.writestr('output.txt', '5\n')
+python3 - "$workspace" <<'PY'
+import pathlib, sys, zipfile
+for order, (input_text, output_text) in enumerate((('2 3\n','5\n'), ('19 23\n','42\n'), ('-7 10\n','3\n')), 1):
+    with zipfile.ZipFile(pathlib.Path(sys.argv[1]) / f'testcase-{order}.zip', 'w', zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr('input.txt', input_text)
+        archive.writestr('output.txt', output_text)
 PY
-curl -kfsS -b "$workspace/cookies" -H "X-CSRF-TOKEN: $csrf" -H 'Content-Type: application/zip' \
-    --data-binary "@$workspace/testcase.zip" "$api_url/api/authoring/problems/$draft_id/draft/tests" > "$workspace/uploaded.json"
+for order in 1 2 3; do
+    curl -kfsS -b "$workspace/cookies" -H "X-CSRF-TOKEN: $csrf" -H 'Content-Type: application/zip' \
+        --data-binary "@$workspace/testcase-$order.zip" "$api_url/api/authoring/problems/$draft_id/draft/tests" > "$workspace/uploaded.json"
+done
 curl -kfsS -b "$workspace/cookies" -H "X-CSRF-TOKEN: $csrf" -H 'Content-Type: application/json' \
     -d '{"statementReviewed":true,"samplesVerified":true,"referenceSolutionChecked":true}' \
     "$api_url/api/authoring/problems/$draft_id/publish" > "$workspace/published.json"
 version_id="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["versionId"])' "$workspace/published.json")"
 curl -kfsS "$api_url/api/problems/versions/$version_id" | python3 -c \
-    'import json,sys; r=json.load(sys.stdin); assert r["title"] == "A + B" and r["privateTestCount"] == 1 and "artifact" not in str(r).lower()'
+    'import json,sys; r=json.load(sys.stdin); assert r["title"] == "A + B" and r["privateTestCount"] == 3 and "artifact" not in str(r).lower()'
 test "$(curl -ksS -o /dev/null -w '%{http_code}' "$api_url/private-artifacts/any-file")" = 404
 printf 'real_http_problem_publication_and_private_storage=passed\n'
+# Exercise every official contestant verdict through the real API, durable queue, Worker,
+# pinned Docker toolchain, private artifacts, exact checker and committed result projection.
+python3 - "$workspace" <<'PY'
+import json, pathlib, sys
+root = pathlib.Path(sys.argv[1])
+sources = {
+    'accepted': '#include <iostream>\nint main(){long long a,b;if(std::cin>>a>>b)std::cout<<a+b<<"\\n";}\n',
+    'wrong': '#include <iostream>\nint main(){std::cout<<5<<"\\n";}\n',
+    'compile': 'int main(){ this is not valid C++; }\n',
+    'runtime': 'int main(){return 7;}\n',
+    'time': 'int main(){volatile unsigned long long n=0;for(;;)++n;}\n',
+    'memory': '#include <cstddef>\nint main(){volatile char* p=new char[128*1024*1024];for(std::size_t i=0;i<128*1024*1024;i+=4096)p[i]=1;}\n',
+    'output': '#include <iostream>\nint main(){for(;;)std::cout<<"xxxxxxxxxxxxxxxx";}\n',
+    'renewal': '#include <iostream>\n#include <unistd.h>\nint main(){long long a,b;std::cin>>a>>b;sleep(11);std::cout<<a+b<<"\\n";}\n',
+}
+for name, source in sources.items():
+    (root / f'{name}-request.json').write_text(json.dumps({'language':'cpp20','source':source}))
+PY
+ConnectionStrings__Minos="$MINOS_TEST_WORKER_CONNECTION" Minos__Artifacts__Root="$workspace/private-artifacts" \
+    "$dotnet_command" "$worker_dll" > "$workspace/m6-worker.log" 2>&1 &
+worker_pid=$!
+for attempt in {1..240}; do
+    kill -0 "$worker_pid"
+    if grep -q 'Application started' "$workspace/m6-worker.log"; then break; fi
+    sleep 0.25
+done
+grep -q 'Application started' "$workspace/m6-worker.log"
+# Demonstrate the normal solver flow, independently of the trusted author account.
+solver_csrf="$(curl -kfsS -c "$workspace/solver-cookies" -b "$workspace/solver-cookies" "$api_url/accounts/csrf" | python3 -c 'import json,sys; print(json.load(sys.stdin)["requestToken"])')"
+curl -kfsS -c "$workspace/solver-cookies" -b "$workspace/solver-cookies" -H "X-CSRF-TOKEN: $solver_csrf" -H 'Content-Type: application/json' \
+    -d '{"email":"solver@example.test","password":"correct horse battery staple","displayName":"Solver"}' "$api_url/accounts/register" > "$workspace/solver.json"
+solver_csrf="$(curl -kfsS -c "$workspace/solver-cookies" -b "$workspace/solver-cookies" "$api_url/accounts/csrf" | python3 -c 'import json,sys; print(json.load(sys.stdin)["requestToken"])')"
+read -r -a cases <<< "${MINOS_M6_CASES:-accepted wrong compile runtime time memory output}"
+declare -A verdicts=(
+    [accepted]=Accepted [wrong]=WrongAnswer [compile]=CompilationError [runtime]=RuntimeError
+    [time]=TimeLimitExceeded [memory]=MemoryLimitExceeded [output]=OutputLimitExceeded)
+declare -A statuses=(
+    [accepted]=Passed [wrong]=WrongAnswer [compile]=NotExecuted [runtime]=RuntimeError
+    [time]=TimeLimitExceeded [memory]=MemoryLimitExceeded [output]=OutputLimitExceeded)
+for case_name in "${cases[@]}"; do
+    curl -kfsS -b "$workspace/solver-cookies" -H "X-CSRF-TOKEN: $solver_csrf" -H 'Content-Type: application/json' \
+        --data-binary "@$workspace/$case_name-request.json" "$api_url/api/problems/$draft_id/submissions" \
+        > "$workspace/$case_name-created.json"
+    submission_id="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["id"])' "$workspace/$case_name-created.json")"
+    for attempt in {1..240}; do
+        kill -0 "$worker_pid"
+        curl -kfsS -b "$workspace/solver-cookies" "$api_url/api/submissions/$submission_id" > "$workspace/$case_name-result.json"
+        state="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["status"])' "$workspace/$case_name-result.json")"
+        if [[ "$state" = Completed || "$state" = SystemFailed ]]; then break; fi
+        sleep 0.25
+    done
+    python3 - "$workspace/$case_name-result.json" "${verdicts[$case_name]}" "${statuses[$case_name]}" "$version_id" <<'PY'
+import json, sys
+result = json.load(open(sys.argv[1]))
+expected_verdict, expected_status, version_id = sys.argv[2:]
+assert result['status'] == 'Completed', result
+assert result['problemVersionId'] == version_id
+assert result['result']['verdict'] == expected_verdict
+assert result['configuration'] == {'timeLimitMilliseconds':1000, 'memoryLimitMegabytes':64, 'checker':'Exact', 'testCount':3}
+statuses = [test['status'] for test in result['result']['tests']]
+if expected_verdict == 'Accepted': assert statuses == ['Passed'] * 3
+elif expected_verdict == 'WrongAnswer': assert statuses == ['Passed','WrongAnswer','NotExecuted']
+elif expected_verdict == 'CompilationError': assert statuses == ['NotExecuted'] * 3
+else: assert statuses == [expected_status,'NotExecuted','NotExecuted']
+assert result['result']['attemptId'] == result['attempts'][-1]['id']
+serialized = json.dumps(result['result']).lower()
+assert all(secret not in serialized for secret in ('stdout', 'stderr', 'expectedoutput', 'inputartifact', 'outputartifact'))
+if expected_verdict == 'CompilationError':
+    assert result['result']['compilerDiagnostics']
+    assert result['result']['maximumCpuTimeMilliseconds'] is None
+else:
+    assert result['result']['compilerDiagnostics'] == ''
+    assert result['result']['maximumCpuTimeMilliseconds'] is not None
+    assert result['result']['maximumMemoryBytes'] is not None
+PY
+done
+printf 'real_api_official_verdict_matrix=passed cases=%s\n' "${cases[*]}"
+# A real job outlasts the original 30-second lease. Three 11-second runs must finish
+# in one attempt while independent scopes renew the lease during compilation/execution.
+curl -kfsS -X PUT -b "$workspace/cookies" -H "X-CSRF-TOKEN: $csrf" -H 'Content-Type: application/json' \
+    -d '{"title":"A + B","statement":"Print the sum.","timeLimitMilliseconds":10000,"memoryLimitMegabytes":64,"checker":"Exact","samples":[{"input":"1 2\n","output":"3\n"}]}' \
+    "$api_url/api/authoring/problems/$draft_id/draft" > "$workspace/renewal-configured.json"
+curl -kfsS -b "$workspace/cookies" -H "X-CSRF-TOKEN: $csrf" -H 'Content-Type: application/json' \
+    -d '{"statementReviewed":true,"samplesVerified":true,"referenceSolutionChecked":true}' \
+    "$api_url/api/authoring/problems/$draft_id/publish" > "$workspace/renewal-published.json"
+curl -kfsS -b "$workspace/solver-cookies" -H "X-CSRF-TOKEN: $solver_csrf" -H 'Content-Type: application/json' \
+    --data-binary "@$workspace/renewal-request.json" "$api_url/api/problems/$draft_id/submissions" > "$workspace/renewal-created.json"
+submission_id="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["id"])' "$workspace/renewal-created.json")"
+for attempt in {1..480}; do
+    kill -0 "$worker_pid"
+    curl -kfsS -b "$workspace/solver-cookies" "$api_url/api/submissions/$submission_id" > "$workspace/renewal-result.json"
+    state="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["status"])' "$workspace/renewal-result.json")"
+    if [[ "$state" = Completed || "$state" = SystemFailed ]]; then break; fi
+    sleep 0.25
+done
+python3 - "$workspace/renewal-result.json" "$workspace/renewal-published.json" <<'PY'
+import datetime, json, sys
+r = json.load(open(sys.argv[1]))
+assert r['status'] == 'Completed' and r['result']['verdict'] == 'Accepted'
+assert len(r['attempts']) == 1 and all(t['status'] == 'Passed' for t in r['result']['tests']), r['attempts']
+assert r['problemVersionId'] == json.load(open(sys.argv[2]))['versionId']
+attempt = r['attempts'][0]
+elapsed = datetime.datetime.fromisoformat(attempt['finishedAtUtc']) - datetime.datetime.fromisoformat(attempt['startedAtUtc'])
+assert elapsed.total_seconds() > 30
+PY
+renewed="$(docker exec -i --env "PGPASSWORD=$worker_password" "$container" psql -X -At --set ON_ERROR_STOP=1 -U minos_worker -d minos \
+    --set "submission_id=$submission_id" <<'SQL'
+SELECT lease_expires_at_utc > started_at_utc + interval '30 seconds'
+FROM evaluation.judging_attempts WHERE submission_id = :'submission_id'::uuid;
+SQL
+)"
+test "$renewed" = t
+printf 'real_worker_long_running_lease_renewal=passed\n'
+kill -TERM "$worker_pid"
+wait "$worker_pid"
+worker_pid=''
 # Storage must affect readiness, without affecting liveness.
-chmod 755 "$workspace/api-private-artifacts"
+chmod 755 "$workspace/private-artifacts"
 test "$(curl -ksS -o /dev/null -w '%{http_code}' "$api_url/health/ready")" = 503
 curl -kfsS "$api_url/health/live" >/dev/null
-chmod 700 "$workspace/api-private-artifacts"
+chmod 700 "$workspace/private-artifacts"
 curl -kfsS "$api_url/health/ready" >/dev/null
 printf 'storage_privacy_readiness=passed\n'
 docker stop --time 5 "$container" >/dev/null

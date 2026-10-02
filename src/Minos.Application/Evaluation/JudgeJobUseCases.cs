@@ -18,7 +18,7 @@ public sealed class JudgeJobUseCases(
 
     public async Task<LeaseMutationResult> ProcessAsync(ClaimedSubmissionWork work, CancellationToken token)
     {
-        DeterministicExecutionResult result;
+        SubmissionExecutionResult result;
         try { result = await executor.ExecuteAsync(work, token); }
         catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
         catch
@@ -28,8 +28,11 @@ public sealed class JudgeJobUseCases(
             return disposition == AttemptFailureResult.Stale ? LeaseMutationResult.Stale : LeaseMutationResult.Accepted;
         }
 
-        if (result.Outcome == DeterministicExecutionOutcome.Succeeded)
-            return await jobs.CompleteAsync(work.AttemptId, work.LeaseToken, work.WorkerId, clock.GetUtcNow(), token);
+        if (result.Status == SubmissionExecutionStatus.Completed && result.Outcome is not null)
+        {
+            return await jobs.CompleteAsync(
+                work.AttemptId, work.LeaseToken, work.WorkerId, result.Outcome, clock.GetUtcNow(), token);
+        }
 
         var failure = await jobs.FailAsync(work.AttemptId, work.LeaseToken, work.WorkerId,
             result.FailureKind ?? InfrastructureFailureKind.ExecutorFailure, clock.GetUtcNow(), token);

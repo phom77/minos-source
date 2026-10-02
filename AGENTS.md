@@ -1,6 +1,6 @@
 # Minos engineering rules
 
-Minos is a single-developer personal project. Favor working application code and meaningful automated tests. Documentation records material decisions and evidence. M1–M5 are complete and approved; do not repeat their work without a concrete new correctness/security requirement. Stop before M6 until the project owner approves it.
+Minos is a single-developer personal project. Favor working application code and meaningful automated tests. Documentation records material decisions and evidence. M1–M5 are complete and approved; do not repeat their work without a concrete new correctness/security requirement. M6's approved verdict/checker/accounting recommendations are implemented and verified; M6 is complete. Stop before M7 until the project owner approves it.
 
 ## Production structure and dependencies
 
@@ -46,7 +46,9 @@ Use platform password hashing, OAuth state/correlation/PKCE and protected cookie
 
 `Submission` derives its owner from the active account and permanently pins the published problem version, supported language/toolchain and bounded source. Submission plus `JudgeJob` are admitted atomically in PostgreSQL. Jobs use short `SKIP LOCKED` claims, expiring leases, unique attempt tokens, bounded retries and guarded idempotent completion. Stale attempts never finalize a submission; retry exhaustion is SystemFailed without a contestant verdict. Owner detail may return source; history omits it and cross-account access is denied in Application.
 
-The M5 Worker uses a deterministic Infrastructure executor that never executes submitted source. Real compilation/execution, hidden-test access, checker behavior, per-test evidence, contestant verdicts and long-running lease renewal belong to M6. Manual rejudge remains deferred.
+The M6 Worker compiles once using the pinned C++20 toolchain and runs ordered private tests in fresh Docker sandboxes behind an Application execution port. Exact checking compares every byte. Stop at the first failed test and persist later tests as NotExecuted. Runtime precedence is OutputLimitExceeded, MemoryLimitExceeded, TimeLimitExceeded, RuntimeError, WrongAnswer, Accepted. Compilation failures require complete resource/exit/cleanup evidence. Missing artifacts, missing measurements, runner faults and cleanup failures follow the bounded infrastructure retry path, never a contestant verdict.
+
+The owner result exposes the accepted attempt, pinned configuration, bounded compiler diagnostics and per-test resource measurements. Hidden input, expected answers and runtime stdout/stderr are never returned. Per-test cgroup CPU includes descendants; wall time is a separate watchdog; summaries take the maximum executed-test CPU/wall/memory and exclude compilation. Worker renewal uses independent scopes and processing scopes survive cancellation until sandbox cleanup finishes. Preserve pre-M6 completion markers without fabricating verdicts. Trusted reference validation uses developer-run sandbox fixtures; no stored reference solution or new publication execution gate. Manual rejudge, broad retention and distributed execution remain deferred.
 
 Update these rules when accepted architecture changes. ADRs are for decisions materially affecting correctness, security or long-term evolution, not every implementation choice. No pilot enrollment/admin approval workflow without an explicit pilot decision.
 

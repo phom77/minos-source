@@ -13,6 +13,7 @@ public interface IProblemArtifactStore
 {
     Task<StoredProblemTestArtifacts> StorePackageAsync(Stream package, CancellationToken token);
     Task VerifyAsync(IEnumerable<ProblemArtifactReference> artifacts, CancellationToken token);
+    Task<byte[]> ReadVerifiedAsync(ProblemArtifactReference artifact, CancellationToken token);
     Task DeleteAsync(IEnumerable<string> keys, CancellationToken token);
     Task CleanupAbandonedAsync(IReadOnlySet<string> referencedKeys, DateTimeOffset olderThanUtc, CancellationToken token);
 }

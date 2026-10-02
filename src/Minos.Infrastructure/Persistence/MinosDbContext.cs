@@ -21,6 +21,7 @@ public sealed class MinosDbContext(DbContextOptions<MinosDbContext> options) : I
     public DbSet<JudgeJob> JudgeJobs => Set<JudgeJob>();
     public DbSet<JudgingAttempt> JudgingAttempts => Set<JudgingAttempt>();
     public DbSet<SubmissionResult> SubmissionResults => Set<SubmissionResult>();
+    public DbSet<TestCaseResult> TestCaseResults => Set<TestCaseResult>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -41,5 +42,6 @@ public sealed class MinosDbContext(DbContextOptions<MinosDbContext> options) : I
         modelBuilder.ApplyConfiguration(new JudgeJobConfiguration());
         modelBuilder.ApplyConfiguration(new JudgingAttemptConfiguration());
         modelBuilder.ApplyConfiguration(new SubmissionResultConfiguration());
+        modelBuilder.ApplyConfiguration(new TestCaseResultConfiguration());
     }
 }

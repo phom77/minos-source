@@ -1,7 +1,7 @@
 # Minos project design
 
 Date: 2026-09-13\
-Status: M0–M5 complete and approved; live Google smoke validation deferred; M6 requires approval
+Status: M0–M5 complete and approved; M6 implemented and verified; live Google smoke validation deferred
 
 Related documents: [M0 closure](m0-closure.md), [Decision register](decisions.md), [Implementation roadmap](implementation-plan.md)
 
@@ -68,7 +68,7 @@ Official judging is part of the first end-to-end MVP. Custom-input Run is deferr
 - The runner reports structured exit code, timeout, memory/resource failure, output limit, and infrastructure failure evidence.
 - Compilation is also isolated and bounded under D02.
 - Exact numeric limits are not fixed in M0; M1 validates/tunes bounded test values.
-- Final contestant verdict precedence and resource-accounting semantics remain M6 decisions.
+- M6 contestant verdict precedence and resource accounting are accepted in [ADR 0009](adr/0009-official-judging-and-evidence.md).
 
 See [ADR 0004](adr/0004-minimum-execution-safety-baseline.md). This baseline does not approve the later candidate verdict/accounting rules below.
 
@@ -215,7 +215,7 @@ These candidates guide later aggregate design; they are not a final class hierar
 | TestCase | Version-owned metadata | Stable order, private artifact references, verified content. |
 | Submission | M5 aggregate | Source, owner, toolchain and pinned problem version do not change after acceptance. |
 | JudgingAttempt | M5 separately persisted ownership record | Only the current authorized attempt can finalize the submission; execution evidence is added in M6. |
-| SubmissionResult | M5 authoritative completion marker; extended in M6 | One accepted attempt completes the lifecycle; verdict and resource summary are M6 data. |
+| SubmissionResult | M6 authoritative judging result | One accepted attempt owns the verdict and immutable per-test evidence/resource summary; pre-M6 markers retain a null verdict. |
 | TestCaseResult | Attempt-owned result record | A test failure remains distinct from an infrastructure fault. |
 | ExecutionRequest | Separate request model for custom runs | No official acceptance or solving credit. |
 | TimeLimit/MemoryLimit | Validated values with explicit units | Positive supported values; measurement semantics are documented. |
@@ -239,9 +239,9 @@ Judging -- retryable system fault ----> Pending, with failed attempt retained
 Pending/Judging -- retries exhausted -> SystemFailed, with no contestant verdict
 ```
 
-M5 persists the transition to Completed with a deterministic completion marker and no contestant verdict. M6 adds the verdict to the authoritative result. Compiling and Running can be attempt phases shown to clients without becoming permanent submission states. Queue scheduling and leases belong to jobs; execution diagnostics belong to attempts. Do not collapse all three lifecycles into one enum.
+M5 originally persisted Completed as a deterministic lifecycle marker. M6 adds real verdicts to authoritative results while preserving old markers without fabricated outcomes. Permanent submission states remain unchanged. Queue scheduling and leases belong to jobs; accepted execution evidence belongs to the result and its tests.
 
-### Outcome policy, proposed
+### Outcome policy, accepted in M6
 
 - Compilation Error: compilation fails for a contestant reason under the supported toolchain.
 - Accepted: all required tests pass.
@@ -250,7 +250,7 @@ M5 persists the transition to Completed with a deterministic completion marker a
 - Runtime Error: abnormal program termination that is not already explained by a more specific limit outcome.
 - SystemFailed: infrastructure cannot produce a trustworthy outcome after its retry policy.
 
-For the first release, sequential tests with first-failure stopping are proposed under D16. Store results for executed tests and represent remaining tests as not executed. Resolve overlapping limit/termination precedence before integrating official judging in M6.
+Sequential tests stop at the first failure; later tests are NotExecuted with null measurements. Exact checking compares every byte, including whitespace/newlines. Runtime precedence is OLE > MLE > TLE > RE > WA > AC. Compilation resource failures require complete evidence before producing CE. Missing artifacts, missing measurements, runner faults and cleanup failures use infrastructure retries/SystemFailed without a contestant verdict. Summaries use the maximum executed-test CPU, wall time and peak memory, excluding compilation. [ADR 0009](adr/0009-official-judging-and-evidence.md) defines the accounting and trusted development validation boundaries.
 
 Automatic interrupted-job recovery belongs to D07 and remains necessary. Manual rejudging/API workflows are deferred under D18. Preserve attempt evidence now; if rejudging is added, it must use explicit authorized attempts and a defined version policy. A completed result is not changed by an arbitrary late worker callback.
 
@@ -332,7 +332,7 @@ Retention policies must cover source, compiler diagnostics, test results, scratc
 
 ## 12. Initial Clean Architecture structure
 
-This layout is implemented in [Minos.sln](../Minos.sln). Accounts, Problems, and the M5 Evaluation lifecycle have application behavior; real execution and verdict behavior remain M6 work.
+This layout is implemented in [Minos.sln](../Minos.sln). Accounts, Problems and Evaluation have application behavior; M6 connects the durable lifecycle to the Docker adapter through backend-independent execution contracts.
 
 ```text
 Minos/
@@ -399,7 +399,7 @@ The adapter must enforce and demonstrate:
 - No network access or worker/application secrets.
 - No expected-answer files, other testcase files, host mounts, or container-management sockets in the contestant environment.
 - Fixed server-selected compiler arguments and executable paths; no user-controlled shell command construction.
-- Bounded wall time and CPU usage, memory, processes/threads, stdout/stderr, and aggregate writable scratch use. Numeric test bounds are tuned in M1; official resource-accounting semantics remain M6 work.
+- Bounded wall time and CPU usage, memory, processes/threads, stdout/stderr, and aggregate writable scratch use. M1 validated development bounds; [ADR 0009](adr/0009-official-judging-and-evidence.md) defines the implemented M6 accounting and limits.
 - Non-root contestant execution with unnecessary capabilities removed.
 - Bounded compilation time, memory, diagnostics, and generated artifacts.
 - Fresh writable scratch space and complete process-tree cleanup after every execution.

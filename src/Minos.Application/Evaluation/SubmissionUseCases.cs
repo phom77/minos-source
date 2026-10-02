@@ -27,7 +27,7 @@ public sealed class SubmissionUseCases(
         var job = JudgeJob.Create(submission.Id, submission.CreatedAtUtc);
         if (!await submissions.AdmitAsync(submission, job, SupportedSubmission.MaximumActivePerAccount, token))
             throw new AdmissionLimitExceededException();
-        return Map(submission, []);
+        return Map(submission, [], configuration: Configuration(version));
     }
 
     public async Task<SubmissionDetails> FindAsync(Guid id, CancellationToken token)
@@ -35,7 +35,9 @@ public sealed class SubmissionUseCases(
         var account = await accounts.RequireActiveAsync(token);
         var found = await submissions.FindAsync(id, token) ?? throw new ResourceNotFoundException();
         if (found.Submission.OwnerAccountId != account.Id) throw new AccessDeniedException();
-        return Map(found.Submission, found.Attempts);
+        var version = await problems.FindPublishedVersionAsync(found.Submission.ProblemVersionId, token)
+            ?? throw new InvalidOperationException("Pinned problem version is missing.");
+        return Map(found.Submission, found.Attempts, found.Result, Configuration(version));
     }
 
     public async Task<SubmissionPage> ListMineAsync(int page, int pageSize, CancellationToken token)
@@ -47,10 +49,14 @@ public sealed class SubmissionUseCases(
         var account = await accounts.RequireActiveAsync(token);
         var (items, total) = await submissions.ListByOwnerAsync(
             account.Id, (int)offset, pageSize, token);
-        return new(items.Select(MapSummary).ToArray(), page, pageSize, total);
+        return new(items.Select(item => MapSummary(item.Submission, item.Verdict)).ToArray(), page, pageSize, total);
     }
 
-    internal static SubmissionDetails Map(Submission submission, IReadOnlyList<JudgingAttempt> attempts) =>
+    internal static SubmissionDetails Map(
+        Submission submission,
+        IReadOnlyList<JudgingAttempt> attempts,
+        SubmissionResult? result = null,
+        SubmissionJudgingConfiguration? configuration = null) =>
         new(
             submission.Id,
             submission.ProblemId,
@@ -67,9 +73,26 @@ public sealed class SubmissionUseCases(
                 attempt.Status,
                 attempt.FailureKind,
                 attempt.StartedAtUtc,
-                attempt.FinishedAtUtc)).ToArray());
+                attempt.FinishedAtUtc)).ToArray(),
+            result is null ? null : new SubmissionResultDetails(
+                result.AttemptId,
+                result.Verdict,
+                result.CompilerDiagnostics,
+                result.MaximumCpuTimeMilliseconds,
+                result.MaximumWallTimeMilliseconds,
+                result.MaximumMemoryBytes,
+                result.CompletedAtUtc,
+                result.TestCaseResults.OrderBy(test => test.Order).Select(test => new SubmissionTestResultDetails(
+                    test.Order,
+                    test.Status,
+                    test.CpuTimeMilliseconds,
+                    test.WallTimeMilliseconds,
+                    test.MemoryPeakBytes)).ToArray()), configuration);
 
-    private static SubmissionSummary MapSummary(Submission submission) =>
-        new(submission.Id, submission.ProblemId, submission.ProblemVersionId, submission.Status,
+    private static SubmissionJudgingConfiguration Configuration(Minos.Domain.Problems.PublishedProblemVersion version) =>
+        new(version.TimeLimitMilliseconds, version.MemoryLimitMegabytes, version.Checker.ToString(), version.PrivateTestCount);
+
+    private static SubmissionSummary MapSummary(Submission submission, SubmissionVerdict? verdict) =>
+        new(submission.Id, submission.ProblemId, submission.ProblemVersionId, submission.Status, verdict,
             submission.CreatedAtUtc, submission.CompletedAtUtc);
 }

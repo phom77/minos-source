@@ -27,7 +27,8 @@ public static class DependencyInjection
         services.AddScoped<IProblemRepository, ProblemRepository>();
         services.AddScoped<ISubmissionRepository, SubmissionRepository>();
         services.AddScoped<IJudgeJobRepository, JudgeJobRepository>();
-        services.AddScoped<ISubmissionExecutor, DeterministicSubmissionExecutor>();
+        services.AddSingleton<IExecutionBackend, DockerExecutionBackend>();
+        services.AddScoped<ISubmissionExecutor, OfficialSubmissionExecutor>();
         services.AddScoped<JudgeJobUseCases>();
         services.AddSingleton<IProblemArtifactStore, ProblemArtifactStore>();
         services.AddSingleton(TimeProvider.System);
