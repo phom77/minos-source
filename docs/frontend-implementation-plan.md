@@ -1,6 +1,6 @@
 # Minos frontend implementation plan
 
-Status: Phase 1 implemented. Phase 2 implemented with automated and real-browser UI verification; live HTTPS cookie-session verification is pending because the API was unavailable during checks. Phase 3 onward remains planned.
+Status: Phases 1–3 implemented. Phase 3 adds the real public catalog and published-problem reader. At the owner's request, authentication now uses a popup and Google sign-in was pulled forward from Phase 4. Automated checks and real-browser UI checks are recorded in the frontend README. Live API/cookie/Google-consent verification remains pending while the development API returns 502. Phase 4 onward remains planned.
 
 Owner-requested addition to Phase 2: support persistent light/dark mode, preserving the approved Minos palette and forest navigation. Historical milestone labels below describe the plan's original baseline; current backend approvals in `AGENTS.md` take precedence. This implementation does not change backend code or authorize additional backend work.
 
@@ -17,7 +17,7 @@ Scope: complete the Angular frontend for the approved M1–M5 capabilities. Do n
 
 Preserve the approved forest palette, folded M branding, dark navigation, warm light workspace, compact controls, fine borders, restrained elevation, and functional typography. Use editorial and technical accents selectively. The reference board is visual evidence, not authorization for contests, ratings, discussions, fabricated metrics, or real contestant verdicts.
 
-## Current gaps
+## Original planning baseline
 
 The existing feature-first Angular structure is suitable for incremental development. Keep its standalone components, lazy feature routes, strict typing, and colocated tests.
 
@@ -85,6 +85,8 @@ Users can register, sign in, refresh the application, and sign out through real 
 - Provide navigation between catalog, detail, and the later submission workflow.
 - Handle loading, an empty catalog, unavailable problems, invalid URLs, failures, and retry.
 - Make tables usable on narrow screens and sample blocks scroll without breaking page layout.
+- Owner-requested addition: replace standalone authentication pages with an accessible Minos-themed login/registration dialog over the current page, preserving pagination and safe protected returns. Keep legacy authentication URLs as redirects into that dialog.
+- Owner-requested addition: connect Google sign-in to the existing backend OAuth flow without changing its fixed JSON completion destination. Open the flow in a separate tab and confirm the resulting same-origin cookie session through `/accounts/me`; include bounded checking, cancellation, retry, and HTTPS guidance.
 
 ### Dependencies
 
@@ -93,6 +95,8 @@ Phase 1; Phase 2 transport/session infrastructure for authenticated actions.
 ### Expected result
 
 Guests and authenticated users can browse and read actual published problems. Display only available API fields: difficulty, tags, acceptance rates, and server-side search are not supported by the current catalog contract.
+
+Implementation evidence: `web/minos-web/src/app/features/problems/` owns validated API contracts, URL parsing, catalog states and both published-detail routes. Shared pagination is extracted for its first real consumer. The authentication form is reused inside a lazy native dialog with keyboard trapping, Escape dismissal and opener focus restoration. Original Minos reference images remain unchanged. No production mock fallback or backend code changes were introduced. Successful live catalog/Google authentication checks still require the API and a trusted HTTPS deployment.
 
 ## Phase 4 — Profile and account security
 
@@ -104,7 +108,7 @@ Guests and authenticated users can browse and read actual published problems. Di
 - Include current-password confirmation, new-password confirmation, visible validation, pending/success/error feedback, and destructive-action confirmation.
 - Explain session revocation and return users to sign-in after operations that clear their session.
 - Show role information without implying that users can promote themselves.
-- Add Google sign-in/linking only when enabled and its browser flow has been verified.
+- Google sign-in UI is implemented in Phase 3 at the owner's request; retain live provider verification as an acceptance check. Explicit provider linking remains Phase 4 and requires the current-password proof supported by the backend.
 
 ### Dependencies
 
@@ -114,7 +118,7 @@ Phases 1–2. This phase can proceed alongside public browsing after authenticat
 
 Users can manage the account operations already supported by the backend. Do not introduce email editing, password reset, avatars, or linked-provider management where contracts are absent. `/accounts/me` does not return an email address.
 
-Google completion currently redirects to `/accounts/me`, a JSON endpoint. Agree and verify an FE-compatible browser flow before presenting Google authentication as finished. Include provider callback proxy coverage if needed; do not silently change backend behavior.
+Google completion still redirects to `/accounts/me`, a JSON endpoint. Phase 3 accommodates that unchanged contract with a separate-tab flow and bounded parent-session checking. The frontend proxy includes `/signin-google`; verify the actual server-generated callback host and registered provider URI over HTTPS before accepting the live flow. Never change or relax backend cookie/provider security to make an HTTP preview pass.
 
 ## Phase 5 — Problem authoring and publication
 

@@ -5,7 +5,8 @@
     } @else {
       <span class="state-icon"><minos-icon [name]="kind() === 'error' ? 'warning' : 'library'" /></span>
     }
-    <h3>{{ heading() }}</h3>
+    @if (headingLevel() === 2) { <h2>{{ heading() }}</h2> }
+    @else { <h3>{{ heading() }}</h3> }
     <p>{{ description() }}</p>
   </div>
   <div class="state-actions"><ng-content /></div>

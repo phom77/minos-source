@@ -23,9 +23,13 @@
         <minos-icon [name]="theme.theme() === 'dark' ? 'sun' : 'moon'" />
       </button>
       <span class="visually-hidden" role="status">{{ theme.theme() === 'dark' ? 'Dark mode' : 'Light mode' }}</span>
+      @if (session.state().status === 'guest' || session.state().status === 'unavailable') {
+        <button class="account-link" type="button" (click)="openSignIn()" aria-haspopup="dialog" aria-label="Sign in"><minos-icon name="account" /><span>Sign in</span></button>
+      } @else {
       <a class="account-link" routerLink="/account" [attr.aria-label]="'Go to account: ' + accountLabel()" [title]="accountLabel()">
         <minos-icon name="account" /><span>{{ accountLabel() }}</span>
       </a>
+      }
     </div>
   </header>
 
@@ -73,3 +77,5 @@
     <p class="sidebar-signature technical-label">Code. Learn. Grow.</p>
   </div>
 </ng-template>
+
+@defer (when auth.mode()) { <minos-auth-dialog /> }

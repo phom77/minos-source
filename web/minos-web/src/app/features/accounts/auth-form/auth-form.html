@@ -1,0 +1,88 @@
+@if (session.account()) {
+  <div class="already-signed-in">
+    <p>You are signed in as <strong>{{ session.account()?.displayName }}</strong>.</p>
+    <button class="button" type="button" (click)="completed.emit()">Continue <minos-icon name="arrow" /></button>
+  </div>
+} @else {
+  <form class="auth-body" [formGroup]="form" (ngSubmit)="submit()" novalidate [attr.aria-busy]="pending() || google.waiting()">
+    @if (notice() === 'expired' && !registering) { <p class="notice" role="status">Your session has ended. Sign in again to continue.</p> }
+    @if (notice() === 'signed-out' && !registering) { <p class="notice" role="status">You have signed out.</p> }
+    @if (serverError() || (submitted() && invalidFields().length)) {
+      <div #summary class="form-errors" role="alert" tabindex="-1" aria-labelledby="form-error-heading">
+        <h3 id="form-error-heading">{{ serverError() ? 'Please try again' : 'Check the following fields' }}</h3>
+        @if (serverError()) { <p>{{ serverError() }}</p> }
+        @if (submitted() && invalidFields().length) {
+          <ul>@for (field of invalidFields(); track field) {
+            <li><a [href]="fieldLink(field)" (click)="focusField($event, field)">{{ fieldError(field) }}</a></li>
+          }</ul>
+        }
+      </div>
+    }
+    @if (registering) {
+      <div class="form-field">
+        <label for="displayName">Display name</label>
+        <input id="displayName" formControlName="displayName" autocomplete="nickname" required maxlength="80"
+          (blur)="trimField('displayName')" [attr.aria-invalid]="!!fieldError('displayName')"
+          [attr.aria-describedby]="fieldError('displayName') ? 'displayName-hint displayName-error' : 'displayName-hint'" />
+        <minos-field-feedback fieldId="displayName" hint="1–80 characters. This is how your name appears in Minos." [error]="fieldError('displayName')" />
+      </div>
+    }
+    <div class="form-field">
+      <label for="email">Email address</label>
+      <input id="email" formControlName="email" type="email" autocomplete="username" autocapitalize="none" spellcheck="false" required maxlength="256"
+        (blur)="trimField('email')" [attr.aria-invalid]="!!fieldError('email')" [attr.aria-describedby]="fieldError('email') ? 'email-error' : null" />
+      <minos-field-feedback fieldId="email" [error]="fieldError('email')" />
+    </div>
+    <div class="form-field">
+      <label for="password">Password</label>
+      <div class="password-control">
+        <input id="password" formControlName="password" [type]="passwordVisible() ? 'text' : 'password'"
+          [autocomplete]="registering ? 'new-password' : 'current-password'" required minlength="12" maxlength="256"
+          [attr.aria-invalid]="!!fieldError('password')"
+          [attr.aria-describedby]="fieldError('password') ? 'password-hint password-error' : 'password-hint'" />
+        <button class="password-toggle" type="button" [disabled]="pending() || google.waiting()" [attr.aria-pressed]="passwordVisible()"
+          [attr.aria-controls]="registering ? 'password confirmation' : 'password'"
+          [attr.aria-label]="passwordVisible() ? (registering ? 'Hide passwords' : 'Hide password') : (registering ? 'Show passwords' : 'Show password')"
+          (click)="passwordVisible.set(!passwordVisible())"><minos-icon [name]="passwordVisible() ? 'eye-off' : 'eye'" /></button>
+      </div>
+      <minos-field-feedback fieldId="password" hint="12–256 characters." [error]="fieldError('password')" />
+    </div>
+    @if (registering) {
+      <div class="form-field">
+        <label for="confirmation">Confirm password</label>
+        <input id="confirmation" formControlName="confirmation" [type]="passwordVisible() ? 'text' : 'password'" autocomplete="new-password" required maxlength="256"
+          [attr.aria-invalid]="!!fieldError('confirmation')" [attr.aria-describedby]="fieldError('confirmation') ? 'confirmation-error' : null" />
+        <minos-field-feedback fieldId="confirmation" [error]="fieldError('confirmation')" />
+      </div>
+    }
+    <button class="button submit-button" type="submit" [disabled]="pending() || google.waiting()">
+      {{ pending() ? (registering ? 'Creating account…' : 'Signing in…') : (registering ? 'Create account' : 'Sign in') }} <minos-icon name="arrow" />
+    </button>
+  </form>
+  <div class="provider-section">
+    <span class="auth-divider">or continue with</span>
+    @if (!pending() && !google.waiting()) {
+      <a class="button button--secondary google-button" [href]="google.loginUrl" target="_blank" rel="noopener noreferrer"
+        (click)="startGoogle($event)" aria-describedby="google-hint">
+        <img src="brand/google-g.svg" width="18" height="18" alt="" />
+        Continue with Google
+      </a>
+    } @else if (pending()) {
+      <button class="button button--secondary" type="button" disabled>Continue with Google</button>
+    }
+    <p id="google-hint" class="auth-hint">Opens Google sign-in in a new tab.</p>
+    @if (google.waiting()) {
+      <div class="google-status">
+        <p role="status">Finish Google sign-in in the new tab. Return here after completing it.</p>
+        <div class="google-actions">
+          <button class="button button--secondary" type="button" [disabled]="google.checking()" (click)="checkGoogle()">{{ google.checking() ? 'Checking…' : 'Check sign-in' }}</button>
+          <button class="button button--secondary" type="button" (click)="cancelGoogle()">Cancel Google sign-in</button>
+        </div>
+      </div>
+    }
+    @if (google.error()) { <p class="notice notice--error" role="alert">{{ google.error() }}</p> }
+  </div>
+  <p class="auth-alternative">{{ registering ? 'Already have an account?' : 'New to Minos?' }}
+    <button class="text-button" type="button" [disabled]="pending() || google.waiting()" (click)="changeMode.emit(registering ? 'login' : 'register')">{{ registering ? 'Sign in' : 'Create an account' }}</button>
+  </p>
+}

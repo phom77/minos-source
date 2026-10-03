@@ -3,7 +3,7 @@
 .state-message { max-width: 34rem; margin-inline: auto; }
 .state-icon { display: inline-flex; padding: var(--space-3); border: 1px solid var(--color-border);
   border-radius: var(--radius-panel); background: var(--color-surface-subtle); color: var(--color-action); }
-h3 { margin: var(--space-5) 0 var(--space-2); font-size: 1.125rem; font-weight: 600; }
+h2, h3 { margin: var(--space-5) 0 var(--space-2); font-size: 1.125rem; font-weight: 600; }
 p { margin: 0; color: var(--color-text-muted); line-height: 1.7; }
 .state-actions { display: flex; margin-top: var(--space-5); justify-content: center; flex-wrap: wrap; gap: var(--space-3); }
 .state-actions:empty { display: none; }

@@ -1,14 +1,17 @@
 import { Routes } from '@angular/router';
+import { inject } from '@angular/core';
 import { authenticatedGuard } from '../../core/auth/auth.guard';
+import { AuthPrompt } from '../../core/auth/auth-prompt.service';
 
 export const accountsRoutes: Routes = [
   {
-    path: 'login', title: 'Sign in — Minos', data: { mode: 'login' },
-    loadComponent: () => import('./auth-page/auth-page').then(({ AuthPage }) => AuthPage),
+    path: 'login', pathMatch: 'full',
+    redirectTo: ({ queryParams }) => inject(AuthPrompt).entryTree('login', queryParams['returnUrl'] ?? '/account',
+      queryParams['expired'] === '1' ? 'expired' : queryParams['signedOut'] === '1' ? 'signed-out' : ''),
   },
   {
-    path: 'register', title: 'Create account — Minos', data: { mode: 'register' },
-    loadComponent: () => import('./auth-page/auth-page').then(({ AuthPage }) => AuthPage),
+    path: 'register', pathMatch: 'full',
+    redirectTo: ({ queryParams }) => inject(AuthPrompt).entryTree('register', queryParams['returnUrl'] ?? '/account'),
   },
   {
     path: '',

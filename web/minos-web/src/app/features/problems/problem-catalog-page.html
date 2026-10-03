@@ -19,13 +19,55 @@
     <section id="problem-library" class="panel" aria-labelledby="catalog-heading" tabindex="-1">
       <header class="panel-header">
         <h2 id="catalog-heading">Problem library</h2>
-        <minos-status-badge>Not connected yet</minos-status-badge>
+        @if (state(); as current) { @if (current.status === 'ready') { <minos-status-badge>{{ current.data.total }} published</minos-status-badge> } }
       </header>
-      <minos-state-panel heading="A clear place to begin."
-        description="The published problem catalog will arrive in Phase 3. This is the visual foundation, not an empty live catalog."
-      >
-        <a class="button button--secondary" routerLink="/account">View account workspace <minos-icon name="arrow" /></a>
-      </minos-state-panel>
+      @if (state(); as current) {
+        @switch (current.status) {
+          @case ('loading') { <minos-state-panel kind="loading" heading="Loading problems…" description="Fetching the published problem library." /> }
+          @case ('invalid') {
+            <minos-state-panel kind="error" heading="Check this catalog link." description="Use a positive page number and a page size between 1 and 100.">
+              <a class="button" [routerLink]="[]" [queryParams]="{ page: 1, pageSize: 20 }" queryParamsHandling="merge">Reset pagination</a>
+            </minos-state-panel>
+          }
+          @case ('error') {
+            <minos-state-panel kind="error" heading="The problem library could not be reached." description="Check your connection and try again. No catalog data has been replaced with examples.">
+              <button class="button" type="button" (click)="retry()">Retry loading problems</button>
+            </minos-state-panel>
+          }
+          @case ('ready') {
+            @if (current.data.items.length) {
+              <div class="catalog-tools">
+                <p role="status">{{ current.data.total }} published {{ current.data.total === 1 ? 'problem' : 'problems' }} · Page {{ current.data.page }}</p>
+                <label>Per page <select [value]="current.data.pageSize" (change)="changePageSize($event)">
+                  @if (!pageSizes.includes(current.data.pageSize)) { <option [value]="current.data.pageSize">{{ current.data.pageSize }}</option> }
+                  @for (size of pageSizes; track size) { <option [value]="size">{{ size }}</option> }
+                </select></label>
+              </div>
+              <div class="catalog-scroll" role="region" aria-label="Published problems, horizontally scrollable" tabindex="0">
+                <table>
+                  <caption class="visually-hidden">Published problem library. Open a title to read its latest version or a version link for its immutable snapshot.</caption>
+                  <thead><tr><th scope="col">#</th><th scope="col">Title</th><th scope="col">Version</th><th scope="col">Published (UTC)</th></tr></thead>
+                  <tbody>@for (problem of current.data.items; track problem.problemId) {
+                    <tr><td>{{ (current.data.page - 1) * current.data.pageSize + $index + 1 }}</td>
+                      <th scope="row"><a [routerLink]="['/problems', problem.problemId]">{{ problem.title }}</a></th>
+                      <td><a class="version-link" [routerLink]="['/problems/versions', problem.versionId]" [attr.aria-label]="problem.title + ', published version ' + problem.versionNumber">v{{ problem.versionNumber }}</a></td>
+                      <td><time [attr.datetime]="problem.publishedAtUtc">{{ problem.publishedAtUtc | date:'mediumDate':'UTC' }}</time></td></tr>
+                  }</tbody>
+                </table>
+              </div>
+              <minos-pagination [page]="current.data.page" [pageSize]="current.data.pageSize" [total]="current.data.total" />
+            } @else if (current.data.total > 0) {
+              <minos-state-panel heading="There are no problems on this page." description="The page is beyond the current library. Return to the first page to keep browsing.">
+                <a class="button" [routerLink]="[]" [queryParams]="{ page: 1, pageSize: current.data.pageSize }" queryParamsHandling="merge">Back to the first page</a>
+              </minos-state-panel>
+            } @else {
+              <minos-state-panel heading="The library is waiting for its first problem." description="Published problems will appear here when they are available. You can browse without signing in.">
+                <button class="button button--secondary" type="button" (click)="retry()">Refresh the library</button>
+              </minos-state-panel>
+            }
+          }
+        }
+      }
     </section>
 
     <aside class="panel practice-notes" aria-labelledby="practice-heading">

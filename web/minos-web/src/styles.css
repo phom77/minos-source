@@ -1,2 +1,4 @@
 @import './styles/tokens.css';
 @import './styles/base.css';
+
+html.auth-open { overflow: hidden; }

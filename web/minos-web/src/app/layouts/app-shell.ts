@@ -10,10 +10,12 @@ import { filter } from 'rxjs';
 import { UiIcon } from '../shared/ui/ui-icon';
 import { SessionService } from '../core/auth/session.service';
 import { ThemeService } from '../core/theme/theme.service';
+import { AuthPrompt } from '../core/auth/auth-prompt.service';
+import { AuthDialog } from '../features/accounts/auth-dialog/auth-dialog';
 
 @Component({
   selector: 'minos-app-shell',
-  imports: [NgTemplateOutlet, RouterLink, RouterLinkActive, RouterOutlet, UiIcon],
+  imports: [NgTemplateOutlet, RouterLink, RouterLinkActive, RouterOutlet, UiIcon, AuthDialog],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './app-shell.html',
   styleUrl: './app-shell.css',
@@ -31,6 +33,8 @@ export class AppShell {
   readonly skipHref = signal('/problems#main-content');
   readonly session = inject(SessionService);
   readonly theme = inject(ThemeService);
+  readonly auth = inject(AuthPrompt);
+  private lastLocation = '';
   readonly accountLabel = computed(() => {
     const state = this.session.state();
     return state.status === 'authenticated' ? state.account.displayName
@@ -48,6 +52,10 @@ export class AppShell {
       this.pageLabel.set(route.title?.split(' — ')[0] ?? 'Minos');
       this.skipHref.set(event.urlAfterRedirects.split('#')[0] + '#main-content');
       this.closeNavigation();
+      const location = event.urlAfterRedirects.split('?')[0] + '#' + (this.router.routerState.snapshot.root.fragment ?? '');
+      const moved = location !== this.lastLocation;
+      this.lastLocation = location;
+      if (this.auth.mode() || !moved) return;
       const fragment = this.router.routerState.snapshot.root.fragment;
       afterNextRender(() => {
         const target = fragment ? this.document.getElementById(fragment) : null;
@@ -56,7 +64,7 @@ export class AppShell {
     });
 
     afterNextRender(() => {
-      const media = this.document.defaultView?.matchMedia('(min-width: 64rem)');
+      const media = this.document.defaultView?.matchMedia?.('(min-width: 64rem)');
       if (!media) return;
       const onResize = () => {
         if (media.matches && this.navigationOpen()) {
@@ -67,6 +75,11 @@ export class AppShell {
       media.addEventListener('change', onResize);
       this.destroyRef.onDestroy(() => media.removeEventListener('change', onResize));
     });
+  }
+
+  openSignIn(): void {
+    this.closeNavigation();
+    this.auth.open();
   }
 
   openNavigation(): void {

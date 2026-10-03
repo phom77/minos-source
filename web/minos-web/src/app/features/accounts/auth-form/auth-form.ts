@@ -1,31 +1,30 @@
 import { DOCUMENT } from '@angular/common';
-import { afterNextRender, ChangeDetectionStrategy, Component, DestroyRef, ElementRef, inject, Injector, signal, viewChild } from '@angular/core';
+import { afterNextRender, ChangeDetectionStrategy, Component, DestroyRef, effect, ElementRef, inject, Injector, input, OnInit, output, signal, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { Router } from '@angular/router';
 import { finalize } from 'rxjs';
 
-import { safeReturnUrl } from '../../../core/auth/safe-return-url';
+import { AuthMode, AuthNotice } from '../../../core/auth/auth-prompt.service';
 import { SessionService } from '../../../core/auth/session.service';
 import { FieldFeedback } from '../../../shared/ui/field-feedback';
-import { SectionHeading } from '../../../shared/ui/section-heading';
-import { ForestLandscape } from '../../../shared/ui/forest-landscape';
 import { UiIcon } from '../../../shared/ui/ui-icon';
 import { AccountsApi } from '../data-access/accounts-api';
+import { GoogleSignIn } from '../data-access/google-sign-in';
 import { authErrorMessage } from '../account-error-message';
 import { displayNameValidator, matchingPasswords } from './auth-validators';
 
 type Field = 'email' | 'displayName' | 'password' | 'confirmation';
 
 @Component({
-  selector: 'minos-auth-page',
-  imports: [ReactiveFormsModule, RouterLink, SectionHeading, ForestLandscape, UiIcon, FieldFeedback],
+  selector: 'minos-auth-form',
+  imports: [ReactiveFormsModule, UiIcon, FieldFeedback],
+  providers: [GoogleSignIn],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  templateUrl: './auth-page.html',
-  styleUrl: './auth-page.css',
+  templateUrl: './auth-form.html',
+  styleUrl: './auth-form.css',
 })
-export class AuthPage {
-  private readonly route = inject(ActivatedRoute);
+export class AuthForm implements OnInit {
   private readonly router = inject(Router);
   private readonly api = inject(AccountsApi);
   private readonly destroyRef = inject(DestroyRef);
@@ -33,23 +32,54 @@ export class AuthPage {
   private readonly document = inject(DOCUMENT);
   private readonly summary = viewChild<ElementRef<HTMLElement>>('summary');
   readonly session = inject(SessionService);
-  readonly registering = this.route.snapshot.data['mode'] === 'register';
-  readonly returnUrl = safeReturnUrl(this.route.snapshot.queryParamMap.get('returnUrl'));
-  readonly returnTree = this.router.parseUrl(this.returnUrl);
-  readonly expired = this.route.snapshot.queryParamMap.get('expired') === '1';
-  readonly signedOut = this.route.snapshot.queryParamMap.get('signedOut') === '1';
+  readonly mode = input<AuthMode>('login');
+  readonly notice = input<AuthNotice>('');
+  readonly completed = output<void>();
+  readonly changeMode = output<AuthMode>();
+  readonly google = inject(GoogleSignIn);
+  get registering(): boolean { return this.mode() === 'register'; }
   readonly pending = signal(false);
   readonly submitted = signal(false);
   readonly serverError = signal<string | null>(null);
   readonly passwordVisible = signal(false);
-  readonly fields: readonly Field[] = this.registering
-    ? ['displayName', 'email', 'password', 'confirmation'] : ['email', 'password'];
+  get fields(): readonly Field[] { return this.registering
+    ? ['displayName', 'email', 'password', 'confirmation'] : ['email', 'password']; }
   readonly form = new FormGroup({
     email: new FormControl('', { nonNullable: true, validators: [Validators.required, Validators.email, Validators.maxLength(256)] }),
-    displayName: new FormControl('', { nonNullable: true, validators: this.registering ? [displayNameValidator] : [] }),
+    displayName: new FormControl('', { nonNullable: true }),
     password: new FormControl('', { nonNullable: true, validators: [Validators.required, Validators.minLength(12), Validators.maxLength(256)] }),
-    confirmation: new FormControl('', { nonNullable: true, validators: this.registering ? [Validators.required] : [] }),
-  }, { validators: this.registering ? [matchingPasswords] : [] });
+    confirmation: new FormControl('', { nonNullable: true }),
+  });
+
+  constructor() {
+    effect(() => { if (!this.google.waiting() && !this.pending()) this.form.enable(); });
+    this.google.completed.pipe(takeUntilDestroyed()).subscribe(() => {
+      this.form.reset(); this.completed.emit();
+    });
+  }
+
+  ngOnInit(): void {
+    if (this.registering) {
+      this.form.controls.displayName.addValidators(displayNameValidator);
+      this.form.controls.confirmation.addValidators(Validators.required);
+      this.form.addValidators(matchingPasswords);
+      this.form.controls.displayName.updateValueAndValidity();
+      this.form.controls.confirmation.updateValueAndValidity();
+      this.form.updateValueAndValidity();
+    }
+  }
+
+  startGoogle(event: Event): void {
+    if (this.pending() || this.google.waiting()) { event.preventDefault(); return; }
+    this.google.start(event);
+    if (this.google.waiting()) {
+      this.form.controls.password.reset(); this.form.controls.confirmation.reset();
+      this.form.disable();
+    }
+  }
+
+  cancelGoogle(): void { this.google.stop(); this.google.error.set(null); this.form.enable(); }
+  checkGoogle(): void { this.google.check(true); }
 
   fieldError(field: Field): string | null {
     const control = this.form.controls[field];
@@ -80,7 +110,7 @@ export class AuthPage {
   }
 
   submit(): void {
-    if (this.pending()) return;
+    if (this.pending() || this.google.waiting()) return;
     this.trimField('email');
     this.trimField('displayName');
     this.submitted.set(true);
@@ -100,7 +130,7 @@ export class AuthPage {
       next: () => {
         this.form.reset(); // Never retain password fields after a successful identity change.
         this.submitted.set(false);
-        void this.router.navigateByUrl(this.returnUrl);
+        this.completed.emit();
       },
       error: (error: unknown) => {
         this.serverError.set(authErrorMessage(error, this.registering ? 'register' : 'login'));

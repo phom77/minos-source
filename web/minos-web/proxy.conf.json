@@ -9,6 +9,11 @@
     "secure": false,
     "changeOrigin": true
   },
+  "/signin-google": {
+    "target": "https://localhost:49674",
+    "secure": false,
+    "changeOrigin": true
+  },
   "/health/**": {
     "target": "https://localhost:49674",
     "secure": false,

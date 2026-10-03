@@ -13,4 +13,5 @@ export class StatePanel {
   readonly heading = input.required<string>();
   readonly description = input.required<string>();
   readonly kind = input<'empty' | 'error' | 'loading'>('empty');
+  readonly headingLevel = input<2 | 3>(3);
 }

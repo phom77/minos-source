@@ -1,0 +1,20 @@
+<dialog #dialog class="auth-dialog" aria-labelledby="auth-title" aria-describedby="auth-description"
+  (cancel)="cancel($event)" (click)="dismissBackdrop($event)" (keydown)="trapFocus($event)">
+  <button class="dialog-close" type="button" [attr.aria-label]="prompt.mode() === 'register' ? 'Close registration' : 'Close sign-in'" (click)="prompt.close()"><minos-icon name="close" /></button>
+  <header class="auth-heading">
+    <div class="dialog-brand" aria-label="Minos">
+      <svg width="44" height="44" viewBox="320 320 615 615" aria-hidden="true" focusable="false">
+        <image [attr.href]="theme.theme() === 'dark' ? 'brand/light-minos.png' : 'brand/dark-minos.png'" width="1254" height="1254" />
+      </svg><span>Minos</span>
+    </div>
+    <h2 #heading id="auth-title" tabindex="-1">{{ prompt.mode() === 'register' ? 'Make room for progress.' : 'Welcome back.' }}</h2>
+    <p id="auth-description">{{ prompt.mode() === 'register' ? 'Create your account. All fields are required.' : 'Sign in to your Minos workspace.' }}</p>
+  </header>
+  @if (prompt.mode(); as mode) {
+    @if (mode === 'login') {
+      <minos-auth-form mode="login" [notice]="prompt.notice()" (completed)="prompt.complete()" (changeMode)="prompt.open($event)" />
+    } @else {
+      <minos-auth-form mode="register" [notice]="prompt.notice()" (completed)="prompt.complete()" (changeMode)="prompt.open($event)" />
+    }
+  }
+</dialog>

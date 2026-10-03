@@ -1,28 +1,29 @@
 import { HttpClient, provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angular/router';
+import { provideRouter, Router } from '@angular/router';
 
 import { API_CONFIGURATION } from '../../../core/config/api.config';
 import { SessionService } from '../../../core/auth/session.service';
 import { csrfInterceptor } from '../../../core/http/csrf.interceptor';
 import { sessionErrorInterceptor } from '../../../core/http/session-error.interceptor';
-import { AuthPage } from './auth-page';
+import { AuthForm } from './auth-form';
 
 const account = { id: 'test-account', displayName: 'Nguyễn An', role: 'Solver', createdAtUtc: '2026-10-01T00:00:00Z' };
 
 describe('account authentication forms', () => {
   let requests: HttpTestingController;
-  function configure(mode: 'login' | 'register' = 'login', returnUrl = '/account') {
+  function configure(mode: 'login' | 'register' = 'login') {
     TestBed.configureTestingModule({ providers: [
       provideRouter([]), provideHttpClient(withInterceptors([csrfInterceptor, sessionErrorInterceptor])), provideHttpClientTesting(),
       { provide: API_CONFIGURATION, useValue: { apiBaseUrl: '', production: false } },
-      { provide: ActivatedRoute, useValue: { snapshot: { data: { mode }, queryParamMap: convertToParamMap({ returnUrl }) } } },
     ] });
     requests = TestBed.inject(HttpTestingController);
     TestBed.inject(SessionService).signedOut();
     vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
-    const fixture = TestBed.createComponent(AuthPage);
+    const fixture = TestBed.createComponent(AuthForm);
+    fixture.componentRef.setInput('mode', mode);
+    vi.spyOn(fixture.componentInstance.completed, 'emit');
     fixture.detectChanges();
     return fixture;
   }
@@ -61,7 +62,7 @@ describe('account authentication forms', () => {
   });
 
   it('registers with trimmed identity fields, never trims the password, and signs in immediately', () => {
-    const fixture = configure('register', '/problems');
+    const fixture = configure('register');
     const page = fixture.componentInstance;
     const password = '  test passphrase  ';
     page.form.setValue({ displayName: '  Nguyễn An  ', email: '  an@example.test  ', password, confirmation: password });
@@ -73,21 +74,22 @@ describe('account authentication forms', () => {
     expect(registration.request.headers.get('X-CSRF-TOKEN')).toBe('token-guest');
     registration.flush(account);
     expect(TestBed.inject(SessionService).account()?.displayName).toBe('Nguyễn An');
-    expect(TestBed.inject(Router).navigateByUrl).toHaveBeenCalledWith('/problems');
+    expect(page.completed.emit).toHaveBeenCalledOnce();
     expect(page.form.controls.password.value).toBe('');
     TestBed.inject(HttpClient).post('/accounts/logout', null, { context: registration.request.context }).subscribe();
     requests.expectOne('/accounts/csrf').flush({ requestToken: 'token-account' });
     requests.expectOne('/accounts/logout').flush(null);
   });
 
-  it('uses a safe fallback for an external return URL after login', () => {
-    const fixture = configure('login', '//other.test');
+  it('signals successful sign-in to its dialog without navigating the background page', () => {
+    const fixture = configure('login');
     const page = fixture.componentInstance;
     page.form.patchValue({ email: 'an@example.test', password: 'test passphrase' });
     page.submit();
     requests.expectOne('/accounts/csrf').flush({ requestToken: 'token' });
     requests.expectOne('/accounts/login').flush(account);
-    expect(TestBed.inject(Router).navigateByUrl).toHaveBeenCalledWith('/account');
+    expect(page.completed.emit).toHaveBeenCalledOnce();
+    expect(TestBed.inject(Router).navigateByUrl).not.toHaveBeenCalled();
   });
 
   it('finishes an already submitted identity change when its page is destroyed', () => {
@@ -101,13 +103,15 @@ describe('account authentication forms', () => {
     login.flush(account);
     expect(TestBed.inject(SessionService).account()?.id).toBe('test-account');
     expect(TestBed.inject(Router).navigateByUrl).not.toHaveBeenCalled();
+    expect(fixture.componentInstance.completed.emit).not.toHaveBeenCalled();
   });
 
-  it('preserves query and fragment state in the already-signed-in return link', () => {
-    const fixture = configure('login', '/problems?page=2#problem-library');
+  it('offers a continuation without another form when already signed in', () => {
+    const fixture = configure('login');
     TestBed.inject(SessionService).signedIn({ ...account, role: 'Solver' });
     fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('.already-signed-in .button')?.getAttribute('href')).toBe('/problems?page=2#problem-library');
+    fixture.nativeElement.querySelector('.already-signed-in .button').click();
+    expect(fixture.componentInstance.completed.emit).toHaveBeenCalledOnce();
     expect(fixture.nativeElement.querySelector('form')).toBeNull();
   });
 

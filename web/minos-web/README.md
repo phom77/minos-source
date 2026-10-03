@@ -1,6 +1,6 @@
 # Minos web
 
-The Minos Angular application uses standalone components, strict TypeScript, and feature-first organization. Phases 1–2 provide the approved responsive shell, persistent light/dark themes, HTTP protection, and real email/password authentication/session workflows. Problems remain a clearly labeled Phase 3 placeholder. Backend code and milestone scope are unchanged by this frontend work; current backend approvals in `AGENTS.md` remain authoritative.
+The Minos Angular application uses standalone components, strict TypeScript, and feature-first organization. Phases 1–3 provide the approved responsive shell, persistent light/dark themes, HTTP protection, popup authentication, Google sign-in integration, and the real public problem catalog/reader. Backend code and milestone scope are unchanged by this frontend work; current backend approvals in `AGENTS.md` remain authoritative.
 
 ## Commands
 
@@ -13,7 +13,7 @@ npm run build
 
 Use Node.js 24.15+ on the 24.x line, or another version allowed by `package.json`. `package-lock.json` pins the complete dependency graph; use `npm ci` for a clean checkout and CI. Use `npm install` when deliberately changing dependencies and commit the updated lockfile. Direct dependencies retain the versions verified for this foundation; upgrades are explicit maintenance work.
 
-`npm start` and `ng serve` both use the development proxy configured in `angular.json`. `/accounts/**`, `/api/**`, and `/health/**` forward to the existing HTTPS API launch profile at `https://localhost:49674`; `secure: false` applies only to the local upstream certificate. Restart the dev server after changing the proxy. For browser HTTPS during cookie-authentication development, use `npm start -- --ssl` and trust the local development certificate as appropriate. A plain HTTP preview is suitable for UI checks, not for verifying the API's Secure cookie lifecycle.
+`npm start` and `ng serve` both use the development proxy configured in `angular.json`. `/accounts/**`, `/api/**`, `/signin-google`, and `/health/**` forward to the existing HTTPS API launch profile at `https://localhost:49674`; `secure: false` applies only to the local upstream certificate. Restart the dev server after changing the proxy. For browser HTTPS during cookie-authentication development, use `npm start -- --ssl --host localhost` and trust the local development certificate as appropriate. A plain HTTP preview is suitable for UI checks, not for verifying the API's Secure cookie lifecycle.
 
 Production requests are same-origin by default. The environment files select build-time configuration; `app.config.ts` provides it through `API_CONFIGURATION`. Feature services inject that token indirectly through HTTP infrastructure rather than importing environment files. Use a same-origin API or reverse proxy for the cookie session. A separate API origin requires matching backend CORS, credentials, cookie, and CSRF support; setting `apiBaseUrl` alone does not implement that authentication topology.
 
@@ -30,11 +30,16 @@ src/
 │   ├── features/
 │   │   ├── accounts/
 │   │   │   ├── accounts.routes.ts
-│   │   │   ├── auth-page/ (sign-in/registration forms, validation, tests)
-│   │   │   ├── data-access/accounts-api.ts
+│   │   │   ├── auth-dialog/ (lazy modal, keyboard/focus behavior, tests)
+│   │   │   ├── auth-form/ (reused sign-in/registration forms, validation, tests)
+│   │   │   ├── data-access/ (account API, Google flow, tests)
 │   │   │   └── account-entry-page.{ts,html,css}
 │   │   └── problems/
 │   │       ├── problems.routes.ts
+│   │       ├── data-access/ (public contracts, response validation, tests)
+│   │       ├── problem-detail/ (latest/immutable published reader)
+│   │       ├── testing/ (test-only fixtures; never production fallbacks)
+│   │       ├── catalog-query.{ts,spec.ts}
 │   │       └── problem-catalog-page.{ts,html,css}
 │   ├── layouts/app-shell.{ts,html,css}
 │   ├── shared/ui/ (headings, icons, feedback, badges, field messages)
@@ -50,9 +55,9 @@ src/
 
 - `core/` owns application-wide configuration, session/theme state, and HTTP transport concerns. It does not import feature code or accumulate business operations. The frontend `.gitignore` explicitly includes this source directory despite the repository's crash-dump ignore rule.
 - `shared/` owns presentation or utilities independent of a business feature. It depends on neither `core/` nor `features/`; reusable components accept inputs and emit interactions.
-- `layouts/` owns application chrome and route outlets, not feature operations.
+- `layouts/` owns application chrome and route outlets, not feature operations. It composes the Accounts dialog through a lazy `@defer` block; account HTTP/form behavior stays in the Accounts feature.
 - `features/accounts/` owns account routes, forms, validation, and login/register/logout data access. Only the session state consumed across the application belongs in `core/auth/`. Profile and security mutations remain Phase 4.
-- `features/problems/` owns problem routes and UI; future discovery, detail, and authoring use the real M4 contracts within this feature.
+- `features/problems/` owns the public catalog, latest/immutable detail, URL pagination and public API contracts. Authoring remains a later phase in this feature.
 - `app.routes.ts` mounts lazy feature route groups; each feature owns its child URLs and page loading. `app.config.ts` is the composition point for router, HTTP, and singleton providers.
 - `styles/` owns global tokens and base rules. Component HTML/CSS stays beside its TypeScript, and tests stay beside the behavior they verify. `public/` holds files served unchanged, not TypeScript or private data.
 
@@ -98,7 +103,7 @@ Read the [Minos visual reference](../../docs/design/minos-visual-reference.md) a
 
 ### Phase 1 visual foundation
 
-Phase 1 introduced the approved palette through semantic tokens, a dark sidebar/light workspace, compact headings, shared native-button styles, outline icons, badges, and reusable empty/error/loading feedback. At that stage, Problems and Account were explicitly labeled placeholders. Phase 2 connects Accounts as described below; Problems remain planned and no fabricated statistics or unsupported navigation destinations are added.
+Phase 1 introduced the approved palette through semantic tokens, a dark sidebar/light workspace, compact headings, shared native-button styles, outline icons, badges, and reusable empty/error/loading feedback. At that stage, Problems and Account were explicitly labeled placeholders. Phases 2–3 connect these public/account workflows; no fabricated statistics or unsupported navigation destinations are added.
 
 At widths below 1024px, navigation uses a native modal dialog with labeled controls, Escape dismissal, explicit Tab cycling, focus restoration, and route-change dismissal. Opening a desktop viewport closes a mobile dialog. Same-page links preserve the current route; unknown URLs render a lazy not-found page instead of silently redirecting to the catalog.
 
@@ -108,7 +113,7 @@ Production branding uses unchanged PNG originals with a clipped SVG presentation
 
 ### Phase 2 authentication and themes
 
-Routes: `/account/login`, `/account/register`, and the guarded `/account` session overview. Registration signs in immediately, matching the server contract. The overview displays only returned display name, role, creation date, and account ID, and explains that logout revokes sessions across devices. Invalid credentials, rate limiting, pending requests, expired sessions, and unavailable service states have explicit recovery. Guards are UX only; server authorization is final. An unavailable service renders a retry panel instead of redirecting to sign-in.
+The guarded `/account` remains a session overview. In Phase 3, `/account/login` and `/account/register` become compatibility redirects into a popup over public browsing. Registration signs in immediately, matching the server contract. The overview displays only returned display name, role, creation date, and account ID, and explains that logout revokes sessions across devices. Invalid credentials, rate limiting, pending requests, expired sessions, and unavailable service states have explicit recovery. Guards are UX only; server authorization is final. An unavailable service renders a retry panel instead of redirecting to sign-in.
 
 Forms use typed reactive controls, trimmed email/display names, unmodified 12–256-character passwords, name bounds/control-character validation, and password confirmation. Password managers and paste work. Errors retain inline descriptions and focus a linked summary after submission. Duplicate submits are suppressed. Identity-changing requests finish (with a 15-second timeout) even if the originating view is destroyed, keeping browser cookie responses and in-memory session state consistent; destroyed views do not redirect. Passwords never enter browser storage.
 
@@ -116,4 +121,22 @@ Light and complementary dark workspaces use paired semantic tokens for canvas, p
 
 The password reveal uses a labeled native eye/eye-off button with pressed state and controlled field IDs. The helper contains only the 12–256-character requirement; password-manager/autofill and paste behavior remain unchanged.
 
-Verification: frontend HTTP/form/session/theme/routing tests and the production build pass. Real-browser checks cover validation focus/links, reveal controls, responsive layout, light/dark rendering, and theme persistence. Chrome DevTools MCP is not configured; checks use the in-app browser. During implementation the development API proxy returned 502/ECONNREFUSED, so real HTTPS cookie registration → reload → logout is not yet verified. No mock authentication or backend startup/change was used to hide that gap. Google sign-in, profile/security editing, and public catalog integration remain later phases.
+Verification: frontend HTTP/form/session/theme/routing tests and the production build pass. Real-browser checks cover validation focus/links, reveal controls, responsive layout, light/dark rendering, and theme persistence. Chrome DevTools MCP is not configured; checks use the in-app browser. During implementation the development API proxy returned 502/ECONNREFUSED, so real HTTPS cookie registration → reload → logout is not yet verified. No mock authentication or backend startup/change was used to hide that gap. Profile/security editing remains Phase 4.
+
+### Phase 3 catalog and authentication popup
+
+`/problems?page=1&pageSize=20` requests `GET /api/problems`; changing pagination cancels stale reads, and unrelated authentication query changes do not refetch the catalog. Sizes 1–100 are accepted for deep links; the picker offers 10/20/50/100. Invalid/duplicate/overflowing parameters are rejected before HTTP. The table shows only title, published version and UTC date, with loading, genuine-empty, beyond-last-page, failure and manual retry states. Its labeled horizontal-scroll region contains overflow on small screens. Previous/next are real links; router scroll restoration supports browser back/forward.
+
+`/problems/:problemId` reads the latest published version; `/problems/versions/:versionId` reads an immutable snapshot. Both expose statement, whitespace-preserving samples, limits, exact-checker behavior and public version metadata. Statements use plain-text interpolation, never raw HTML. Sample regions are keyboard-scrollable. Invalid IDs make no HTTP request; 404 and retryable failures are distinct. Submission UI remains frontend Phase 6, not a fabricated action.
+
+The shell's sign-in button opens `?auth=login` over the current page; registration switches to `?auth=register` with a fresh form. `authReturn` is a validated internal protected destination, and `authNotice` carries expiration/sign-out feedback. Closing removes only modal parameters, preserving browsing query/fragment state. The lazy native dialog provides labeled context, an explicit close button, Escape/backdrop dismissal, focus cycling/restoration, scroll containment, and theme-specific supplied Minos marks. The LeetCode reference informs popup behavior, not branding or extra providers. No unsupported password-reset, CAPTCHA or legal links are shown.
+
+#### Google browser flow and acceptance
+
+The backend owns challenge, correlation/state/PKCE, external identity mapping and cookie issuance. The frontend uses a native `Continue with Google` link to `/accounts/google/login`, opening a separate tab with `noopener noreferrer`. This is deliberate: the existing completion redirects to JSON `/accounts/me`, so the parent confirms the resulting cookie session through that endpoint. While waiting, it checks every 2.5 seconds only when visible, coalesces overlapping/manual checks, stops after five minutes or cancellation/destruction, and offers explicit failure/retry feedback. It never reads provider credentials, OAuth codes/tokens or child-window contents. Email submission is disabled while a Google flow is pending. No frontend Google SDK or client secret is needed.
+
+Use a trusted HTTPS same-origin app/API. On the existing development proxy, use `https://localhost:4200`, not `https://127.0.0.1:4200`: `changeOrigin` means the existing server can generate `https://localhost:49674/signin-google` as its callback. Register the actual generated URI in the owner's existing Google configuration; both callback and app must share the cookie host. Production reverse proxy routing must cover `/accounts/**` and `/signin-google` and preserve the configured public HTTPS host. Provider-disabled/failed consent cannot be inspected from the parent tab; cancellation and bounded/manual session checks remain the recovery path. Verify with the owner: Google consent → parent confirmed account → popup closes/returns safely → refresh retains session → logout. Do not claim that acceptance check has passed until performed with a running API and enabled provider.
+
+Provider controls intentionally use Google's neutral light/dark surface colors and unmodified official G paths, rather than recoloring the logo into Minos green. The rest of the popup retains Minos tokens and typography. See [Google branding guidance](https://developers.google.com/identity/branding-guidelines) and [asset provenance](public/brand/README.md).
+
+Phase 3 verification (2026-10-03): 136 frontend tests pass across 16 files. The production build passes without budget warnings; authentication remains a lazy chunk. The in-app browser verifies popup focus cycling/Escape/opener restoration, login↔registration switching, back/forward modal navigation, validation-summary links, the HTTP Google guard, supplied logos/semantic surfaces in both themes, invalid-link/retry recovery, and 320/768/1024/1440px layouts plus a 360px-high landscape viewport. Registration scrolls within its dialog; the page/dialog have no horizontal overflow. Ready catalog/detail responses, empty/out-of-range lists, safe plaintext/sample rendering and Google confirmation/failure/timeout/cancellation are covered with test-only HTTP fixtures. Live `/api/problems` and `/accounts/me` return 502 through the current proxy, so successful live problem browsing and HTTPS/Google consent remain explicitly unverified. No backend host was started and no backend file or data was changed by this slice.

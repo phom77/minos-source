@@ -32,6 +32,10 @@
   --color-chrome-accent: var(--brand-hunter);
   --color-chrome-focus: var(--brand-hunter);
   --color-scrim: rgb(15 25 18 / 55%);
+  /* Provider branding is intentionally neutral, not recolored to the Minos palette. */
+  --color-google-surface: #ffffff;
+  --color-on-google: #1f1f1f;
+  --color-google-border: #747775;
 
   /* Brand panels stay forest-toned, independent of navigation surface roles. */
   --color-brand-surface: #203b29;
@@ -105,6 +109,9 @@
   --color-chrome-accent: var(--brand-mint);
   --color-chrome-focus: var(--brand-mint);
   --color-scrim: rgb(6 14 9 / 72%);
+  --color-google-surface: #131314;
+  --color-on-google: #e3e3e3;
+  --color-google-border: #8e918f;
   --color-brand-surface: #14291d;
   --color-brand-raised: #203c29;
   --color-brand-border: #3e5944;

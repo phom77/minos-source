@@ -9,6 +9,22 @@
   color: var(--color-on-brand-muted); font-size: 0.75rem; line-height: 1.8; }
 .content-grid { display: grid; min-width: 0; grid-template-columns: minmax(0, 1fr) minmax(16rem, 0.48fr); gap: var(--space-6); }
 #problem-library { scroll-margin-top: var(--space-6); }
+.catalog-tools { display: flex; padding: var(--space-3) var(--space-5); align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-3); }
+.catalog-tools p { margin: 0; color: var(--color-text-muted); font-size: var(--text-label); }
+.catalog-tools label { display: flex; gap: var(--space-2); align-items: center; font-size: var(--text-label); }
+.catalog-tools select { min-height: 2.75rem; padding: var(--space-2); border: 1px solid var(--color-control-border); border-radius: var(--radius-small); background: var(--color-surface); color: var(--color-text); }
+.catalog-scroll { overflow-x: auto; scroll-margin: var(--space-4); }
+table { width: 100%; min-width: 30rem; border-collapse: collapse; font-size: var(--text-label); text-align: left; }
+th, td { padding: var(--space-3) var(--space-4); border-top: 1px solid var(--color-border); }
+thead { background: var(--color-surface-subtle); color: var(--color-text-muted); }
+thead th { font-weight: 500; white-space: nowrap; }
+tbody th { min-width: 14rem; font-weight: 600; }
+tbody td { color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
+tbody tr:hover { background: var(--color-surface-subtle); }
+table a { display: inline-block; padding-block: var(--space-2); text-decoration: none; }
+table a:hover { text-decoration: underline; }
+tbody th a { max-width: 32rem; overflow-wrap: anywhere; }
+.version-link { white-space: nowrap; font-family: var(--font-mono); }
 .practice-notes ol { display: grid; margin: 0; padding: var(--space-5); list-style: none; gap: var(--space-5); }
 .practice-notes li { display: grid; align-items: start; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-3); }
 .step-number { color: var(--color-action-hover); font-family: var(--font-mono); font-size: var(--text-small); }

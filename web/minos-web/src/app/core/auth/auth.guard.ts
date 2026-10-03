@@ -1,15 +1,13 @@
 import { inject } from '@angular/core';
-import { CanActivateFn, Router } from '@angular/router';
+import { CanActivateFn } from '@angular/router';
 import { map } from 'rxjs';
 
-import { safeReturnUrl } from './safe-return-url';
+import { AuthPrompt } from './auth-prompt.service';
 import { SessionService } from './session.service';
 
 export const authenticatedGuard: CanActivateFn = (_route, state) => {
-  const router = inject(Router);
+  const prompt = inject(AuthPrompt);
   return inject(SessionService).ensure().pipe(map((session) =>
-    session.status !== 'guest' ? true : router.createUrlTree(['/account/login'], {
-      queryParams: { returnUrl: safeReturnUrl(state.url), ...(session.reason === 'expired' ? { expired: '1' } : {}) },
-    }),
+    session.status !== 'guest' ? true : prompt.entryTree('login', state.url, session.reason === 'expired' ? 'expired' : ''),
   ));
 };
