@@ -1,0 +1,90 @@
+<article class="page auth-page">
+  <minos-section-heading eyebrow="Your Minos account"
+    [heading]="registering ? 'Make room for progress.' : 'Welcome back.'"
+    [summary]="registering ? 'A thoughtful place to practice. Start with your own account.' : 'Sign in to return to your personal workspace.'" />
+
+  <div class="auth-grid">
+    <section class="panel" aria-labelledby="auth-heading">
+      <header class="panel-header"><h2 id="auth-heading">{{ registering ? 'Create an account' : 'Sign in' }}</h2><span class="technical-label">{{ registering ? '01 / Begin' : '01 / Continue' }}</span></header>
+      @if (session.account()) {
+        <div class="auth-body already-signed-in">
+          <p>You are signed in as <strong>{{ session.account()?.displayName }}</strong>.</p>
+          <a class="button" [routerLink]="returnTree">Continue to your workspace <minos-icon name="arrow" /></a>
+          <a routerLink="/account">Manage your session</a>
+        </div>
+      } @else {
+        <form class="auth-body" [formGroup]="form" (ngSubmit)="submit()" novalidate [attr.aria-busy]="pending()">
+          @if (expired && !registering) { <p class="notice" role="status">Your session has ended. Sign in again to continue.</p> }
+          @if (signedOut && !registering) { <p class="notice" role="status">You have signed out.</p> }
+          <p class="form-intro">All fields are required.</p>
+          @if (serverError() || (submitted() && invalidFields().length)) {
+            <div #summary class="form-errors" role="alert" tabindex="-1" aria-labelledby="form-error-heading">
+              <h3 id="form-error-heading">{{ serverError() ? 'Please try again' : 'Check the following fields' }}</h3>
+              @if (serverError()) { <p>{{ serverError() }}</p> }
+              @if (submitted() && invalidFields().length) {
+                <ul>@for (field of invalidFields(); track field) {
+                  <li><a [href]="fieldLink(field)" (click)="focusField($event, field)">{{ fieldError(field) }}</a></li>
+                }</ul>
+              }
+            </div>
+          }
+          @if (registering) {
+            <div class="form-field">
+              <label for="displayName">Display name</label>
+              <input id="displayName" formControlName="displayName" autocomplete="nickname" required maxlength="80"
+                (blur)="trimField('displayName')" [attr.aria-invalid]="!!fieldError('displayName')"
+                [attr.aria-describedby]="fieldError('displayName') ? 'displayName-hint displayName-error' : 'displayName-hint'" />
+              <minos-field-feedback fieldId="displayName" hint="1–80 characters. This is how your name appears in Minos." [error]="fieldError('displayName')" />
+            </div>
+          }
+          <div class="form-field">
+            <label for="email">Email address</label>
+            <input id="email" formControlName="email" type="email" autocomplete="username" autocapitalize="none" spellcheck="false" required maxlength="256"
+              (blur)="trimField('email')" [attr.aria-invalid]="!!fieldError('email')" [attr.aria-describedby]="fieldError('email') ? 'email-error' : null" />
+            <minos-field-feedback fieldId="email" [error]="fieldError('email')" />
+          </div>
+          <div class="form-field">
+            <label for="password">Password</label>
+            <div class="password-control">
+              <input id="password" formControlName="password" [type]="passwordVisible() ? 'text' : 'password'"
+                [autocomplete]="registering ? 'new-password' : 'current-password'" required minlength="12" maxlength="256"
+                [attr.aria-invalid]="!!fieldError('password')"
+                [attr.aria-describedby]="fieldError('password') ? 'password-hint password-error' : 'password-hint'" />
+              <button class="password-toggle" type="button" [disabled]="pending()" [attr.aria-pressed]="passwordVisible()"
+                [attr.aria-controls]="registering ? 'password confirmation' : 'password'"
+                [attr.aria-label]="passwordVisible() ? (registering ? 'Hide passwords' : 'Hide password') : (registering ? 'Show passwords' : 'Show password')"
+                (click)="passwordVisible.set(!passwordVisible())"><minos-icon [name]="passwordVisible() ? 'eye-off' : 'eye'" /></button>
+            </div>
+            <minos-field-feedback fieldId="password" hint="12–256 characters." [error]="fieldError('password')" />
+          </div>
+          @if (registering) {
+            <div class="form-field">
+              <label for="confirmation">Confirm password</label>
+              <input id="confirmation" formControlName="confirmation" [type]="passwordVisible() ? 'text' : 'password'" autocomplete="new-password" required maxlength="256"
+                [attr.aria-invalid]="!!fieldError('confirmation')" [attr.aria-describedby]="fieldError('confirmation') ? 'confirmation-error' : null" />
+              <minos-field-feedback fieldId="confirmation" [error]="fieldError('confirmation')" />
+            </div>
+          }
+          <button class="button submit-button" type="submit" [disabled]="pending()">
+            {{ pending() ? (registering ? 'Creating account…' : 'Signing in…') : (registering ? 'Create account' : 'Sign in') }} <minos-icon name="arrow" />
+          </button>
+          <p class="auth-alternative">{{ registering ? 'Already have an account?' : 'New to Minos?' }}
+            <a [routerLink]="registering ? '/account/login' : '/account/register'" [queryParams]="{ returnUrl: returnUrl }">{{ registering ? 'Sign in' : 'Create an account' }}</a>
+          </p>
+        </form>
+      }
+    </section>
+
+    <aside class="auth-aside" aria-labelledby="auth-note-heading">
+      <div class="brand-note">
+        <minos-forest-landscape />
+        <span class="technical-label">Solve / Improve / Go further</span>
+        <h2 id="auth-note-heading">Small steps.<br />Lasting progress.</h2>
+        <p>A focused workspace for the problems worth thinking about.</p>
+        <span class="note-line" aria-hidden="true"></span>
+      </div>
+      <div class="security-note"><minos-icon name="shield" /><p>Your session is protected by browser-managed cookies. Minos never stores your password in browser storage.</p></div>
+      <a class="back-link" routerLink="/problems">Browse the problem workspace <minos-icon name="arrow" /></a>
+    </aside>
+  </div>
+</article>

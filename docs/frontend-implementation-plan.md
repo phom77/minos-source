@@ -1,6 +1,8 @@
 # Minos frontend implementation plan
 
-Status: planning only; implementation has not started under this plan.
+Status: Phase 1 implemented. Phase 2 implemented with automated and real-browser UI verification; live HTTPS cookie-session verification is pending because the API was unavailable during checks. Phase 3 onward remains planned.
+
+Owner-requested addition to Phase 2: support persistent light/dark mode, preserving the approved Minos palette and forest navigation. Historical milestone labels below describe the plan's original baseline; current backend approvals in `AGENTS.md` take precedence. This implementation does not change backend code or authorize additional backend work.
 
 Scope: complete the Angular frontend for the approved M1–M5 capabilities. Do not change backend code or implement M6 without owner approval.
 
@@ -61,6 +63,7 @@ A consistent, responsive application frame ready to host real workflows. Do not 
 - Handle invalid credentials, registration failure, rate limiting, pending requests, and session expiration.
 - Add protected navigation and safe internal return URLs.
 - Distinguish unauthenticated responses from network/server failures; an outage must not silently become logout.
+- Add a functional light/dark switch with system-preference fallback, persistent explicit preference, semantic theme colors, and independent contrast/responsive verification. Store no account credentials or tokens in browser storage.
 
 ### Dependencies
 

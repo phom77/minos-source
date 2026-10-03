@@ -28,7 +28,9 @@ export const routes: Routes = [
       },
       {
         path: '**',
-        redirectTo: 'problems',
+        title: 'Page not found — Minos',
+        loadComponent: () =>
+          import('./layouts/not-found-page').then(({ NotFoundPage }) => NotFoundPage),
       },
     ],
   },

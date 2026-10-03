@@ -1,24 +1,75 @@
-<a class="skip-link" href="#main-content">Skip to content</a>
+<a class="skip-link" [href]="skipHref()">Skip to content</a>
 
-<header class="site-header">
-  <a class="brand" routerLink="/" aria-label="Minos home">
-    <span class="brand-mark" aria-hidden="true">M</span>
+<aside class="sidebar">
+  <ng-container [ngTemplateOutlet]="sidebarContent" />
+</aside>
+
+<div class="workspace">
+  <header class="workspace-header">
+    <button class="menu-button" type="button" aria-label="Open navigation"
+      aria-controls="mobile-navigation" [attr.aria-expanded]="navigationOpen()"
+      (click)="openNavigation()">
+      <minos-icon name="menu" />
+    </button>
+    <nav class="breadcrumb" aria-label="Breadcrumb">
+      <span class="workspace-label">Workspace</span>
+      <minos-icon name="chevron" />
+      <span aria-current="page">{{ pageLabel() }}</span>
+    </nav>
+    <div class="header-actions">
+      <button class="theme-button" type="button" (click)="theme.toggle()"
+        [attr.aria-label]="theme.theme() === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'"
+        [title]="theme.theme() === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'">
+        <minos-icon [name]="theme.theme() === 'dark' ? 'sun' : 'moon'" />
+      </button>
+      <span class="visually-hidden" role="status">{{ theme.theme() === 'dark' ? 'Dark mode' : 'Light mode' }}</span>
+      <a class="account-link" routerLink="/account" [attr.aria-label]="'Go to account: ' + accountLabel()" [title]="accountLabel()">
+        <minos-icon name="account" /><span>{{ accountLabel() }}</span>
+      </a>
+    </div>
+  </header>
+
+  <main #main id="main-content" tabindex="-1">
+    <router-outlet />
+  </main>
+
+  <footer class="workspace-footer">
+    <span>Minos <span aria-hidden="true">/</span> A place to think clearly.</span>
+    <span class="technical-label">Solve · Improve · Go further</span>
+  </footer>
+</div>
+
+<dialog #drawer id="mobile-navigation" class="navigation-drawer" aria-labelledby="navigation-title"
+  (close)="onDrawerClosed()" (cancel)="onDrawerClosed()" (click)="dismissBackdrop($event)" (keydown)="onDrawerKeydown($event)">
+  <h2 id="navigation-title" class="visually-hidden">Navigation</h2>
+  <button class="drawer-close" type="button" autofocus aria-label="Close navigation" (click)="closeNavigation()">
+    <minos-icon name="close" />
+  </button>
+  <ng-container [ngTemplateOutlet]="sidebarContent" />
+</dialog>
+
+<ng-template #sidebarContent>
+  <a class="brand" routerLink="/problems" aria-label="Minos problem library" (click)="closeNavigation()">
+    <svg class="brand-mark" width="36" height="36" viewBox="320 320 615 615" aria-hidden="true" focusable="false">
+      <image [attr.href]="theme.theme() === 'dark' ? 'brand/light-minos.png' : 'brand/dark-minos.png'" width="1254" height="1254" />
+    </svg>
     <span>Minos</span>
   </a>
-
-  <nav aria-label="Primary navigation">
-    <a routerLink="/problems" routerLinkActive="active">Problems</a>
-    <a routerLink="/account" routerLinkActive="active">Account</a>
+  <p class="nav-label technical-label">Your workspace</p>
+  <nav class="primary-navigation" aria-label="Primary navigation">
+    <a routerLink="/problems" routerLinkActive="active" ariaCurrentWhenActive="page" (click)="closeNavigation()">
+      <minos-icon name="problems" /><span>Problems</span>
+    </a>
+    <a routerLink="/account" routerLinkActive="active" ariaCurrentWhenActive="page" (click)="closeNavigation()">
+      <minos-icon name="account" /><span>Account</span>
+    </a>
   </nav>
-
-  <p class="edition"><span aria-hidden="true"></span> Foundation edition</p>
-</header>
-
-<main id="main-content" tabindex="-1">
-  <router-outlet />
-</main>
-
-<footer>
-  <p>Minos</p>
-  <p>Practice with intent. Judge with evidence.</p>
-</footer>
+  <div class="sidebar-bottom">
+    <div class="sidebar-note">
+      <span class="technical-label">Keep solving</span>
+      <p>One thoughtful solution.<br />One step further.</p>
+      <span class="note-line" aria-hidden="true"></span>
+    </div>
+    <p class="sidebar-signature technical-label">Code. Learn. Grow.</p>
+  </div>
+</ng-template>

@@ -1,0 +1,6 @@
+:host { display: block; position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+svg { display: block; width: 100%; height: 100%; }
+.distant { fill: var(--color-landscape-distant); }
+.middle { fill: var(--color-landscape-middle); }
+.near { fill: var(--color-landscape-near); }
+.forest { fill: var(--color-landscape-forest); }

@@ -1,7 +1,7 @@
 # Minos project design
 
 Date: 2026-09-13\
-Status: M0–M5 complete and approved; M6 implemented and verified; live Google smoke validation deferred
+Status: M0–M6 complete; M7 backend complete and verified; development MVP owner acceptance pending; live Google smoke validation deferred
 
 Related documents: [M0 closure](m0-closure.md), [Decision register](decisions.md), [Implementation roadmap](implementation-plan.md)
 
@@ -328,7 +328,7 @@ Cross-context identifiers may use database foreign keys in the shared database. 
 
 Keep large test contents outside ordinary relational rows. The initial artifact adapter may use a private filesystem if deployment supports it; a remote worker needs a deliberate transfer/shared-storage solution. Artifact references use server-controlled keys, not arbitrary user paths. Database backups alone cannot restore file-backed tests.
 
-Retention policies must cover source, compiler diagnostics, test results, scratch files, and future custom executions. Establish smoke-test bounds in M1, product-specific limits with their workflows, and retention durations before M7 rather than inventing capacity figures during M0.
+Developer-only retention is implemented in [ADR 0010](adr/0010-development-reliability-and-retention.md): preserve source, bounded compiler diagnostics/results, attempts, immutable versions and referenced tests for the project lifetime; remove unreferenced uploads after 24 hours and transient scratch after each stage/startup recovery; keep seven daily paired database/artifact backups. The same decision records the default 32 global/five-per-account admission limits, exclusive single-host recovery and eight-job/120-second queue-wait acceptance target. Public capacity/retention and future custom executions require later decisions.
 
 ## 12. Initial Clean Architecture structure
 

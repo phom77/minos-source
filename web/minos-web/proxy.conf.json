@@ -1,4 +1,9 @@
 {
+  "/api/**": {
+    "target": "https://localhost:49674",
+    "secure": false,
+    "changeOrigin": true
+  },
   "/accounts/**": {
     "target": "https://localhost:49674",
     "secure": false,

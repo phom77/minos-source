@@ -1,35 +1,46 @@
 <article class="page">
-  <minos-section-heading
-    eyebrow="Programming practice, considered"
-    heading="Solve what matters."
-    summary="A focused home for precise problems, thoughtful solutions, and verdicts you can trust. The public catalog will connect here when its backend contract is approved."
-  />
-
-  <section class="catalog" aria-labelledby="catalog-heading">
-    <div class="catalog-header">
-      <div>
-        <p class="index">01 / Problem library</p>
-        <h2 id="catalog-heading">A clear path from prompt to proof.</h2>
+  <section class="practice-banner" aria-label="Practice with purpose">
+    <minos-forest-landscape />
+    <div class="banner-content">
+      <minos-section-heading tone="dark"
+        eyebrow="Practice with purpose"
+        heading="Solve what matters."
+        summary="Read carefully. Think clearly. Build a better solution."
+      />
+      <div class="banner-actions">
+        <a class="button button--mint" href="/problems#problem-library">Explore the library <minos-icon name="arrow" /></a>
+        <a class="button button--on-dark" routerLink="/account">Your account</a>
       </div>
-      <span class="status">Foundation ready</span>
     </div>
-
-    <div class="catalog-grid">
-      <div class="catalog-note">
-        <p class="note-number">A</p>
-        <h3>Read without noise</h3>
-        <p>Problem statements will prioritize typography, constraints, and samples over dashboard decoration.</p>
-      </div>
-      <div class="catalog-note">
-        <p class="note-number">B</p>
-        <h3>Work with confidence</h3>
-        <p>Private tests and authorization stay on the server. The interface presents capability; it never invents authority.</p>
-      </div>
-      <aside>
-        <p class="aside-label">Current scope</p>
-        <p>Problem authoring and publication remain intentionally absent until M4 is approved and its API contracts exist.</p>
-        <a routerLink="/account">View account foundation <span aria-hidden="true">→</span></a>
-      </aside>
-    </div>
+    <p class="banner-caption technical-label" aria-hidden="true">A higher standard.<br />One step at a time.</p>
   </section>
+
+  <div class="content-grid">
+    <section id="problem-library" class="panel" aria-labelledby="catalog-heading" tabindex="-1">
+      <header class="panel-header">
+        <h2 id="catalog-heading">Problem library</h2>
+        <minos-status-badge>Not connected yet</minos-status-badge>
+      </header>
+      <minos-state-panel heading="A clear place to begin."
+        description="The published problem catalog will arrive in Phase 3. This is the visual foundation, not an empty live catalog."
+      >
+        <a class="button button--secondary" routerLink="/account">View account workspace <minos-icon name="arrow" /></a>
+      </minos-state-panel>
+    </section>
+
+    <aside class="panel practice-notes" aria-labelledby="practice-heading">
+      <header class="panel-header"><h2 id="practice-heading">Practice with intent</h2></header>
+      <ol>
+        <li><span class="step-number" aria-hidden="true">01</span><div><h3>Read for understanding</h3><p>Start with the statement. Make every constraint count.</p></div></li>
+        <li><span class="step-number" aria-hidden="true">02</span><div><h3>Think before you build</h3><p>Work through the examples. Find the simplest sound approach.</p></div></li>
+        <li><span class="step-number" aria-hidden="true">03</span><div><h3>Keep improving</h3><p>Small, deliberate steps become lasting progress.</p></div></li>
+      </ol>
+    </aside>
+  </div>
+
+  <div class="editorial-note">
+    <span class="note-rule" aria-hidden="true"></span>
+    <p>Progress starts with a good question.</p>
+    <span class="technical-label">More than problems</span>
+  </div>
 </article>
