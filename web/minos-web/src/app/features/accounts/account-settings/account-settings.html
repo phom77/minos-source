@@ -1,0 +1,35 @@
+<div class="account-grid">
+  <div class="settings-stack">
+    <minos-profile-form [account]="account()" [blocked]="blocked('profile')" (pendingChange)="setPending('profile', $event)" />
+    <minos-password-form [blocked]="blocked('password')" (pendingChange)="setPending('password', $event)" (completed)="securityCompleted('password')" />
+    <minos-disable-form [blocked]="blocked('disable')" (pendingChange)="setPending('disable', $event)" (completed)="securityCompleted('disable')" />
+  </div>
+  <aside class="settings-stack" aria-label="Account details and sign-in information">
+    <section class="panel" aria-labelledby="account-heading">
+      <header class="panel-header"><h2 id="account-heading" tabindex="-1">Your account</h2><minos-status-badge tone="success">Signed in</minos-status-badge></header>
+      <div class="account-details">
+        <h3>{{ account().displayName }}</h3>
+        <dl>
+          <div><dt>Role</dt><dd>{{ account().role }}</dd></div>
+          <div><dt>Joined</dt><dd>{{ account().createdAtUtc | date:'mediumDate':'UTC' }} <span class="date-zone">UTC</span></dd></div>
+          <div><dt>Account ID</dt><dd class="account-id">{{ account().id }}</dd></div>
+        </dl>
+        <p class="detail-note">Your role is managed by an administrator. Changing your name does not change your permissions.</p>
+        <a class="button button--secondary" routerLink="/problems">Back to problems <minos-icon name="arrow" /></a>
+        <div class="sign-out-section" [attr.aria-busy]="busy() === 'logout'">
+          <p>Signing out ends your account sessions on all devices.</p>
+          @if (logoutError()) { <p class="sign-out-error" role="alert">{{ logoutError() }}</p> }
+          <button type="button" class="button button--secondary" [disabled]="!!busy()" (click)="signOut()">{{ busy() === 'logout' ? 'Signing out…' : 'Sign out' }}</button>
+        </div>
+      </div>
+    </section>
+    <section class="panel" aria-labelledby="sign-in-methods">
+      <header class="panel-header"><h2 id="sign-in-methods">Sign-in information</h2></header>
+      <div class="account-details">
+        <div class="account-note"><minos-icon name="shield" /><p>Your session uses browser-managed cookies. Minos does not store your passwords in browser storage.</p></div>
+        <p class="detail-note">Password changes and account disabling require an existing Minos password. If you joined only with Google, continue using Google sign-in.</p>
+        <p class="detail-note">Linking Google to an existing account is not available in this interface yet. A matching email does not automatically link accounts.</p>
+      </div>
+    </section>
+  </aside>
+</div>

@@ -7,7 +7,8 @@ export const accountsRoutes: Routes = [
   {
     path: 'login', pathMatch: 'full',
     redirectTo: ({ queryParams }) => inject(AuthPrompt).entryTree('login', queryParams['returnUrl'] ?? '/account',
-      queryParams['expired'] === '1' ? 'expired' : queryParams['signedOut'] === '1' ? 'signed-out' : ''),
+      queryParams['notice'] === 'password-changed' ? 'password-changed' : queryParams['notice'] === 'account-disabled' ? 'account-disabled'
+        : queryParams['expired'] === '1' ? 'expired' : queryParams['signedOut'] === '1' ? 'signed-out' : ''),
   },
   {
     path: 'register', pathMatch: 'full',

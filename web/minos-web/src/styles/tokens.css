@@ -57,6 +57,7 @@
   --color-warning-surface: #fff0ce;
   --color-danger: #963b35;
   --color-danger-surface: #fce9e4;
+  --color-on-danger: #ffffff;
 
   --font-body: 'Segoe UI', ui-sans-serif, -apple-system, BlinkMacSystemFont, sans-serif;
   --font-display: Georgia, 'Times New Roman', serif;
@@ -128,4 +129,5 @@
   --color-warning-surface: #42351d;
   --color-danger: #ffb8ad;
   --color-danger-surface: #482c29;
+  --color-on-danger: #482c29;
 }

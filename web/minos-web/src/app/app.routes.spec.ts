@@ -49,7 +49,7 @@ describe('application routes', () => {
     await harness.navigateByUrl('/account');
 
     expect(harness.routeNativeElement).toBe(shell);
-    expect(harness.routeNativeElement?.querySelector('h1')?.textContent).toBe('Your work, kept together.');
+    expect(harness.routeNativeElement?.querySelector('h1')?.textContent).toBe('Make Minos your own.');
     expect(harness.routeNativeElement?.querySelector('a.active')?.textContent?.trim()).toBe('Account');
     expect(harness.routeNativeElement?.querySelector('a.active')?.getAttribute('aria-current')).toBe('page');
     expect(TestBed.inject(Title).getTitle()).toBe('Account — Minos');
@@ -182,5 +182,22 @@ describe('application routes', () => {
     await renderAuth(harness);
     expect(TestBed.inject(Router).url).toBe('/problems?auth=login&authReturn=%2Faccount&authNotice=expired');
     expect(harness.routeNativeElement?.querySelector('.notice')?.textContent).toContain('session has ended');
+  });
+
+  it.each([
+    ['password-changed', 'Sign in with your new password'],
+    ['account-disabled', 'That account can no longer sign in'],
+  ])('carries safe %s completion feedback into the sign-in popup', async (notice, message) => {
+    TestBed.inject(SessionService).signedOut();
+    const harness = await RouterTestingHarness.create('/account/login?notice=' + notice + '&returnUrl=%2Faccount');
+    await renderAuth(harness);
+    expect(TestBed.inject(Router).url).toBe('/problems?auth=login&authReturn=%2Faccount&authNotice=' + notice);
+    expect(harness.routeNativeElement?.querySelector('.notice')?.textContent).toContain(message);
+  });
+
+  it('does not present arbitrary URL content as an account completion notice', async () => {
+    TestBed.inject(SessionService).signedOut();
+    const harness = await RouterTestingHarness.create('/account/login?notice=unsupported');
+    await renderAuth(harness); expect(harness.routeNativeElement?.querySelector('.notice')).toBeNull();
   });
 });

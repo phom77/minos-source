@@ -7,6 +7,8 @@
   <form class="auth-body" [formGroup]="form" (ngSubmit)="submit()" novalidate [attr.aria-busy]="pending() || google.waiting()">
     @if (notice() === 'expired' && !registering) { <p class="notice" role="status">Your session has ended. Sign in again to continue.</p> }
     @if (notice() === 'signed-out' && !registering) { <p class="notice" role="status">You have signed out.</p> }
+    @if (notice() === 'password-changed' && !registering) { <p class="notice" role="status">Your password has changed and all sessions have ended. Sign in with your new password.</p> }
+    @if (notice() === 'account-disabled' && !registering) { <p class="notice" role="status">Your account is disabled and all sessions have ended. That account can no longer sign in.</p> }
     @if (serverError() || (submitted() && invalidFields().length)) {
       <div #summary class="form-errors" role="alert" tabindex="-1" aria-labelledby="form-error-heading">
         <h3 id="form-error-heading">{{ serverError() ? 'Please try again' : 'Check the following fields' }}</h3>

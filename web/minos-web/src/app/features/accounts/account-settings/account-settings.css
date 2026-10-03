@@ -1,0 +1,19 @@
+:host { display: block; min-width: 0; }
+.account-grid { display: grid; min-width: 0; grid-template-columns: minmax(0, 1fr) minmax(16rem, 0.6fr); gap: var(--space-6); align-items: start; }
+.settings-stack { display: grid; gap: var(--space-6); min-width: 0; }
+.account-details { padding: var(--space-6); }
+h3 { margin: 0 0 var(--space-5); font-size: 1.5rem; font-weight: 600; }
+dl { display: grid; margin: 0 0 var(--space-5); gap: var(--space-4); }
+dl > div { display: grid; grid-template-columns: 5rem minmax(0, 1fr); gap: var(--space-3); font-size: var(--text-label); }
+dt { color: var(--color-text-muted); }
+dd { margin: 0; overflow-wrap: anywhere; }
+.account-id { font-family: var(--font-mono); }
+.date-zone { color: var(--color-text-muted); font-size: var(--text-small); }
+.detail-note, .sign-out-section p, .account-note p { margin: 0 0 var(--space-4); color: var(--color-text-muted); font-size: var(--text-label); line-height: 1.7; }
+.detail-note:last-child { margin-bottom: 0; }
+.sign-out-section { margin-top: var(--space-6); padding-top: var(--space-5); border-top: 1px solid var(--color-border); }
+.sign-out-section p.sign-out-error { color: var(--color-danger); }
+.account-note { display: flex; gap: var(--space-3); align-items: start; }
+.account-note minos-icon { color: var(--color-action); margin-top: var(--space-1); }
+@media (max-width: 63.99rem) { .account-grid { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 47.99rem) { .account-details { padding: var(--space-4); } dl > div { grid-template-columns: minmax(0, 1fr); gap: var(--space-1); } }

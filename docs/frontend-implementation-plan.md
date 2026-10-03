@@ -1,6 +1,6 @@
 # Minos frontend implementation plan
 
-Status: Phases 1–3 implemented. Phase 3 adds the real public catalog and published-problem reader. At the owner's request, authentication now uses a popup and Google sign-in was pulled forward from Phase 4. Automated checks and real-browser UI checks are recorded in the frontend README. Live API/cookie/Google-consent verification remains pending while the development API returns 502. Phase 4 onward remains planned.
+Status: Phases 1–3 implemented. Phase 4 profile editing, password changes, and account disabling are implemented in FE. Explicit Google account linking remains blocked by the existing browser transport contract (details below); Phase 3 Google sign-in remains intact. Automated checks and browser evidence are recorded in the frontend README. Live API/cookie/Google-consent verification remains pending while the development API returns 502. Phase 5 onward remains planned.
 
 Owner-requested addition to Phase 2: support persistent light/dark mode, preserving the approved Minos palette and forest navigation. Historical milestone labels below describe the plan's original baseline; current backend approvals in `AGENTS.md` take precedence. This implementation does not change backend code or authorize additional backend work.
 
@@ -109,6 +109,14 @@ Implementation evidence: `web/minos-web/src/app/features/problems/` owns validat
 - Explain session revocation and return users to sign-in after operations that clear their session.
 - Show role information without implying that users can promote themselves.
 - Google sign-in UI is implemented in Phase 3 at the owner's request; retain live provider verification as an acceptance check. Explicit provider linking remains Phase 4 and requires the current-password proof supported by the backend.
+
+### Implementation status and remaining gate
+
+Implemented in `features/accounts/`: separate profile, password, and disable forms composed by identity-keyed account settings. The UI uses returned metadata only, with immediate shared-name updates, typed server-aligned validation, linked/focused error summaries, independent eye toggles, pending/success/error feedback, serialized settings actions, and a native destructive confirmation. Password changes and disabling clear the session and return to the sign-in popup with a specific completion notice. An incorrect current-password 401 is checked independently through `/accounts/me`; only a confirmed session 401 expires the account. Stale responses do not overwrite newer in-memory identities, and credential fields are cleared when the owning view or identity leaves.
+
+Google linking is **not implemented or claimed complete**. `POST /accounts/google/link` binds a JSON `ConfirmPasswordRequest`, requires CSRF protection, and returns the OAuth challenge redirect rather than a browser-readable continuation. Native form navigation cannot submit this JSON contract; a fetch/XHR cannot turn the redirect into top-level Google navigation, and manual fetch redirects hide response headers. Checking `/accounts/me` while already authenticated would not prove a provider was linked. The current API also has no linked-provider status projection. The settings UI states that linking is unavailable; it does not collect proof for an unusable action, use login as a substitute, merge matching emails, expose passwords in URLs, or weaken security. A browser-compatible linking initiation/completion contract needs a separately authorized backend decision. Backend code remains unchanged. See the [native form encodings](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/form#enctype) and [opaque redirect behavior](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch#checking_the_response_type).
+
+Acceptance still requires a running API and trusted HTTPS: sign in → save name → reload; wrong current password without logout; successful password change → all sessions revoked → new-password sign-in; explicit disable confirmation → access denied afterwards. Browser visual checks used an isolated test-only fixture with no backend requests; security mutation behavior is covered by HTTP/component tests. There is no production mock fallback.
 
 ### Dependencies
 

@@ -71,6 +71,8 @@ code, pre { font-family: var(--font-mono); }
 .button:disabled { cursor: not-allowed; opacity: 0.55; }
 .button--secondary { border-color: var(--color-control-border); background: transparent; color: var(--color-text); }
 .button--secondary:hover:not(:disabled) { background: var(--color-surface-subtle); }
+.button--danger { border-color: var(--color-danger); background: var(--color-danger-surface); color: var(--color-danger); }
+.button--danger:hover:not(:disabled) { background: var(--color-danger); color: var(--color-on-danger); }
 .button--mint { background: var(--color-brand-action); color: var(--color-on-brand-action); }
 .button--mint:hover:not(:disabled) { background: var(--color-brand-action-hover); }
 .button--on-dark { border-color: var(--color-on-brand-muted); background: transparent; color: var(--color-on-brand); }

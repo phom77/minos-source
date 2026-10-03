@@ -1,0 +1,8 @@
+dialog { width: min(28rem, calc(100vw - 2rem)); max-height: calc(100dvh - 2rem); margin: auto;
+  padding: var(--space-6); overflow: auto; border: 1px solid var(--color-border); border-radius: var(--radius-panel);
+  background: var(--color-surface); color: var(--color-text); }
+dialog::backdrop { background: var(--color-scrim); }
+h3 { margin: 0; font-size: 1.25rem; }
+p { margin: var(--space-4) 0; color: var(--color-text-muted); }
+.dialog-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-3); margin-top: var(--space-6); }
+@media (max-width: 29.99rem) { dialog { padding: var(--space-4); } .dialog-actions .button { flex: 1 1 100%; } }

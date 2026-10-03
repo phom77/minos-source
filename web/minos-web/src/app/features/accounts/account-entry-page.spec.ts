@@ -8,6 +8,8 @@ import { API_CONFIGURATION } from '../../core/config/api.config';
 import { csrfInterceptor } from '../../core/http/csrf.interceptor';
 import { sessionErrorInterceptor } from '../../core/http/session-error.interceptor';
 import { AccountEntryPage } from './account-entry-page';
+import { AccountSettings } from './account-settings/account-settings';
+import { By } from '@angular/platform-browser';
 
 describe('account session overview', () => {
   let requests: HttpTestingController;
@@ -33,20 +35,21 @@ describe('account session overview', () => {
     fixture.detectChanges();
     await fixture.whenStable();
     expect(fixture.nativeElement.textContent).toContain('Signed in');
-    expect(document.activeElement).toBe(fixture.nativeElement.querySelector('.account-details > h3'));
+    expect(document.activeElement).toBe(fixture.nativeElement.querySelector('#account-heading'));
   });
 
   it('does not clear a session on a failed logout; a successful retry clears it', () => {
     const session = TestBed.inject(SessionService);
     session.signedIn({ id: 'one', displayName: 'An', role: 'Solver', createdAtUtc: '2026-10-01T00:00:00Z' });
     const fixture = TestBed.createComponent(AccountEntryPage); fixture.detectChanges();
-    fixture.componentInstance.signOut(); fixture.componentInstance.signOut();
+    const settings = fixture.debugElement.query(By.directive(AccountSettings)).componentInstance as AccountSettings;
+    settings.signOut(); settings.signOut();
     requests.expectOne('/accounts/csrf').flush({ requestToken: 'token' });
     requests.expectOne('/accounts/logout').flush({}, { status: 500, statusText: 'Failed' });
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('your session may still be active');
     expect(session.account()?.id).toBe('one');
-    fixture.componentInstance.signOut();
+    settings.signOut();
     requests.expectOne('/accounts/logout').flush(null);
     expect(session.account()).toBeNull();
     expect(TestBed.inject(Router).navigate).toHaveBeenCalledWith(['/account/login'], { queryParams: { signedOut: '1' } });
@@ -56,7 +59,8 @@ describe('account session overview', () => {
     const session = TestBed.inject(SessionService);
     session.signedIn({ id: 'one', displayName: 'An', role: 'Solver', createdAtUtc: '2026-10-01T00:00:00Z' });
     const fixture = TestBed.createComponent(AccountEntryPage); fixture.detectChanges();
-    fixture.componentInstance.signOut();
+    const settings = fixture.debugElement.query(By.directive(AccountSettings)).componentInstance as AccountSettings;
+    settings.signOut();
     requests.expectOne('/accounts/csrf').flush({ requestToken: 'token' });
     requests.expectOne('/accounts/logout').flush({}, { status: 401, statusText: 'Unauthorized' });
     expect(session.state().status).toBe('guest');

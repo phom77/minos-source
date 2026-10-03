@@ -6,7 +6,7 @@ import { NavigationEnd, Router, Scroll, UrlTree } from '@angular/router';
 import { safeReturnUrl } from './safe-return-url';
 
 export type AuthMode = 'login' | 'register';
-export type AuthNotice = 'expired' | 'signed-out' | '';
+export type AuthNotice = 'expired' | 'signed-out' | 'password-changed' | 'account-disabled' | '';
 
 const modalKeys = ['auth', 'authReturn', 'authNotice'];
 
@@ -75,7 +75,8 @@ export class AuthPrompt {
   private readLocation(): void {
     const query = this.router.parseUrl(this.router.url).queryParams;
     this.value.set(query['auth'] === 'login' || query['auth'] === 'register' ? query['auth'] : null);
-    this.notice.set(query['authNotice'] === 'expired' || query['authNotice'] === 'signed-out' ? query['authNotice'] : '');
+    const notice = query['authNotice'];
+    this.notice.set(notice === 'expired' || notice === 'signed-out' || notice === 'password-changed' || notice === 'account-disabled' ? notice : '');
     // Native dialogs make the background inert; also prevent wheel/touch page scrolling.
     this.document.documentElement.classList.toggle('auth-open', this.value() !== null);
   }

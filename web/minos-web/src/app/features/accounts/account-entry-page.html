@@ -1,31 +1,14 @@
 <article class="page">
-  <minos-section-heading eyebrow="Your account"
-    heading="Your work, kept together."
-    summary="Your personal workspace, connected to a protected browser session."
-  />
-  <div class="account-grid">
-    <section class="panel" aria-labelledby="account-heading">
-      <header class="panel-header">
-        <h2 id="account-heading">Account workspace</h2>
-        @if (session.account()) { <minos-status-badge tone="success">Signed in</minos-status-badge> }
-      </header>
-      @if (session.account(); as account) {
-        <div class="account-details">
-          <span class="technical-label">Welcome to Minos</span>
-          <h3 #resultFocus tabindex="-1">{{ account.displayName }}</h3>
-          <dl>
-            <div><dt>Role</dt><dd>{{ account.role }}</dd></div>
-            <div><dt>Joined</dt><dd>{{ account.createdAtUtc | date:'mediumDate':'UTC' }} <span class="date-zone">UTC</span></dd></div>
-            <div><dt>Account ID</dt><dd class="account-id">{{ account.id }}</dd></div>
-          </dl>
-          <a class="button" routerLink="/problems">Go to problems <minos-icon name="arrow" /></a>
-          <div class="sign-out-section" [attr.aria-busy]="pending()">
-            <p>Signing out ends your account sessions on all devices.</p>
-            @if (error()) { <p class="sign-out-error" role="alert">{{ error() }}</p> }
-            <button type="button" class="button button--secondary" [disabled]="pending()" (click)="signOut()">{{ pending() ? 'Signing out…' : 'Sign out' }}</button>
-          </div>
-        </div>
-      } @else if (session.state().status === 'checking') {
+  <minos-section-heading eyebrow="Your account" heading="Make Minos your own."
+    summary="Manage your name, password, and account access in one place." />
+  @if (session.account(); as account) {
+    @for (identity of [account]; track identity.id) {
+      <minos-account-settings [account]="identity" />
+    }
+  } @else {
+    <section class="panel" aria-labelledby="account-recovery-heading">
+      <header class="panel-header"><h2 id="account-recovery-heading">Your account</h2></header>
+      @if (session.state().status === 'checking') {
         <minos-state-panel kind="loading" heading="Checking your session…" description="Connecting to your account. This may take a moment." />
       } @else if (session.state().status === 'unavailable') {
         <minos-state-panel kind="error" heading="Your account could not be reached."
@@ -34,22 +17,10 @@
           <a class="button button--secondary" routerLink="/problems">Back to problems</a>
         </minos-state-panel>
       } @else {
-        <minos-state-panel heading="Sign in to continue." description="Your session has ended. Sign in again to return to your workspace.">
+        <minos-state-panel heading="Sign in to continue." description="Your session has ended. Sign in again to return to your account settings.">
           <a #resultFocus class="button" routerLink="/account/login" [queryParams]="{ returnUrl: '/account', expired: '1' }">Sign in</a>
         </minos-state-panel>
       }
     </section>
-
-    <aside class="panel account-notes" aria-labelledby="account-notes-heading">
-      <header class="panel-header"><h2 id="account-notes-heading">Designed around you</h2></header>
-      <div class="account-note">
-        <minos-icon name="shield" />
-        <div><h3>Protected by design</h3><p>Your session uses browser-managed cookies. Your credentials do not belong in local storage.</p></div>
-      </div>
-      <div class="account-note">
-        <minos-icon name="account" />
-        <div><h3>A focused workspace</h3><p>Display-name and security settings will arrive in Phase 4. Your role is managed by an administrator.</p></div>
-      </div>
-    </aside>
-  </div>
+  }
 </article>

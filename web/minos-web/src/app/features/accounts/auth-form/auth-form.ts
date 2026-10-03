@@ -12,7 +12,7 @@ import { UiIcon } from '../../../shared/ui/ui-icon';
 import { AccountsApi } from '../data-access/accounts-api';
 import { GoogleSignIn } from '../data-access/google-sign-in';
 import { authErrorMessage } from '../account-error-message';
-import { displayNameValidator, matchingPasswords } from './auth-validators';
+import { displayNameValidator, matchingPasswords } from '../account-validators';
 
 type Field = 'email' | 'displayName' | 'password' | 'confirmation';
 
