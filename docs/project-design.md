@@ -45,7 +45,7 @@ See [ADR 0001](adr/0001-initial-audience-and-access-policy.md).
 
 ### Accepted D02: development execution boundary
 
-- The repository remains on Windows D:, and the trusted Worker runs in WSL2 Ubuntu.
+- The repository remains on Windows D:, and the trusted Worker runs in a Linux Docker container for local Compose. Native WSL2 Ubuntu hosting remains supported.
 - Docker is the first backend for isolated compilation and execution.
 - Submission files are copied/materialized into private Linux-native workspaces; contestant programs do not see the Windows drive, repository, secrets, other tests, or Docker management interfaces.
 - The application execution contract returns backend-independent evidence; Submission/Judging rules and durable job lifecycle do not depend on Docker.
@@ -53,7 +53,7 @@ See [ADR 0001](adr/0001-initial-audience-and-access-policy.md).
 - A dedicated development VM is not required. Production host selection and Isolate adoption remain deferred.
 - M1 must validate the selected configuration; acceptance of the architecture does not claim sandbox correctness.
 
-See [ADR 0002](adr/0002-judge-development-environment.md).
+See [ADR 0002](adr/0002-judge-development-environment.md), with local hosting updated by [ADR 0011](adr/0011-containerized-worker-development.md).
 
 ### Accepted D03: official judging first
 
@@ -283,7 +283,7 @@ Browser / future frontend
              | leases and guarded    | trusted access
              | result commits        |
      +-------+-----------------------+-------------+
-     | WSL2 Ubuntu Worker / Docker execution        |
+     | Linux Worker / sibling Docker execution     |
      | Trusted Judge Worker and trusted checker    |
      |                  |                          |
      |                  v                          |
@@ -293,7 +293,7 @@ Browser / future frontend
      +---------------------------------------------+
 ```
 
-The modular monolith describes business ownership. The Worker is a separate executable in WSL2 Ubuntu and invokes a Docker execution adapter. Initially API and Worker can share Evaluation application/domain code and one coordinated release. Runner workspaces are private Linux-native copies, despite the repository staying on Windows D:. Future physical hosting is not selected.
+The modular monolith describes business ownership. The Worker is a separate Linux executable, hosted in Docker for local Compose, and invokes a Docker execution adapter to create sibling sandboxes. Native WSL2 Ubuntu hosting remains available. Initially API and Worker can share Evaluation application/domain code and one coordinated release. Runner workspaces are private Linux-native copies, despite the repository staying on Windows D:. Future production hosting is not selected.
 
 | Boundary | Responsibility |
 | --- | --- |
@@ -391,7 +391,7 @@ No outbox is required solely to insert a job into the same database transaction.
 
 ## 15. Sandboxed execution policy
 
-Docker is the accepted first compile/run backend in WSL2 Ubuntu. Validate its actual resource, filesystem, and cleanup behavior using the M1 checks in ADR 0002. A future Isolate adapter remains possible behind the same execution contract and would run directly on Linux rather than inside the Docker runner; adopting or validating Isolate is not required for M1.
+Docker is the accepted first compile/run backend on Linux, including the containerized Worker profile in ADR 0011. Validate its actual resource, filesystem, and cleanup behavior using the M1 checks in ADR 0002. A future Isolate adapter remains possible behind the same execution contract and would run directly on Linux rather than inside the Docker runner; adopting or validating Isolate is not required for M1.
 
 The adapter must enforce and demonstrate:
 

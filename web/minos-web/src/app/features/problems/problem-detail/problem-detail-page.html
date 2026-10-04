@@ -3,12 +3,11 @@
   @if (state(); as current) {
     @if (current.status === 'ready') {
       <header class="problem-heading">
-        <p class="technical-label">{{ immutable ? 'Immutable published version' : 'Latest published version' }}</p>
         <h1>{{ current.data.title }}</h1>
         <p class="published">Version {{ current.data.versionNumber }} · Published <time [attr.datetime]="current.data.publishedAtUtc">{{ current.data.publishedAtUtc | date:'medium':'UTC' }}</time> UTC</p>
         <div class="version-navigation">
           @if (immutable) { <a class="button button--secondary" [routerLink]="['/problems', current.data.problemId]">Read the latest version</a> }
-          @else { <a class="button button--secondary" [routerLink]="['/problems/versions', current.data.versionId]">Open this immutable version</a> }
+          @else { <a class="button button--secondary" [routerLink]="['/problems/versions', current.data.versionId]">Open published version</a> }
         </div>
       </header>
       <div class="reading-grid">
@@ -33,15 +32,10 @@
         <aside class="reading-aside">
           <section class="panel" aria-labelledby="limits-heading">
             <header class="panel-header"><h2 id="limits-heading">Limits & checking</h2></header>
-            <dl><div><dt>Time limit</dt><dd>{{ current.data.timeLimitMilliseconds }} ms</dd></div><div><dt>Memory limit</dt><dd>{{ current.data.memoryLimitMegabytes }} MB</dd></div><div><dt>Checker</dt><dd>{{ current.data.checker }}</dd></div><div><dt>Private tests</dt><dd>{{ current.data.privateTestCount }}</dd></div></dl>
+            <dl><div><dt>Time limit</dt><dd>{{ current.data.timeLimitMilliseconds }} ms</dd></div><div><dt>Memory limit</dt><dd>{{ current.data.memoryLimitMegabytes }} MB</dd></div><div><dt>Checker</dt><dd>{{ current.data.checker }}</dd></div></dl>
             <p class="checker-note">Exact checking compares every byte. Whitespace and line endings matter.</p>
           </section>
-          <section class="panel version-details" aria-labelledby="version-heading">
-            <header class="panel-header"><h2 id="version-heading">Published snapshot</h2></header>
-            <p>Published versions are immutable. Later statement edits do not change this snapshot.</p>
-            <dl><div><dt>Problem ID</dt><dd class="identifier">{{ current.data.problemId }}</dd></div><div><dt>Version ID</dt><dd class="identifier">{{ current.data.versionId }}</dd></div></dl>
-          </section>
-          <p class="submission-note">You can read all published problems without an account. Source submission and history are not available in this workspace yet.</p>
+          @if (immutable) { <p class="version-note">This published version stays unchanged when the problem is edited.</p> }
         </aside>
       </div>
     } @else {

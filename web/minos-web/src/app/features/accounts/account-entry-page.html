@@ -1,15 +1,14 @@
 <article class="page">
-  <minos-section-heading eyebrow="Your account" heading="Make Minos your own."
-    summary="Manage your name, password, and account access in one place." />
+  <h1 id="settings-heading" tabindex="-1">Settings</h1>
   @if (session.account(); as account) {
     @for (identity of [account]; track identity.id) {
-      <minos-account-settings [account]="identity" />
+      <minos-account-settings [account]="identity" [section]="section" />
     }
   } @else {
     <section class="panel" aria-labelledby="account-recovery-heading">
-      <header class="panel-header"><h2 id="account-recovery-heading">Your account</h2></header>
+      <header class="panel-header"><h2 id="account-recovery-heading">Account access</h2></header>
       @if (session.state().status === 'checking') {
-        <minos-state-panel kind="loading" heading="Checking your session…" description="Connecting to your account. This may take a moment." />
+        <minos-state-panel kind="loading" heading="Checking your session…" />
       } @else if (session.state().status === 'unavailable') {
         <minos-state-panel kind="error" heading="Your account could not be reached."
           description="Minos could not confirm your session. This does not mean you have signed out. Check your connection and retry.">
@@ -18,7 +17,7 @@
         </minos-state-panel>
       } @else {
         <minos-state-panel heading="Sign in to continue." description="Your session has ended. Sign in again to return to your account settings.">
-          <a #resultFocus class="button" routerLink="/account/login" [queryParams]="{ returnUrl: '/account', expired: '1' }">Sign in</a>
+          <a #resultFocus class="button" routerLink="/account/login" [queryParams]="{ returnUrl: '/settings/' + section, expired: '1' }">Sign in</a>
         </minos-state-panel>
       }
     </section>

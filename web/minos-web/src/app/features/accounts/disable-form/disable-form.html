@@ -1,7 +1,6 @@
 <section class="panel danger-panel" aria-labelledby="disable-heading">
-  <header class="panel-header"><h2 id="disable-heading">Disable account</h2></header>
-  <form class="settings-form" [formGroup]="form" (ngSubmit)="review()" novalidate [attr.aria-busy]="pending()" aria-labelledby="disable-heading">
-    <p class="section-copy">Disabling ends all sessions and prevents this account from signing in. This is not data deletion. There is no self-service reactivation in Minos.</p>
+  <header class="panel-header"><h2 id="disable-heading">Verify your password</h2></header>
+  <form class="settings-form" [formGroup]="form" (pointerdown)="feedback.prepareSubmit($event)" (ngSubmit)="review()" novalidate [attr.aria-busy]="pending()" aria-labelledby="disable-heading">
     @if (error() || (submitted() && fieldError())) {
       <div #summary class="form-errors" role="alert" tabindex="-1" aria-labelledby="disable-errors">
         <h3 id="disable-errors">{{ error() ? 'Disabling not confirmed' : 'Check your current password' }}</h3>
@@ -9,8 +8,9 @@
         @if (fieldError()) { <ul><li><a [href]="fieldLink()" (click)="focusField($event)">{{ fieldError() }}</a></li></ul> }
       </div>
     }
-    <minos-password-field fieldId="disable-password" label="Current password" [control]="form.controls.password" [error]="fieldError()" />
-    <div class="form-actions"><button class="button button--danger" type="submit" [disabled]="pending() || blocked() || confirming()">Review account disabling</button></div>
+    <minos-password-field fieldId="disable-password" label="Current password" [control]="form.controls.password" [error]="fieldError()" (edited)="feedback.edit('password')" (left)="blur()" />
+    <div class="form-actions"><button class="button button--danger" type="submit" [disabled]="pending() || blocked() || confirming()">Review account disabling</button>
+      <button class="button button--secondary" type="button" [disabled]="pending() || blocked() || confirming()" (click)="close()">Cancel</button></div>
   </form>
 </section>
 @if (confirming()) {

@@ -1,19 +1,10 @@
 <article class="page">
-  <section class="practice-banner" aria-label="Practice with purpose">
+  <header class="practice-banner">
     <minos-forest-landscape />
     <div class="banner-content">
-      <minos-section-heading tone="dark"
-        eyebrow="Practice with purpose"
-        heading="Solve what matters."
-        summary="Read carefully. Think clearly. Build a better solution."
-      />
-      <div class="banner-actions">
-        <a class="button button--mint" href="/problems#problem-library">Explore the library <minos-icon name="arrow" /></a>
-        <a class="button button--on-dark" routerLink="/account">Your account</a>
-      </div>
+      <minos-section-heading tone="dark" heading="Problems" />
     </div>
-    <p class="banner-caption technical-label" aria-hidden="true">A higher standard.<br />One step at a time.</p>
-  </section>
+  </header>
 
   <div class="content-grid">
     <section id="problem-library" class="panel" aria-labelledby="catalog-heading" tabindex="-1">
@@ -23,14 +14,14 @@
       </header>
       @if (state(); as current) {
         @switch (current.status) {
-          @case ('loading') { <minos-state-panel kind="loading" heading="Loading problems…" description="Fetching the published problem library." /> }
+          @case ('loading') { <minos-state-panel kind="loading" heading="Loading problems…" /> }
           @case ('invalid') {
             <minos-state-panel kind="error" heading="Check this catalog link." description="Use a positive page number and a page size between 1 and 100.">
               <a class="button" [routerLink]="[]" [queryParams]="{ page: 1, pageSize: 20 }" queryParamsHandling="merge">Reset pagination</a>
             </minos-state-panel>
           }
           @case ('error') {
-            <minos-state-panel kind="error" heading="The problem library could not be reached." description="Check your connection and try again. No catalog data has been replaced with examples.">
+            <minos-state-panel kind="error" heading="The problem library could not be reached." description="Check your connection and try again.">
               <button class="button" type="button" (click)="retry()">Retry loading problems</button>
             </minos-state-panel>
           }
@@ -39,13 +30,13 @@
               <div class="catalog-tools">
                 <p role="status">{{ current.data.total }} published {{ current.data.total === 1 ? 'problem' : 'problems' }} · Page {{ current.data.page }}</p>
                 <label>Per page <select [value]="current.data.pageSize" (change)="changePageSize($event)">
-                  @if (!pageSizes.includes(current.data.pageSize)) { <option [value]="current.data.pageSize">{{ current.data.pageSize }}</option> }
-                  @for (size of pageSizes; track size) { <option [value]="size">{{ size }}</option> }
+                  @if (!pageSizes.includes(current.data.pageSize)) { <option [value]="current.data.pageSize" selected>{{ current.data.pageSize }}</option> }
+                  @for (size of pageSizes; track size) { <option [value]="size" [selected]="size === current.data.pageSize">{{ size }}</option> }
                 </select></label>
               </div>
               <div class="catalog-scroll" role="region" aria-label="Published problems, horizontally scrollable" tabindex="0">
                 <table>
-                  <caption class="visually-hidden">Published problem library. Open a title to read its latest version or a version link for its immutable snapshot.</caption>
+                  <caption class="visually-hidden">Open a problem title to read it, or a version to read that published edition.</caption>
                   <thead><tr><th scope="col">#</th><th scope="col">Title</th><th scope="col">Version</th><th scope="col">Published (UTC)</th></tr></thead>
                   <tbody>@for (problem of current.data.items; track problem.problemId) {
                     <tr><td>{{ (current.data.page - 1) * current.data.pageSize + $index + 1 }}</td>
@@ -61,7 +52,7 @@
                 <a class="button" [routerLink]="[]" [queryParams]="{ page: 1, pageSize: current.data.pageSize }" queryParamsHandling="merge">Back to the first page</a>
               </minos-state-panel>
             } @else {
-              <minos-state-panel heading="The library is waiting for its first problem." description="Published problems will appear here when they are available. You can browse without signing in.">
+              <minos-state-panel heading="No problems yet." description="Published problems will appear here.">
                 <button class="button button--secondary" type="button" (click)="retry()">Refresh the library</button>
               </minos-state-panel>
             }
@@ -70,19 +61,6 @@
       }
     </section>
 
-    <aside class="panel practice-notes" aria-labelledby="practice-heading">
-      <header class="panel-header"><h2 id="practice-heading">Practice with intent</h2></header>
-      <ol>
-        <li><span class="step-number" aria-hidden="true">01</span><div><h3>Read for understanding</h3><p>Start with the statement. Make every constraint count.</p></div></li>
-        <li><span class="step-number" aria-hidden="true">02</span><div><h3>Think before you build</h3><p>Work through the examples. Find the simplest sound approach.</p></div></li>
-        <li><span class="step-number" aria-hidden="true">03</span><div><h3>Keep improving</h3><p>Small, deliberate steps become lasting progress.</p></div></li>
-      </ol>
-    </aside>
   </div>
 
-  <div class="editorial-note">
-    <span class="note-rule" aria-hidden="true"></span>
-    <p>Progress starts with a good question.</p>
-    <span class="technical-label">More than problems</span>
-  </div>
 </article>

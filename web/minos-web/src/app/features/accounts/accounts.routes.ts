@@ -17,9 +17,17 @@ export const accountsRoutes: Routes = [
   {
     path: '',
     pathMatch: 'full',
-    title: 'Account — Minos',
-    canActivate: [authenticatedGuard],
-    loadComponent: () =>
-      import('./account-entry-page').then(({ AccountEntryPage }) => AccountEntryPage),
+    redirectTo: '/settings/profile',
   },
+];
+
+export const settingsRoutes: Routes = [
+  { path: '', pathMatch: 'full', redirectTo: 'profile' },
+  ...(['profile', 'security', 'account'] as const).map((section) => ({
+    path: section,
+    title: 'Settings — Minos',
+    data: { section },
+    canActivate: [authenticatedGuard],
+    loadComponent: () => import('./account-entry-page').then(({ AccountEntryPage }) => AccountEntryPage),
+  })),
 ];

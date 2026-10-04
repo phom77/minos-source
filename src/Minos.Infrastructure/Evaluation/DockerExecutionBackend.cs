@@ -17,13 +17,16 @@ internal sealed class DockerExecutionBackend : IExecutionBackend, IDisposable
     private const string Root = "/tmp/minos-judge-execution";
     private const int MaximumExecutableBytes = 16 * 1024 * 1024;
     private readonly HttpClient engine;
+    private readonly string? workspaceVolume;
     private readonly SemaphoreSlim initialization = new(1, 1);
     private bool initialized;
     private int sandboxUserId;
     private int sandboxGroupId;
 
-    public DockerExecutionBackend()
+    public DockerExecutionBackend(string? workspaceVolume = null)
     {
+        ValidateWorkspaceVolume(workspaceVolume);
+        this.workspaceVolume = workspaceVolume;
         var handler = new SocketsHttpHandler
         {
             ConnectCallback = async (_, token) =>
@@ -46,7 +49,7 @@ internal sealed class DockerExecutionBackend : IExecutionBackend, IDisposable
 
     public async Task<ExecutionEvidence> ExecuteAsync(ExecutionRequest request, CancellationToken token)
     {
-        if (!OperatingSystem.IsLinux()) throw new PlatformNotSupportedException("Run the Judge Worker in WSL2 Ubuntu.");
+        if (!OperatingSystem.IsLinux()) throw new PlatformNotSupportedException("Run the Judge Worker on Linux, directly or in a Linux container.");
         Validate(request);
         await EnsureInitializedAsync(token);
         var container = "minos-m6-" + Guid.NewGuid().ToString("N");
@@ -97,7 +100,12 @@ internal sealed class DockerExecutionBackend : IExecutionBackend, IDisposable
                 "--log-driver", "none", "--ulimit", "nofile=64:64", "--ulimit", "core=0:0",
                 "--ulimit", $"fsize={Math.Max(limits.ScratchBytes, MaximumExecutableBytes)}:{Math.Max(limits.ScratchBytes, MaximumExecutableBytes)}",
                 "--ulimit", $"cpu={Math.Ceiling(limits.CpuTime.TotalSeconds) + 1}",
-                "--mount", $"type=bind,src={workspace},dst=/input,readonly", Image,
+                // A containerized Worker shares only this job's subdirectory with the sandbox.
+                // Bind paths remain available for the existing native Linux/WSL profile.
+                "--mount", workspaceVolume is null
+                    ? $"type=bind,src={workspace},dst=/input,readonly"
+                    : $"type=volume,src={workspaceVolume},dst=/input,volume-subpath={Path.GetFileName(workspace)},readonly,volume-nocopy",
+                Image,
                 "sleep", ((int)Math.Ceiling(limits.WallTime.TotalSeconds) + 30).ToString(CultureInfo.InvariantCulture)
             };
             await CheckedDockerAsync(create);
@@ -259,7 +267,7 @@ internal sealed class DockerExecutionBackend : IExecutionBackend, IDisposable
         try
         {
             if (initialized) return;
-            if (!OperatingSystem.IsLinux()) throw new PlatformNotSupportedException("Run the Judge Worker in WSL2 Ubuntu.");
+            if (!OperatingSystem.IsLinux()) throw new PlatformNotSupportedException("Run the Judge Worker on Linux, directly or in a Linux container.");
             if (Path.Exists(Root) && new DirectoryInfo(Root).LinkTarget is not null)
                 throw new IOException("Execution workspace root is unsafe.");
             Directory.CreateDirectory(Root, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
@@ -375,6 +383,14 @@ internal sealed class DockerExecutionBackend : IExecutionBackend, IDisposable
             else if (parts.Length == 2) values[$"{section}.{parts[0]}"] = long.Parse(parts[1], CultureInfo.InvariantCulture);
         }
         return values;
+    }
+
+    internal static void ValidateWorkspaceVolume(string? volume)
+    {
+        if (volume is not null && (volume.Length is < 2 or > 200 ||
+            !char.IsAsciiLetterOrDigit(volume[0]) ||
+            volume.Any(character => !char.IsAsciiLetterOrDigit(character) && character is not '_' and not '.' and not '-')))
+            throw new InvalidOperationException("Minos:Execution:WorkspaceVolume must be a valid Docker volume name.");
     }
 
     private static void Validate(ExecutionRequest request)

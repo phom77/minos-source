@@ -11,7 +11,7 @@ import { UiIcon } from './ui-icon';
 })
 export class StatePanel {
   readonly heading = input.required<string>();
-  readonly description = input.required<string>();
+  readonly description = input('');
   readonly kind = input<'empty' | 'error' | 'loading'>('empty');
   readonly headingLevel = input<2 | 3>(3);
 }

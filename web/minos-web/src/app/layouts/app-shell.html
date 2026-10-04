@@ -1,20 +1,13 @@
 <a class="skip-link" [href]="skipHref()">Skip to content</a>
-
-<aside class="sidebar">
-  <ng-container [ngTemplateOutlet]="sidebarContent" />
-</aside>
-
 <div class="workspace">
   <header class="workspace-header">
     <button class="menu-button" type="button" aria-label="Open navigation"
-      aria-controls="mobile-navigation" [attr.aria-expanded]="navigationOpen()"
-      (click)="openNavigation()">
+      aria-controls="mobile-navigation" [attr.aria-expanded]="navigationOpen()" (click)="openNavigation()">
       <minos-icon name="menu" />
     </button>
-    <nav class="breadcrumb" aria-label="Breadcrumb">
-      <span class="workspace-label">Workspace</span>
-      <minos-icon name="chevron" />
-      <span aria-current="page">{{ pageLabel() }}</span>
+    <ng-container [ngTemplateOutlet]="brand" />
+    <nav class="primary-navigation desktop-navigation" aria-label="Primary navigation">
+      <a routerLink="/problems" routerLinkActive="active" ariaCurrentWhenActive="page">Problems</a>
     </nav>
     <div class="header-actions">
       <button class="theme-button" type="button" (click)="theme.toggle()"
@@ -23,59 +16,49 @@
         <minos-icon [name]="theme.theme() === 'dark' ? 'sun' : 'moon'" />
       </button>
       <span class="visually-hidden" role="status">{{ theme.theme() === 'dark' ? 'Dark mode' : 'Light mode' }}</span>
-      @if (session.state().status === 'guest' || session.state().status === 'unavailable') {
+      @if (session.state().status === 'guest') {
         <button class="account-link" type="button" (click)="openSignIn()" aria-haspopup="dialog" aria-label="Sign in"><minos-icon name="account" /><span>Sign in</span></button>
       } @else {
-      <a class="account-link" routerLink="/account" [attr.aria-label]="'Go to account: ' + accountLabel()" [title]="accountLabel()">
-        <minos-icon name="account" /><span>{{ accountLabel() }}</span>
-      </a>
+        <div class="account-menu" (keydown)="closeAccountMenu($event)" (focusout)="leaveAccountMenu($event)">
+          <button #accountTrigger class="account-link" type="button" aria-controls="account-utilities"
+            [disabled]="session.state().status === 'checking'" [attr.aria-expanded]="accountMenuOpen()"
+            [attr.aria-label]="'Account menu: ' + accountLabel()" [title]="accountLabel()" (click)="toggleAccountMenu()">
+            <minos-icon name="account" /><span>{{ accountLabel() }}</span><minos-icon class="account-chevron" name="chevron" />
+          </button>
+          @if (accountMenuOpen()) {
+            <nav id="account-utilities" class="account-utilities" aria-label="User menu">
+              <a #settingsLink routerLink="/settings" routerLinkActive="active" ariaCurrentWhenActive="page"><minos-icon name="account" />Settings</a>
+            </nav>
+          }
+        </div>
       }
     </div>
   </header>
-
-  <main #main id="main-content" tabindex="-1">
-    <router-outlet />
-  </main>
-
-  <footer class="workspace-footer">
-    <span>Minos <span aria-hidden="true">/</span> A place to think clearly.</span>
-    <span class="technical-label">Solve · Improve · Go further</span>
-  </footer>
+  <main #main id="main-content" tabindex="-1"><router-outlet /></main>
 </div>
 
 <dialog #drawer id="mobile-navigation" class="navigation-drawer" aria-labelledby="navigation-title"
   (close)="onDrawerClosed()" (cancel)="onDrawerClosed()" (click)="dismissBackdrop($event)" (keydown)="onDrawerKeydown($event)">
+  <div class="drawer-header">
+    <ng-container [ngTemplateOutlet]="brand" />
+    <button class="drawer-close" type="button" autofocus aria-label="Close navigation" (click)="closeNavigation()"><minos-icon name="close" /></button>
+  </div>
   <h2 id="navigation-title" class="visually-hidden">Navigation</h2>
-  <button class="drawer-close" type="button" autofocus aria-label="Close navigation" (click)="closeNavigation()">
-    <minos-icon name="close" />
-  </button>
-  <ng-container [ngTemplateOutlet]="sidebarContent" />
+  <nav class="primary-navigation" aria-label="Mobile navigation">
+    <a routerLink="/problems" routerLinkActive="active" ariaCurrentWhenActive="page" (click)="closeNavigation()"><minos-icon name="problems" />Problems</a>
+    @if (session.state().status === 'authenticated' || session.state().status === 'unavailable') {
+      <a routerLink="/settings" routerLinkActive="active" ariaCurrentWhenActive="page" (click)="closeNavigation()"><minos-icon name="account" />Settings</a>
+    } @else if (session.state().status === 'guest') {
+      <button class="account-link" type="button" (click)="openSignIn()" aria-haspopup="dialog">Sign in</button>
+    }
+  </nav>
 </dialog>
 
-<ng-template #sidebarContent>
+<ng-template #brand>
   <a class="brand" routerLink="/problems" aria-label="Minos problem library" (click)="closeNavigation()">
     <svg class="brand-mark" width="36" height="36" viewBox="320 320 615 615" aria-hidden="true" focusable="false">
       <image [attr.href]="theme.theme() === 'dark' ? 'brand/light-minos.png' : 'brand/dark-minos.png'" width="1254" height="1254" />
-    </svg>
-    <span>Minos</span>
+    </svg><span>Minos</span>
   </a>
-  <p class="nav-label technical-label">Your workspace</p>
-  <nav class="primary-navigation" aria-label="Primary navigation">
-    <a routerLink="/problems" routerLinkActive="active" ariaCurrentWhenActive="page" (click)="closeNavigation()">
-      <minos-icon name="problems" /><span>Problems</span>
-    </a>
-    <a routerLink="/account" routerLinkActive="active" ariaCurrentWhenActive="page" (click)="closeNavigation()">
-      <minos-icon name="account" /><span>Account</span>
-    </a>
-  </nav>
-  <div class="sidebar-bottom">
-    <div class="sidebar-note">
-      <span class="technical-label">Keep solving</span>
-      <p>One thoughtful solution.<br />One step further.</p>
-      <span class="note-line" aria-hidden="true"></span>
-    </div>
-    <p class="sidebar-signature technical-label">Code. Learn. Grow.</p>
-  </div>
 </ng-template>
-
 @defer (when auth.mode()) { <minos-auth-dialog /> }

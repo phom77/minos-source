@@ -29,6 +29,53 @@ describe('account authentication forms', () => {
   }
   afterEach(() => requests.verify());
 
+  it('keeps a pointer submit stable during edited-field blur and validates the whole form on that click', async () => {
+    const fixture = configure(), element: HTMLElement = fixture.nativeElement;
+    const email = element.querySelector<HTMLInputElement>('#email')!, submit = element.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+    email.value = 'bad'; email.dispatchEvent(new Event('input'));
+    submit.dispatchEvent(new Event('pointerdown', { bubbles: true })); email.dispatchEvent(new Event('blur')); fixture.detectChanges();
+    expect(element.querySelector('.field-error')).toBeNull();
+    element.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); fixture.detectChanges(); await fixture.whenStable();
+    expect(element.querySelectorAll('.form-errors a')).toHaveLength(2); expect(document.activeElement).toBe(element.querySelector('.form-errors'));
+    requests.expectNone('/accounts/csrf');
+  });
+
+  it.each(['login', 'register'] as const)('keeps unchanged focus/blur and initial typing quiet in %s, then corrects visible feedback immediately', (mode) => {
+    const fixture = configure(mode), element: HTMLElement = fixture.nativeElement;
+    for (const field of Array.from(element.querySelectorAll<HTMLInputElement>('input'))) {
+      field.dispatchEvent(new Event('focus')); field.dispatchEvent(new Event('blur')); fixture.detectChanges();
+      expect(field.getAttribute('aria-invalid')).toBe('false'); expect(element.querySelector('.field-error')).toBeNull();
+    }
+    const email = element.querySelector<HTMLInputElement>('#email')!;
+    email.value = 'bad'; email.dispatchEvent(new Event('input')); fixture.detectChanges();
+    expect(email.getAttribute('aria-invalid')).toBe('false');
+    email.dispatchEvent(new Event('blur')); fixture.detectChanges();
+    expect(email.getAttribute('aria-invalid')).toBe('true');
+    email.value = 'an@example.test'; email.dispatchEvent(new Event('input')); fixture.detectChanges();
+    expect(email.getAttribute('aria-invalid')).toBe('false'); expect(element.querySelector('.field-error')).toBeNull();
+    fixture.componentInstance.reset(); fixture.detectChanges();
+    email.dispatchEvent(new Event('blur')); fixture.detectChanges();
+    expect(email.value).toBe(''); expect(email.getAttribute('aria-invalid')).toBe('false');
+    expect(fixture.componentInstance.submitted()).toBe(false); requests.expectNone('/accounts/csrf');
+  });
+
+  it('waits for confirmation edit and blur even if it was focused before password entry', () => {
+    const fixture = configure('register'), element: HTMLElement = fixture.nativeElement;
+    const password = element.querySelector<HTMLInputElement>('#password')!, confirmation = element.querySelector<HTMLInputElement>('#confirmation')!;
+    confirmation.dispatchEvent(new Event('blur'));
+    password.value = 'valid test passphrase'; password.dispatchEvent(new Event('input')); fixture.detectChanges();
+    expect(fixture.componentInstance.fieldError('confirmation')).toBeNull();
+    confirmation.value = 'another test passphrase'; confirmation.dispatchEvent(new Event('input')); fixture.detectChanges();
+    expect(fixture.componentInstance.fieldError('confirmation')).toBeNull();
+    confirmation.dispatchEvent(new Event('blur')); fixture.detectChanges();
+    expect(fixture.componentInstance.fieldError('confirmation')).toBe('Passwords must match.');
+    confirmation.value = password.value; confirmation.dispatchEvent(new Event('input')); fixture.detectChanges();
+    expect(fixture.componentInstance.fieldError('confirmation')).toBeNull();
+    password.value = 'changed test passphrase'; password.dispatchEvent(new Event('input')); fixture.detectChanges();
+    expect(fixture.componentInstance.fieldError('confirmation')).toBe('Passwords must match.');
+    requests.expectNone('/accounts/csrf');
+  });
+
   it('shows field errors and a focused, linked summary without making a request', async () => {
     const fixture = configure('register');
     const element: HTMLElement = fixture.nativeElement;
@@ -164,7 +211,7 @@ describe('account authentication forms', () => {
     expect(toggle.getAttribute('aria-pressed')).toBe('false');
     expect(toggle.querySelector('svg')?.getAttribute('aria-hidden')).toBe('true');
     expect(password.autocomplete).toBe('current-password');
-    expect(element.querySelector('#password-hint')?.textContent).toBe('12–256 characters.');
+    expect(element.querySelector('#password-hint')?.textContent).toBe('At least 12 characters.');
     expect(element.textContent).not.toContain('Password managers and paste are welcome.');
     toggle.click(); fixture.detectChanges();
     expect(password.type).toBe('text');

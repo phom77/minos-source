@@ -4,7 +4,7 @@
     <button class="button" type="button" (click)="completed.emit()">Continue <minos-icon name="arrow" /></button>
   </div>
 } @else {
-  <form class="auth-body" [formGroup]="form" (ngSubmit)="submit()" novalidate [attr.aria-busy]="pending() || google.waiting()">
+  <form class="auth-body" [formGroup]="form" (pointerdown)="feedback.prepareSubmit($event)" (ngSubmit)="submit()" novalidate [attr.aria-busy]="pending() || google.waiting()">
     @if (notice() === 'expired' && !registering) { <p class="notice" role="status">Your session has ended. Sign in again to continue.</p> }
     @if (notice() === 'signed-out' && !registering) { <p class="notice" role="status">You have signed out.</p> }
     @if (notice() === 'password-changed' && !registering) { <p class="notice" role="status">Your password has changed and all sessions have ended. Sign in with your new password.</p> }
@@ -24,15 +24,15 @@
       <div class="form-field">
         <label for="displayName">Display name</label>
         <input id="displayName" formControlName="displayName" autocomplete="nickname" required maxlength="80"
-          (blur)="trimField('displayName')" [attr.aria-invalid]="!!fieldError('displayName')"
+          (input)="feedback.edit('displayName')" (blur)="blur('displayName')" [attr.aria-invalid]="!!fieldError('displayName')"
           [attr.aria-describedby]="fieldError('displayName') ? 'displayName-hint displayName-error' : 'displayName-hint'" />
-        <minos-field-feedback fieldId="displayName" hint="1–80 characters. This is how your name appears in Minos." [error]="fieldError('displayName')" />
+        <minos-field-feedback fieldId="displayName" hint="The name shown in Minos." [error]="fieldError('displayName')" />
       </div>
     }
     <div class="form-field">
       <label for="email">Email address</label>
       <input id="email" formControlName="email" type="email" autocomplete="username" autocapitalize="none" spellcheck="false" required maxlength="256"
-        (blur)="trimField('email')" [attr.aria-invalid]="!!fieldError('email')" [attr.aria-describedby]="fieldError('email') ? 'email-error' : null" />
+        (input)="feedback.edit('email')" (blur)="blur('email')" [attr.aria-invalid]="!!fieldError('email')" [attr.aria-describedby]="fieldError('email') ? 'email-error' : null" />
       <minos-field-feedback fieldId="email" [error]="fieldError('email')" />
     </div>
     <div class="form-field">
@@ -40,6 +40,7 @@
       <div class="password-control">
         <input id="password" formControlName="password" [type]="passwordVisible() ? 'text' : 'password'"
           [autocomplete]="registering ? 'new-password' : 'current-password'" required minlength="12" maxlength="256"
+          (input)="feedback.edit('password')" (blur)="blur('password')"
           [attr.aria-invalid]="!!fieldError('password')"
           [attr.aria-describedby]="fieldError('password') ? 'password-hint password-error' : 'password-hint'" />
         <button class="password-toggle" type="button" [disabled]="pending() || google.waiting()" [attr.aria-pressed]="passwordVisible()"
@@ -47,12 +48,13 @@
           [attr.aria-label]="passwordVisible() ? (registering ? 'Hide passwords' : 'Hide password') : (registering ? 'Show passwords' : 'Show password')"
           (click)="passwordVisible.set(!passwordVisible())"><minos-icon [name]="passwordVisible() ? 'eye-off' : 'eye'" /></button>
       </div>
-      <minos-field-feedback fieldId="password" hint="12–256 characters." [error]="fieldError('password')" />
+      <minos-field-feedback fieldId="password" hint="At least 12 characters." [error]="fieldError('password')" />
     </div>
     @if (registering) {
       <div class="form-field">
         <label for="confirmation">Confirm password</label>
         <input id="confirmation" formControlName="confirmation" [type]="passwordVisible() ? 'text' : 'password'" autocomplete="new-password" required maxlength="256"
+          (input)="feedback.edit('confirmation')" (blur)="blur('confirmation')"
           [attr.aria-invalid]="!!fieldError('confirmation')" [attr.aria-describedby]="fieldError('confirmation') ? 'confirmation-error' : null" />
         <minos-field-feedback fieldId="confirmation" [error]="fieldError('confirmation')" />
       </div>

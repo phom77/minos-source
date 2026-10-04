@@ -1,13 +1,10 @@
-.practice-banner { position: relative; min-width: 0; padding: var(--space-8); overflow: hidden;
+.practice-banner { position: relative; min-width: 0; padding: var(--space-6); overflow: hidden;
   border: 1px solid var(--color-brand-border); border-radius: var(--radius-panel); background: var(--color-brand-surface);
   --color-focus: var(--color-brand-accent); }
 .banner-content { position: relative; z-index: 1; max-width: 38rem; }
-.banner-actions { display: flex; margin-top: var(--space-6); flex-wrap: wrap; gap: var(--space-3); }
 .practice-banner minos-forest-landscape { left: 25%; opacity: 0.7;
   mask-image: linear-gradient(to right, transparent, black 65%); }
-.banner-caption { position: absolute; right: var(--space-8); bottom: var(--space-8); margin: 0;
-  color: var(--color-on-brand-muted); font-size: 0.75rem; line-height: 1.8; }
-.content-grid { display: grid; min-width: 0; grid-template-columns: minmax(0, 1fr) minmax(16rem, 0.48fr); gap: var(--space-6); }
+.content-grid { display: grid; min-width: 0; grid-template-columns: minmax(0, 1fr); gap: var(--space-6); }
 #problem-library { scroll-margin-top: var(--space-6); }
 .catalog-tools { display: flex; padding: var(--space-3) var(--space-5); align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-3); }
 .catalog-tools p { margin: 0; color: var(--color-text-muted); font-size: var(--text-label); }
@@ -25,26 +22,7 @@ table a { display: inline-block; padding-block: var(--space-2); text-decoration:
 table a:hover { text-decoration: underline; }
 tbody th a { max-width: 32rem; overflow-wrap: anywhere; }
 .version-link { white-space: nowrap; font-family: var(--font-mono); }
-.practice-notes ol { display: grid; margin: 0; padding: var(--space-5); list-style: none; gap: var(--space-5); }
-.practice-notes li { display: grid; align-items: start; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-3); }
-.step-number { color: var(--color-action-hover); font-family: var(--font-mono); font-size: var(--text-small); }
-h3 { margin: 0; font-size: var(--text-label); font-weight: 650; }
-.practice-notes p { margin: var(--space-2) 0 0; color: var(--color-text-muted); font-size: var(--text-label); line-height: 1.7; }
-.editorial-note { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-4); }
-.note-rule { width: 1.5rem; height: 2px; background: var(--color-action-hover); }
-.editorial-note p { margin: 0; color: var(--color-text-muted); font-family: var(--font-display); font-size: 1.125rem; font-style: italic; }
-.editorial-note .technical-label { margin-left: auto; color: var(--color-text-muted); font-size: 0.75rem; }
-@media (max-width: 63.99rem) {
-  .content-grid { grid-template-columns: minmax(0, 1fr); }
-  .practice-notes ol { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .banner-caption { display: none; }
-}
 @media (max-width: 47.99rem) {
-  .practice-banner { padding: var(--space-6); }
+  .practice-banner { padding: var(--space-5); }
   .practice-banner minos-forest-landscape { left: 0; opacity: 0.35; }
-}
-@media (max-width: 35.99rem) {
-  .practice-notes ol { grid-template-columns: 1fr; }
-  .editorial-note .technical-label { display: none; }
-  .banner-actions .button { width: 100%; }
 }

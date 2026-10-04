@@ -20,6 +20,10 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'settings',
+        loadChildren: () => import('./features/accounts/accounts.routes').then(({ settingsRoutes }) => settingsRoutes),
+      },
+      {
         path: 'account',
         loadChildren: () =>
           import('./features/accounts/accounts.routes').then(

@@ -20,13 +20,13 @@ export class AccountsApi {
   signIn(request: SignInRequest) {
     return this.http.post<CurrentAccount>('/accounts/login', request, {
       context: new HttpContext().set(MINOS_API_REQUEST, true), timeout: 15_000,
-    }).pipe(tap((account) => this.session.signedIn(account)), shareReplay({ bufferSize: 1, refCount: false }));
+    }).pipe(tap((account) => this.session.signedIn(account, true)), shareReplay({ bufferSize: 1, refCount: false }));
   }
 
   register(request: RegistrationRequest) {
     return this.http.post<CurrentAccount>('/accounts/register', request, {
       context: new HttpContext().set(MINOS_API_REQUEST, true), timeout: 15_000,
-    }).pipe(tap((account) => this.session.signedIn(account)), shareReplay({ bufferSize: 1, refCount: false }));
+    }).pipe(tap((account) => this.session.signedIn(account, true)), shareReplay({ bufferSize: 1, refCount: false }));
   }
 
   signOut() {

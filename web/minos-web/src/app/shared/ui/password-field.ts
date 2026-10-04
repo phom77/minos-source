@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, input, output, signal } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { FieldFeedback } from './field-feedback';
 import { UiIcon } from './ui-icon';
@@ -11,7 +11,7 @@ import { UiIcon } from './ui-icon';
     <label [for]="fieldId()">{{ label() }}</label>
     <div class="password-control">
       <input [id]="fieldId()" [formControl]="control()" [type]="visible() ? 'text' : 'password'"
-        [autocomplete]="autocomplete()" required minlength="12" maxlength="256"
+        [autocomplete]="autocomplete()" required minlength="12" maxlength="256" (input)="edited.emit()" (blur)="left.emit()"
         [attr.aria-invalid]="!!error()" [attr.aria-describedby]="describedBy()" />
       <button class="password-toggle" type="button" [disabled]="control().disabled"
         [attr.aria-controls]="fieldId()" [attr.aria-pressed]="visible()"
@@ -30,6 +30,8 @@ export class PasswordField {
   readonly hint = input('');
   readonly error = input<string | null>(null);
   readonly visible = signal(false);
+  readonly edited = output<void>();
+  readonly left = output<void>();
   describedBy(): string | null {
     const ids = [this.hint() ? this.fieldId() + '-hint' : '', this.error() ? this.fieldId() + '-error' : ''];
     return ids.filter(Boolean).join(' ') || null;

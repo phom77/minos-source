@@ -1,0 +1,159 @@
+name: ${MINOS_PROJECT_NAME:-minos}
+
+services:
+  postgres:
+    image: postgres@sha256:1c59e2c3c818eaa0f0628f695b36e7c9e362d6b219b36a54a32df645cbd7e1af
+    ports:
+      - '127.0.0.1:${MINOS_POSTGRES_PORT:-5433}:5432'
+    environment:
+      POSTGRES_DB: minos
+      POSTGRES_USER: minos_bootstrap
+      POSTGRES_PASSWORD: ${MINOS_BOOTSTRAP_PASSWORD:?Run python scripts/prepare-docker.py first}
+      POSTGRES_INITDB_ARGS: --auth-local=scram-sha-256 --auth-host=scram-sha-256
+      MINOS_MIGRATOR_PASSWORD: ${MINOS_MIGRATOR_PASSWORD:?Missing migrator password}
+      MINOS_API_PASSWORD: ${MINOS_API_PASSWORD:?Missing API password}
+      MINOS_WORKER_PASSWORD: ${MINOS_WORKER_PASSWORD:?Missing worker password}
+    volumes:
+      - postgres-data:/var/lib/postgresql
+      - ./docker/postgres-init.sh:/docker-entrypoint-initdb.d/10-minos-roles.sh:ro
+      - ./scripts/postgres-bootstrap.sql:/minos/postgres-bootstrap.sql:ro
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U minos_bootstrap -d minos && test "$$(cat /proc/1/comm)" = postgres']
+      interval: 3s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+
+  init:
+    image: ${MINOS_PROJECT_NAME:-minos}-api:local
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+      target: api
+    user: '0:0'
+    entrypoint: [/bin/sh, /minos/init-volumes.sh]
+    volumes:
+      - private-artifacts:/private
+      - judge-workspaces:/workspaces
+      - local-certs:/certs
+
+  migrate:
+    image: ${MINOS_PROJECT_NAME:-minos}-api:local
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+      target: api
+    command: [--migrate]
+    environment:
+      ConnectionStrings__Minos: Host=postgres;Database=minos;Username=minos_migrator;Password=${MINOS_MIGRATOR_PASSWORD:?Missing migrator password}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  grants:
+    image: postgres@sha256:1c59e2c3c818eaa0f0628f695b36e7c9e362d6b219b36a54a32df645cbd7e1af
+    entrypoint: [/bin/sh, /minos/apply-grants.sh]
+    environment:
+      MINOS_MIGRATOR_PASSWORD: ${MINOS_MIGRATOR_PASSWORD:?Missing migrator password}
+    volumes:
+      - ./docker/apply-grants.sh:/minos/apply-grants.sh:ro
+      - ./scripts/postgres-runtime-grants.sql:/minos/postgres-runtime-grants.sql:ro
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  api:
+    image: ${MINOS_PROJECT_NAME:-minos}-api:local
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+      target: api
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: https://+:8443
+      Kestrel__Certificates__Default__Path: /certs/localhost.crt
+      Kestrel__Certificates__Default__KeyPath: /certs/localhost.key
+      ConnectionStrings__Minos: Host=postgres;Database=minos;Username=minos_api;Password=${MINOS_API_PASSWORD:?Missing API password}
+      Minos__Artifacts__Root: /private
+      Authentication__Google__Enabled: 'false'
+      Logging__LogLevel__Microsoft.EntityFrameworkCore.Database.Command: Warning
+    volumes:
+      - private-artifacts:/private
+      - local-certs:/certs:ro
+    read_only: true
+    tmpfs:
+      - /tmp
+    healthcheck:
+      test: [CMD, curl, --fail, --silent, --cacert, /certs/ca.crt, https://localhost:8443/health/ready]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    depends_on:
+      init:
+        condition: service_completed_successfully
+      grants:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  worker:
+    image: ${MINOS_PROJECT_NAME:-minos}-worker:local
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+      target: worker
+    environment:
+      DOTNET_ENVIRONMENT: Production
+      ConnectionStrings__Minos: Host=postgres;Database=minos;Username=minos_worker;Password=${MINOS_WORKER_PASSWORD:?Missing worker password}
+      Minos__Artifacts__Root: /private
+      Minos__Execution__WorkspaceVolume: ${MINOS_PROJECT_NAME:-minos}-judge-workspaces
+      Logging__LogLevel__Microsoft.EntityFrameworkCore.Database.Command: Warning
+    group_add:
+      - '${MINOS_DOCKER_GID:-0}'
+    volumes:
+      - private-artifacts:/private
+      - judge-workspaces:/tmp/minos-judge-execution
+      # Only the trusted worker receives Docker control access.
+      - /var/run/docker.sock:/var/run/docker.sock
+    read_only: true
+    tmpfs:
+      - /tmp
+    init: true
+    stop_grace_period: 45s
+    healthcheck:
+      test: [CMD-SHELL, 'docker info >/dev/null 2>&1 && dotnet /app/Minos.JudgeWorker.dll --check']
+      interval: 20s
+      timeout: 10s
+      start_period: 120s
+      retries: 5
+    depends_on:
+      init:
+        condition: service_completed_successfully
+      grants:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  web:
+    image: ${MINOS_PROJECT_NAME:-minos}-web:local
+    build:
+      context: .
+      dockerfile: docker/web.Dockerfile
+    ports:
+      - '127.0.0.1:${MINOS_HTTPS_PORT:-8443}:8443'
+    volumes:
+      - local-certs:/certs:ro
+    healthcheck:
+      test: [CMD, wget, --quiet, --spider, --no-check-certificate, https://127.0.0.1:8443/health/ready]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  private-artifacts:
+  local-certs:
+  judge-workspaces:
+    name: ${MINOS_PROJECT_NAME:-minos}-judge-workspaces

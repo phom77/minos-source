@@ -8,7 +8,7 @@ using Minos.JudgeWorker;
 
 if (!OperatingSystem.IsLinux())
 {
-    Console.Error.WriteLine("Run the Judge Worker in WSL2 Ubuntu.");
+    Console.Error.WriteLine("Run the Judge Worker on Linux, directly or in a Linux container.");
     Environment.ExitCode = 1;
     return;
 }
@@ -17,7 +17,8 @@ try
     var builder = Host.CreateApplicationBuilder(args);
     builder.Logging.AddJsonConsole();
     builder.Logging.AddFilter("Microsoft.Extensions.Hosting.Internal.Host", LogLevel.None);
-    builder.Services.AddMinosInfrastructure(builder.Configuration.GetConnectionString("Minos"));
+    builder.Services.AddMinosInfrastructure(builder.Configuration.GetConnectionString("Minos"),
+        builder.Configuration["Minos:Execution:WorkspaceVolume"]);
     builder.Services.AddSingleton(new PrivateArtifactDirectory(builder.Configuration["Minos:Artifacts:Root"], builder.Environment.ContentRootPath));
     builder.Services.AddHostedService<WorkerFoundationStartupCheck>();
     if (!args.Contains("--check", StringComparer.Ordinal)) builder.Services.AddHostedService<SubmissionJobWorker>();

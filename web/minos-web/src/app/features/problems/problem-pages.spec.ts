@@ -21,6 +21,13 @@ describe('public problem pages', () => {
   });
   afterEach(() => http.verify());
 
+  it.each([20, 7])('reflects the initial page size %s after asynchronously rendering the catalog', async (pageSize) => {
+    const harness = await RouterTestingHarness.create('/problems?pageSize=' + pageSize);
+    http.expectOne('/api/problems?page=1&pageSize=' + pageSize).flush({ items: [problem], page: 1, pageSize, total: 1 });
+    harness.detectChanges();
+    expect(harness.routeNativeElement?.querySelector<HTMLSelectElement>('select')?.value).toBe(String(pageSize));
+  });
+
   it('renders loading, real fields, accessible pagination and page-size URL changes', async () => {
     const harness = await RouterTestingHarness.create('/problems?page=2&pageSize=10');
     expect(harness.routeNativeElement?.textContent).toContain('Loading problems');
@@ -34,11 +41,13 @@ describe('public problem pages', () => {
     expect(element.querySelector('a[aria-label="Next page"]')?.getAttribute('href')).toBe('/problems?page=3&pageSize=10');
     expect(element.textContent).not.toContain('Difficulty');
     const select = element.querySelector('select')!;
+    expect(select.value).toBe('10');
     select.value = '50'; select.dispatchEvent(new Event('change', { bubbles: true }));
     await harness.fixture.whenStable();
     expect(TestBed.inject(Router).url).toBe('/problems?page=1&pageSize=50');
     http.expectOne('/api/problems?page=1&pageSize=50').flush({ items: [problem], page: 1, pageSize: 50, total: 1 });
     harness.detectChanges();
+    expect(select.value).toBe('50');
     expect(element.querySelectorAll('nav[aria-label="Pagination"] button[disabled]')).toHaveLength(2);
   });
 
@@ -57,7 +66,7 @@ describe('public problem pages', () => {
     await harness.navigateByUrl('/problems');
     http.expectOne('/api/problems?page=1&pageSize=20').flush({ items: [], page: 1, pageSize: 20, total: 0 });
     harness.detectChanges();
-    expect(harness.routeNativeElement?.textContent).toContain('waiting for its first problem');
+    expect(harness.routeNativeElement?.textContent).toContain('No problems yet');
   });
 
   it('rejects invalid catalog links without an HTTP call', async () => {
@@ -75,7 +84,7 @@ describe('public problem pages', () => {
     harness.routeNativeElement!.querySelector<HTMLButtonElement>('#problem-library button')!.click();
     http.expectOne('/api/problems?page=1&pageSize=20').flush({ items: [], page: 1, pageSize: 20, total: 0 });
     harness.detectChanges();
-    expect(harness.routeNativeElement?.textContent).toContain('waiting for its first problem');
+    expect(harness.routeNativeElement?.textContent).toContain('No problems yet');
   });
 
   it('reads safe plaintext statements and preserves sample whitespace in the immutable route', async () => {

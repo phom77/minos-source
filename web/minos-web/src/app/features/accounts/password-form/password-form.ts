@@ -8,6 +8,7 @@ import { PasswordField } from '../../../shared/ui/password-field';
 import { AccountsApi } from '../data-access/accounts-api';
 import { accountSettingsError } from '../account-error-message';
 import { matchingNewPasswords, passwordFieldError, passwordValidators } from '../account-validators';
+import { FormFeedback } from '../form-feedback';
 
 type Field = 'currentPassword' | 'newPassword' | 'confirmation';
 const fieldIds: Record<Field, string> = { currentPassword: 'change-current', newPassword: 'change-new', confirmation: 'change-confirm' };
@@ -26,6 +27,8 @@ export class PasswordForm {
   readonly blocked = input(false);
   readonly pendingChange = output<boolean>();
   readonly completed = output<void>();
+  readonly cancelled = output<void>();
+  readonly feedback = new FormFeedback<Field>();
   readonly pending = signal(false);
   readonly submitted = signal(false);
   readonly error = signal<string | null>(null);
@@ -43,8 +46,14 @@ export class PasswordForm {
 
   fieldError(field: Field): string | null {
     const control = this.form.controls[field];
-    if (field === 'confirmation' && (control.touched || this.submitted()) && this.form.hasError('passwordMismatch')) return 'New passwords must match.';
-    return passwordFieldError(control, this.submitted(), field === 'currentPassword' ? 'current password' : field === 'newPassword' ? 'new password' : 'new password confirmation');
+    const visible = this.feedback.visible(field, this.submitted());
+    if (field === 'confirmation' && visible && this.form.hasError('passwordMismatch')) return 'New passwords must match.';
+    return passwordFieldError(control, visible, field === 'currentPassword' ? 'current password' : field === 'newPassword' ? 'new password' : 'new password confirmation');
+  }
+  blur(field: Field): void { this.feedback.blur(field, this.form.controls[field].invalid || (field === 'confirmation' && this.form.hasError('passwordMismatch'))); }
+  cancel(): void {
+    if (this.pending() || this.blocked()) return;
+    this.form.reset(); this.feedback.reset(); this.submitted.set(false); this.error.set(null); this.cancelled.emit();
   }
   invalidFields(): readonly Field[] { return this.fields.filter((field) => this.fieldError(field)); }
   fieldId(field: Field): string { return fieldIds[field]; }
@@ -60,7 +69,7 @@ export class PasswordForm {
     this.api.changePassword({ currentPassword, newPassword }).pipe(
       finalize(() => { this.pending.set(false); this.pendingChange.emit(false); this.form.enable(); }), takeUntilDestroyed(this.destroyRef),
     ).subscribe({
-      next: () => { this.form.reset(); this.submitted.set(false); this.completed.emit(); },
+      next: () => { this.form.reset(); this.feedback.reset(); this.submitted.set(false); this.completed.emit(); },
       error: (error: unknown) => { this.error.set(accountSettingsError(error, 'password')); this.focusSummary(); },
     });
   }

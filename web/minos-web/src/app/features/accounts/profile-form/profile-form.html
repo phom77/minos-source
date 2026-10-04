@@ -1,7 +1,6 @@
 <section class="panel" aria-labelledby="profile-heading">
-  <header class="panel-header"><h2 id="profile-heading">Profile</h2></header>
-  <form class="settings-form" [formGroup]="form" (ngSubmit)="submit()" novalidate [attr.aria-busy]="pending()" aria-labelledby="profile-heading">
-    <p class="section-copy">Choose the name people see in Minos.</p>
+  <header class="panel-header"><h2 id="profile-heading">Edit display name</h2></header>
+  <form class="settings-form" [formGroup]="form" (pointerdown)="feedback.prepareSubmit($event)" (ngSubmit)="submit()" novalidate [attr.aria-busy]="pending()" aria-labelledby="profile-heading">
     @if (error() || (submitted() && fieldError())) {
       <div #summary class="form-errors" role="alert" tabindex="-1" aria-labelledby="profile-errors">
         <h3 id="profile-errors">{{ error() ? 'Name not saved' : 'Check your display name' }}</h3>
@@ -12,11 +11,11 @@
     <div class="form-field">
       <label for="profile-name">Display name</label>
       <input id="profile-name" formControlName="displayName" autocomplete="nickname" required maxlength="80"
-        (input)="edit()" (blur)="trimName()" [attr.aria-invalid]="!!fieldError()"
+        (input)="edit()" (blur)="blur()" [attr.aria-invalid]="!!fieldError()"
         [attr.aria-describedby]="fieldError() ? 'profile-name-hint profile-name-error' : 'profile-name-hint'" />
-      <minos-field-feedback fieldId="profile-name" hint="1–80 characters. No control characters." [error]="fieldError()" />
+      <minos-field-feedback fieldId="profile-name" hint="The name shown in Minos." [error]="fieldError()" />
     </div>
-    <div class="form-actions"><button class="button" type="submit" [disabled]="pending() || blocked()">{{ pending() ? 'Saving…' : 'Save name' }}</button></div>
-    @if (saved()) { <p class="success-message" role="status">Your display name is up to date.</p> }
+    <div class="form-actions"><button class="button" type="submit" [disabled]="pending() || blocked()">{{ pending() ? 'Saving…' : 'Save name' }}</button>
+      <button class="button button--secondary" type="button" [disabled]="pending() || blocked()" (click)="cancel()">Cancel</button></div>
   </form>
 </section>

@@ -7,8 +7,8 @@
         <image [attr.href]="theme.theme() === 'dark' ? 'brand/light-minos.png' : 'brand/dark-minos.png'" width="1254" height="1254" />
       </svg><span>Minos</span>
     </div>
-    <h2 #heading id="auth-title" tabindex="-1">{{ prompt.mode() === 'register' ? 'Make room for progress.' : 'Welcome back.' }}</h2>
-    <p id="auth-description">{{ prompt.mode() === 'register' ? 'Create your account. All fields are required.' : 'Sign in to your Minos workspace.' }}</p>
+    <h2 #heading id="auth-title" tabindex="-1">{{ prompt.mode() === 'register' ? 'Create account' : 'Sign in' }}</h2>
+    <p id="auth-description" class="visually-hidden">All fields are required.</p>
   </header>
   @if (prompt.mode(); as mode) {
     @if (mode === 'login') {

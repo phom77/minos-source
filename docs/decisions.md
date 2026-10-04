@@ -42,7 +42,7 @@ The [M0 closure summary](m0-closure.md) records the historical accepted baseline
 | C07 | Design, documents, and clear milestones before implementation | Project brief and documentation request |
 | C08 | Developer-only development; no real-user cohort or enrollment/approval workflow | Accepted D01, project-owner clarification |
 | C09 | Finished-product self-service email/password registration and Google as the first external sign-in provider; no normal-user approval | Accepted D01, project-owner clarification |
-| C10 | WSL2 Ubuntu Worker; Docker first runner; repository stays on Windows D:; contestant workspaces use private Linux-native copies | Accepted D02, project-owner clarification |
+| C10 | Docker-hosted Linux Worker for local Compose; native WSL remains supported; repository stays on Windows D:; contestant workspaces use private Linux-native copies | Accepted D02 updated by [ADR 0011](adr/0011-containerized-worker-development.md), project-owner request |
 | C11 | Execution contract is independent of Docker; a future Isolate adapter runs directly on Linux without changing domain/job lifecycle | Accepted D02, project-owner clarification |
 | C12 | No dedicated development VM required; production judge-host choices deferred until execution/performance evidence exists | Accepted D02, project-owner clarification |
 | C13 | Architectural rigor for correctness/security/evolution; no enterprise process or ADR per implementation detail | Project-owner scope clarification |
@@ -58,7 +58,7 @@ All 18 existing decision IDs are preserved. Blocking means "must be clear before
 | Decision ID | Decision topic | Why it matters | Blocks implementation? | Current recommendation / accepted choice | Status |
 | --- | --- | --- | --- | --- | --- |
 | D01 | Development access and future registration | Keeps temporary development access separate from product behavior | Resolved | Developer-only; future email/password and Google self-service; no approval workflow | Accepted |
-| D02 | Development judge environment and execution boundary | Establishes filesystem isolation and replaceable execution | Resolved; M1 validation passed | WSL2 Ubuntu Worker, Docker first; private Linux-native copies; future direct-Linux Isolate adapter; no dedicated VM | Accepted; development validation passed |
+| D02 | Development judge environment and execution boundary | Establishes filesystem isolation and replaceable execution | Resolved; M1 validation passed | Docker-hosted Linux Worker with sibling sandboxes; native WSL profile supported; private Linux-native copies; future direct-Linux Isolate adapter; no dedicated VM | Accepted; local hosting updated in [ADR 0011](adr/0011-containerized-worker-development.md) |
 | D03 | Core MVP versus custom Run | Defines the first end-to-end outcome and acceptance scope | Resolved | Official judging first; custom Run follows reliable judging, planned at M8 | Accepted |
 | D10 | Minimum execution safety and resource contract | Prevents uncontrolled compilation/execution and ambiguous evidence | Baseline resolved; validation in M1/M6 | No direct host execution; network off by default; bounded wall/CPU/memory/processes/threads/stdout/stderr/scratch; non-root, reduced capabilities; complete structured evidence | Accepted baseline; development bounds verified in M1, official accounting accepted in [ADR 0009](adr/0009-official-judging-and-evidence.md) |
 

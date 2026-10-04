@@ -44,10 +44,12 @@ internal sealed class ProblemRepository(MinosDbContext database) : IProblemRepos
                 on new { ProblemId = problem.Id, Version = problem.LatestPublishedVersion }
                 equals new { version.ProblemId, Version = version.VersionNumber }
             where !problem.IsArchived && problem.LatestPublishedVersion > 0
-            select new PublishedProblemSummary(problem.Id, version.Id, version.VersionNumber, version.Title, version.PublishedAtUtc);
+            select new { ProblemId = problem.Id, VersionId = version.Id, version.VersionNumber, version.Title, version.PublishedAtUtc };
         var total = await current.CountAsync(token);
         var items = await current.OrderByDescending(item => item.PublishedAtUtc).ThenBy(item => item.ProblemId)
-            .Skip(offset).Take(limit).ToArrayAsync(token);
+            .Skip(offset).Take(limit)
+            .Select(item => new PublishedProblemSummary(item.ProblemId, item.VersionId, item.VersionNumber, item.Title, item.PublishedAtUtc))
+            .ToArrayAsync(token);
         return (items, total);
     }
 

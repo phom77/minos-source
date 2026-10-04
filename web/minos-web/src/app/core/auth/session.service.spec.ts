@@ -18,6 +18,21 @@ describe('SessionService', () => {
   });
   afterEach(() => requests.verify());
 
+  it('does not infer password capability from a restored account or a provider sign-in', () => {
+    session.ensure().subscribe(); requests.expectOne('/accounts/me').flush(account);
+    expect(session.passwordConfirmed()).toBe(false);
+    session.signedIn(account); expect(session.passwordConfirmed()).toBe(false);
+  });
+
+  it('preserves local password evidence across matching profile/refresh responses and clears it on identity changes or logout', () => {
+    session.signedIn(account, true); expect(session.passwordConfirmed()).toBe(true);
+    session.signedIn({ ...account, displayName: 'Linh' }); expect(session.passwordConfirmed()).toBe(true);
+    session.refresh().subscribe(); requests.expectOne('/accounts/me').flush(account); expect(session.passwordConfirmed()).toBe(true);
+    session.signedIn({ ...account, id: 'another-account' }); expect(session.passwordConfirmed()).toBe(false);
+    session.signedIn(account, true); session.signedOut(); expect(session.passwordConfirmed()).toBe(false);
+    session.signedIn(account); expect(session.passwordConfirmed()).toBe(false);
+  });
+
   it('coalesces initial checks and keeps the account only in memory', () => {
     expect(session.state().status).toBe('checking');
     session.ensure().subscribe();

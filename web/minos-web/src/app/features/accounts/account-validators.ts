@@ -15,8 +15,8 @@ export const matchingNewPasswords: ValidatorFn = (group: AbstractControl): Valid
 
 export const passwordValidators = [Validators.required, Validators.minLength(12), Validators.maxLength(256)];
 
-export function passwordFieldError(control: AbstractControl, submitted: boolean, label: string): string | null {
-  if (!control.touched && !submitted) return null;
+export function passwordFieldError(control: AbstractControl, visible: boolean, label: string): string | null {
+  if (!visible) return null;
   if (control.hasError('required')) return `Enter your ${label}.`;
   if (control.hasError('minlength')) return 'Use at least 12 characters.';
   if (control.hasError('maxlength')) return 'Use no more than 256 characters.';

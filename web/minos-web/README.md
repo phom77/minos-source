@@ -2,6 +2,8 @@
 
 The Minos Angular application uses standalone components, strict TypeScript, and feature-first organization. Phases 1–3 provide the approved responsive shell, persistent light/dark themes, HTTP protection, popup authentication, Google sign-in integration, and the real public problem catalog/reader. Phase 4 adds profile editing, password changes, and account disabling; explicit Google linking remains a documented contract gap. Backend code and milestone scope are unchanged by this frontend work; current backend approvals in `AGENTS.md` remain authoritative.
 
+The owner-approved 2026-10-04 [UX refinement](../../docs/design/frontend-ux-refinement.md) replaces the global sidebar with a compact top header and puts account maintenance at `/settings`, accessible through the user menu. Profile, Security and Account have local section links and contextual editors; the old `/account` URL redirects to Profile. Password operations require evidence from a successful local login/registration in the current browser runtime because `/accounts/me` does not report credential capabilities. Reloaded or Google sessions see concise limitations rather than invented password/provider state. The refinement supersedes the earlier Phase 4 layout and validation behavior below; its evidence and future backend candidates are recorded in the linked document.
+
 ## Commands
 
 ```bash

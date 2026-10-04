@@ -1,8 +1,6 @@
 :host { display: block; min-width: 0; }
 .settings-form { display: grid; padding: var(--space-6); gap: var(--space-4); }
-.section-copy { margin: 0; color: var(--color-text-muted); font-size: var(--text-label); line-height: 1.7; }
 .form-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); padding-top: var(--space-2); }
-.success-message { margin: 0; color: var(--color-success); font-size: var(--text-label); }
 .danger-panel { border-color: var(--color-danger); }
 .danger-panel .panel-header { background: var(--color-danger-surface); border-color: var(--color-danger); border-radius: var(--radius-panel) var(--radius-panel) 0 0; }
 .danger-panel h2 { color: var(--color-danger); }

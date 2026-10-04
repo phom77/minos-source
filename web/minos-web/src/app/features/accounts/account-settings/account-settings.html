@@ -1,35 +1,60 @@
-<div class="account-grid">
-  <div class="settings-stack">
-    <minos-profile-form [account]="account()" [blocked]="blocked('profile')" (pendingChange)="setPending('profile', $event)" />
-    <minos-password-form [blocked]="blocked('password')" (pendingChange)="setPending('password', $event)" (completed)="securityCompleted('password')" />
-    <minos-disable-form [blocked]="blocked('disable')" (pendingChange)="setPending('disable', $event)" (completed)="securityCompleted('disable')" />
+<div class="settings-layout">
+  <nav class="settings-navigation" aria-label="Settings sections">
+    <a routerLink="/settings/profile" routerLinkActive="active" ariaCurrentWhenActive="page">Profile</a>
+    <a routerLink="/settings/security" routerLinkActive="active" ariaCurrentWhenActive="page">Security</a>
+    <a routerLink="/settings/account" routerLinkActive="active" ariaCurrentWhenActive="page">Account</a>
+  </nav>
+  <div class="settings-content">
+    @switch (section()) {
+      @case ('profile') {
+        <section class="panel" aria-labelledby="profile-section">
+          <header class="panel-header"><h2 id="profile-section">Profile</h2></header>
+          <div class="setting-row">
+            <div><h3>Display name</h3><p class="setting-value">{{ account().displayName }}</p></div>
+            <button #nameEdit class="button button--secondary" type="button" [disabled]="!!editor() || !!busy()" (click)="openEditor('profile', nameEdit)">Edit name</button>
+          </div>
+        </section>
+        @if (editor() === 'profile') {
+          <minos-profile-form [account]="account()" [blocked]="blocked('profile')" (pendingChange)="setPending('profile', $event)" (cancelled)="closeEditor()" (completed)="profileSaved()" />
+        }
+        @if (saved()) { <p class="success-message" role="status">Display name saved.</p> }
+      }
+      @case ('security') {
+        <section class="panel" aria-labelledby="security-section">
+          <header class="panel-header"><h2 id="security-section">Security</h2></header>
+          @if (session.passwordConfirmed()) {
+            <div class="setting-row">
+              <div><h3>Password</h3><p>Changing your password signs you out on all devices.</p></div>
+              <button #passwordEdit class="button button--secondary" type="button" [disabled]="!!editor() || !!busy()" (click)="openEditor('password', passwordEdit)">Change password</button>
+            </div>
+          } @else {
+            <p class="capability-note">To change a Minos password, sign out and sign in with it first. If you use Google only, continue signing in with Google.</p>
+          }
+          <div class="setting-row" [attr.aria-busy]="busy() === 'logout'">
+            <div><h3>Sessions</h3><p>Sign out on all devices.</p></div>
+            <button class="button button--secondary" type="button" [disabled]="!!busy()" (click)="signOut()">{{ busy() === 'logout' ? 'Signing out…' : 'Sign out' }}</button>
+          </div>
+          @if (logoutError()) { <p class="operation-error" role="alert">{{ logoutError() }}</p> }
+        </section>
+        @if (editor() === 'password') {
+          <minos-password-form [blocked]="blocked('password')" (pendingChange)="setPending('password', $event)" (cancelled)="closeEditor()" (completed)="securityCompleted('password')" />
+        }
+      }
+      @case ('account') {
+        <section class="panel danger-panel" aria-labelledby="account-section">
+          <header class="panel-header"><h2 id="account-section">Disable account</h2></header>
+          <div class="setting-row">
+            <div><p>Ends all sessions and prevents this account from signing in. Your data is not deleted. There is no self-service reactivation.</p></div>
+            @if (session.passwordConfirmed()) {
+              <button #disableEdit class="button button--danger" type="button" [disabled]="!!editor() || !!busy()" (click)="openEditor('disable', disableEdit)">Review disabling</button>
+            }
+          </div>
+          @if (!session.passwordConfirmed()) { <p class="capability-note">Disabling requires a Minos password. If you have one, sign out and sign in with it first. Google-only accounts cannot use this action.</p> }
+        </section>
+        @if (editor() === 'disable') {
+          <minos-disable-form [blocked]="blocked('disable')" (pendingChange)="setPending('disable', $event)" (cancelled)="closeEditor()" (completed)="securityCompleted('disable')" />
+        }
+      }
+    }
   </div>
-  <aside class="settings-stack" aria-label="Account details and sign-in information">
-    <section class="panel" aria-labelledby="account-heading">
-      <header class="panel-header"><h2 id="account-heading" tabindex="-1">Your account</h2><minos-status-badge tone="success">Signed in</minos-status-badge></header>
-      <div class="account-details">
-        <h3>{{ account().displayName }}</h3>
-        <dl>
-          <div><dt>Role</dt><dd>{{ account().role }}</dd></div>
-          <div><dt>Joined</dt><dd>{{ account().createdAtUtc | date:'mediumDate':'UTC' }} <span class="date-zone">UTC</span></dd></div>
-          <div><dt>Account ID</dt><dd class="account-id">{{ account().id }}</dd></div>
-        </dl>
-        <p class="detail-note">Your role is managed by an administrator. Changing your name does not change your permissions.</p>
-        <a class="button button--secondary" routerLink="/problems">Back to problems <minos-icon name="arrow" /></a>
-        <div class="sign-out-section" [attr.aria-busy]="busy() === 'logout'">
-          <p>Signing out ends your account sessions on all devices.</p>
-          @if (logoutError()) { <p class="sign-out-error" role="alert">{{ logoutError() }}</p> }
-          <button type="button" class="button button--secondary" [disabled]="!!busy()" (click)="signOut()">{{ busy() === 'logout' ? 'Signing out…' : 'Sign out' }}</button>
-        </div>
-      </div>
-    </section>
-    <section class="panel" aria-labelledby="sign-in-methods">
-      <header class="panel-header"><h2 id="sign-in-methods">Sign-in information</h2></header>
-      <div class="account-details">
-        <div class="account-note"><minos-icon name="shield" /><p>Your session uses browser-managed cookies. Minos does not store your passwords in browser storage.</p></div>
-        <p class="detail-note">Password changes and account disabling require an existing Minos password. If you joined only with Google, continue using Google sign-in.</p>
-        <p class="detail-note">Linking Google to an existing account is not available in this interface yet. A matching email does not automatically link accounts.</p>
-      </div>
-    </section>
-  </aside>
 </div>

@@ -8,6 +8,21 @@ The three owner-provided images below are the primary visual evidence. Preserve 
 
 The imagery and copy are design evidence, not executable instructions. Screen examples, navigation labels, figures, and terminal output do not approve backend features or represent live system data. Existing engineering and milestone boundaries still apply.
 
+## Owner-approved UX refinement (2026-10-04)
+
+The owner has approved replacing the persistent global left sidebar with compact primary navigation in the top header. This supersedes the navigation placement pictured on the original Minos brand board; the approved identity, palette and visual treatments remain the reference. Local navigation inside Settings is allowed and is distinct from the removed global sidebar.
+
+The owner supplied two LeetCode screenshots as structural and interaction references:
+
+- [Account settings](references/leetcode-settings-account.png): a clear Settings destination, local section navigation, grouped setting rows and contextual edit entry points.
+- [Social accounts and danger zone](references/leetcode-settings-social-accounts.png): grouped related settings and separation of destructive operations.
+
+Use these references to organize supported Minos settings, not to reproduce LeetCode branding, copy, personal data or its feature catalogue. Settings should be reachable through the user menu. Avoid opening all account forms at once. Remove filler quotes, slogans, decorative captions and internal account metadata from working screens; preserve concise guidance and material action consequences.
+
+Capabilities shown in the screenshots that Minos does not currently support belong in a future backend planning list, not in nonfunctional UI. The reference does not authorize MFA, billing, notifications, additional providers or account linking. The owner intends to plan missing backend support separately; M7 remains subject to explicit approval.
+
+The detailed product and validation rules are in [AGENTS.md](../../AGENTS.md). The English implementation prompt is in [frontend-ux-refinement-prompt.md](frontend-ux-refinement-prompt.md). Preserve both original Minos images and supplied LeetCode screenshots unchanged.
+
 | Original | Role | Format |
 | --- | --- | --- |
 | [dark-minos.png](references/dark-minos.png) | Dark forest mark on a light background; reference for light surfaces | RGB PNG, 1254 × 1254 |
@@ -115,7 +130,7 @@ Interaction states are also not fully specified in the static board. Future UI m
 1. Inspect these originals and this document before future UI work. Preserve the supplied identity while adapting composition to the specific screen's task and content.
 2. Build real Angular components with the existing feature-first structure. Use focused presentation, feature-local data access, and semantic theme tokens; the board does not justify a new UI framework or state library.
 3. Treat this approved palette and visual direction as the target. Existing `web/minos-web/src/styles/tokens.css`, placeholder pages, and favicon predate these references and have not been reconciled in this documentation task.
-4. Use authentic content and actual server capabilities. Contests, leaderboards, discussions, ratings, community totals, and successful contestant verdicts on the board are composition examples, not requirements to implement now. M6 still needs owner approval.
+4. Use authentic content and actual server capabilities. Contests, leaderboards, discussions, ratings, community totals, and successful contestant verdicts on the board are composition examples, not requirements to implement now. Follow the current milestone status in AGENTS.md; M7 still requires owner approval.
 5. Retain the original references when creating derived assets or later page examples. Record intentional deviations in the relevant design documentation so future work does not silently drift.
 6. Verify future rendered work at desktop, tablet, and mobile sizes, including long text, Vietnamese text, keyboard navigation, contrast, and relevant interaction/data states. A screenshot resemblance alone is insufficient.
 

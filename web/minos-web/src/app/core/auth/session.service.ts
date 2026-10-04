@@ -13,11 +13,15 @@ export class SessionService {
   private readonly stateValue = signal<SessionState>({ status: 'checking' });
   private pending: Observable<SessionState> | null = null;
   private generation = 0;
+  private readonly passwordAccountId = signal<string | null>(null);
   readonly state = this.stateValue.asReadonly();
   readonly account = computed(() => {
     const state = this.state();
     return state.status === 'authenticated' ? state.account : null;
   });
+  // /me supplies no credential capabilities. Only successful local login or
+  // registration establishes evidence; never infer it from role or email.
+  readonly passwordConfirmed = computed(() => this.account() !== null && this.account()?.id === this.passwordAccountId());
 
   ensure(): Observable<SessionState> {
     return this.state().status === 'checking' ? this.refresh() : of(this.state());
@@ -45,6 +49,7 @@ export class SessionService {
         if (generation !== this.generation) return this.state();
         const nextId = state.status === 'authenticated' ? state.account.id : null;
         if ((previousAccount?.id ?? null) !== nextId) this.csrf.invalidate();
+        if (state.status !== 'unavailable' && nextId !== this.passwordAccountId()) this.passwordAccountId.set(null);
         this.stateValue.set(state);
         return state;
       }),
@@ -55,12 +60,15 @@ export class SessionService {
     return request;
   }
 
-  signedIn(account: CurrentAccount): void {
+  signedIn(account: CurrentAccount, passwordAuthenticated = false): void {
     if (!isCurrentAccount(account)) throw new Error('Invalid account response.');
+    if (passwordAuthenticated) this.passwordAccountId.set(account.id);
+    else if (this.passwordAccountId() !== account.id) this.passwordAccountId.set(null);
     this.replace({ status: 'authenticated', account });
   }
 
   signedOut(reason: 'signed-out' | 'expired' = 'signed-out'): void {
+    this.passwordAccountId.set(null);
     this.replace({ status: 'guest', reason });
   }
 

@@ -34,8 +34,8 @@ describe('account session overview', () => {
     requests.expectOne('/accounts/me').flush({ id: 'one', displayName: 'An', role: 'Solver', createdAtUtc: '2026-10-01T00:00:00Z' });
     fixture.detectChanges();
     await fixture.whenStable();
-    expect(fixture.nativeElement.textContent).toContain('Signed in');
-    expect(document.activeElement).toBe(fixture.nativeElement.querySelector('#account-heading'));
+    expect(fixture.nativeElement.textContent).toContain('Display name');
+    expect(document.activeElement).toBe(fixture.nativeElement.querySelector('#settings-heading'));
   });
 
   it('does not clear a session on a failed logout; a successful retry clears it', () => {
@@ -47,7 +47,7 @@ describe('account session overview', () => {
     requests.expectOne('/accounts/csrf').flush({ requestToken: 'token' });
     requests.expectOne('/accounts/logout').flush({}, { status: 500, statusText: 'Failed' });
     fixture.detectChanges();
-    expect(fixture.nativeElement.textContent).toContain('your session may still be active');
+    expect(settings.logoutError()).toContain('your session may still be active');
     expect(session.account()?.id).toBe('one');
     settings.signOut();
     requests.expectOne('/accounts/logout').flush(null);
@@ -64,6 +64,6 @@ describe('account session overview', () => {
     requests.expectOne('/accounts/csrf').flush({ requestToken: 'token' });
     requests.expectOne('/accounts/logout').flush({}, { status: 401, statusText: 'Unauthorized' });
     expect(session.state().status).toBe('guest');
-    expect(TestBed.inject(Router).navigate).toHaveBeenCalledWith(['/account/login'], { queryParams: { expired: '1', returnUrl: '/account' } });
+    expect(TestBed.inject(Router).navigate).toHaveBeenCalledWith(['/account/login'], { queryParams: { expired: '1', returnUrl: '/settings/security' } });
   });
 });

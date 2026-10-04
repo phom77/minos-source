@@ -8,7 +8,6 @@ import { SectionHeading } from '../../shared/ui/section-heading';
 import { ForestLandscape } from '../../shared/ui/forest-landscape';
 import { StatePanel } from '../../shared/ui/state-panel';
 import { StatusBadge } from '../../shared/ui/status-badge';
-import { UiIcon } from '../../shared/ui/ui-icon';
 import { Pagination } from '../../shared/ui/pagination';
 import { ProblemPage, ProblemsApi } from './data-access/problems-api';
 import { readCatalogQuery } from './catalog-query';
@@ -17,7 +16,7 @@ type CatalogState = { readonly status: 'loading' | 'invalid' | 'error' } | { rea
 
 @Component({
   selector: 'minos-problem-catalog-page',
-  imports: [DatePipe, RouterLink, SectionHeading, ForestLandscape, StatePanel, StatusBadge, UiIcon, Pagination],
+  imports: [DatePipe, RouterLink, SectionHeading, ForestLandscape, StatePanel, StatusBadge, Pagination],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './problem-catalog-page.html',
   styleUrl: './problem-catalog-page.css',

@@ -9,6 +9,7 @@ import { PasswordField } from '../../../shared/ui/password-field';
 import { AccountsApi } from '../data-access/accounts-api';
 import { accountSettingsError } from '../account-error-message';
 import { passwordFieldError, passwordValidators } from '../account-validators';
+import { FormFeedback } from '../form-feedback';
 
 @Component({
   selector: 'minos-disable-form', imports: [ReactiveFormsModule, PasswordField, ConfirmationDialog],
@@ -24,6 +25,8 @@ export class DisableForm {
   readonly blocked = input(false);
   readonly pendingChange = output<boolean>();
   readonly completed = output<void>();
+  readonly cancelled = output<void>();
+  readonly feedback = new FormFeedback<'password'>();
   readonly pending = signal(false);
   readonly submitted = signal(false);
   readonly confirming = signal(false);
@@ -34,7 +37,8 @@ export class DisableForm {
     effect(() => { if (this.pending() || this.blocked()) this.form.disable(); else this.form.enable(); });
     this.destroyRef.onDestroy(() => this.form.reset());
   }
-  fieldError(): string | null { return passwordFieldError(this.form.controls.password, this.submitted(), 'current password'); }
+  fieldError(): string | null { return passwordFieldError(this.form.controls.password, this.feedback.visible('password', this.submitted()), 'current password'); }
+  blur(): void { this.feedback.blur('password', this.form.controls.password.invalid); }
   focusField(event: Event): void { event.preventDefault(); this.document.getElementById('disable-password')?.focus(); }
   fieldLink(): string { return this.router.url.split('#')[0] + '#disable-password'; }
 
@@ -45,7 +49,8 @@ export class DisableForm {
     this.confirming.set(true);
   }
 
-  cancel(): void { if (!this.pending()) { this.confirming.set(false); this.form.reset(); this.submitted.set(false); } }
+  cancel(): void { if (!this.pending()) { this.confirming.set(false); this.form.reset(); this.feedback.reset(); this.submitted.set(false); this.error.set(null); } }
+  close(): void { if (!this.pending() && !this.blocked()) { this.cancel(); this.cancelled.emit(); } }
 
   confirm(): void {
     if (!this.confirming() || this.pending() || this.blocked() || this.form.invalid) return;
@@ -53,7 +58,7 @@ export class DisableForm {
     this.pending.set(true); this.pendingChange.emit(true); this.form.disable();
     this.api.disable(password).pipe(finalize(() => { this.pending.set(false); this.pendingChange.emit(false); this.form.enable(); }),
       takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: () => { this.form.reset(); this.confirming.set(false); this.submitted.set(false); this.completed.emit(); },
+      next: () => { this.form.reset(); this.feedback.reset(); this.confirming.set(false); this.submitted.set(false); this.completed.emit(); },
       error: (error: unknown) => { this.confirming.set(false); this.error.set(accountSettingsError(error, 'disable')); this.focusSummary(); },
     });
   }

@@ -8,8 +8,8 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
   styleUrl: './section-heading.css',
 })
 export class SectionHeading {
-  readonly eyebrow = input.required<string>();
+  readonly eyebrow = input('');
   readonly heading = input.required<string>();
-  readonly summary = input.required<string>();
+  readonly summary = input('');
   readonly tone = input<'light' | 'dark'>('light');
 }

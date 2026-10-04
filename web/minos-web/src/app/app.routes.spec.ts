@@ -38,7 +38,7 @@ describe('application routes', () => {
     const harness = await RouterTestingHarness.create('/');
 
     expect(TestBed.inject(Router).url).toBe('/problems');
-    expect(harness.routeNativeElement?.querySelector('h1')?.textContent).toBe('Solve what matters.');
+    expect(harness.routeNativeElement?.querySelector('h1')?.textContent).toBe('Problems');
     expect(harness.routeNativeElement?.querySelector('nav[aria-label="Primary navigation"]')).not.toBeNull();
     expect(TestBed.inject(Title).getTitle()).toBe('Problems — Minos');
   });
@@ -49,11 +49,42 @@ describe('application routes', () => {
     await harness.navigateByUrl('/account');
 
     expect(harness.routeNativeElement).toBe(shell);
-    expect(harness.routeNativeElement?.querySelector('h1')?.textContent).toBe('Make Minos your own.');
-    expect(harness.routeNativeElement?.querySelector('a.active')?.textContent?.trim()).toBe('Account');
+    expect(harness.routeNativeElement?.querySelector('h1')?.textContent).toBe('Settings');
+    expect(harness.routeNativeElement?.querySelector('a.active')?.textContent?.trim()).toBe('Profile');
     expect(harness.routeNativeElement?.querySelector('a.active')?.getAttribute('aria-current')).toBe('page');
-    expect(TestBed.inject(Title).getTitle()).toBe('Account — Minos');
-    expect(harness.routeNativeElement?.querySelector('.skip-link')?.getAttribute('href')).toBe('/account#main-content');
+    expect(TestBed.inject(Title).getTitle()).toBe('Settings — Minos');
+    expect(harness.routeNativeElement?.querySelector('.skip-link')?.getAttribute('href')).toBe('/settings/profile#main-content');
+  });
+
+  it('reaches Settings through the keyboard account menu and deep-links active local sections', async () => {
+    const harness = await RouterTestingHarness.create('/problems'), shell = harness.routeNativeElement!;
+    const trigger = shell.querySelector<HTMLButtonElement>('.account-menu button')!;
+    trigger.focus(); trigger.click(); harness.detectChanges(); await harness.fixture.whenStable();
+    const settingsLink = shell.querySelector<HTMLAnchorElement>('.account-utilities a')!;
+    expect(trigger.getAttribute('aria-expanded')).toBe('true'); expect(document.activeElement).toBe(settingsLink);
+    settingsLink.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })); harness.detectChanges();
+    expect(trigger.getAttribute('aria-expanded')).toBe('false'); expect(document.activeElement).toBe(trigger);
+    trigger.click(); harness.detectChanges(); shell.querySelector<HTMLAnchorElement>('.account-utilities a')!.click();
+    await harness.fixture.whenStable(); harness.detectChanges();
+    expect(TestBed.inject(Router).url).toBe('/settings/profile'); expect(shell.querySelector('.account-utilities')).toBeNull();
+    for (const section of ['security', 'account', 'profile']) {
+      await harness.navigateByUrl('/settings/' + section);
+      expect(shell.querySelector('.settings-navigation a.active')?.getAttribute('href')).toBe('/settings/' + section);
+      expect(shell.querySelector('.settings-navigation a.active')?.getAttribute('aria-current')).toBe('page');
+      expect(shell.querySelector('form')).toBeNull(); expect(shell.querySelector('h1')?.textContent).toBe('Settings');
+    }
+  });
+
+  it('discards contextual credentials on local Settings navigation', async () => {
+    TestBed.inject(SessionService).signedIn({ id: 'route-account', displayName: 'An', role: 'Solver', createdAtUtc: '2026-10-01T00:00:00Z' }, true);
+    const harness = await RouterTestingHarness.create('/settings/security'), shell = harness.routeNativeElement!;
+    shell.querySelector<HTMLButtonElement>('.setting-row button')!.click(); harness.detectChanges();
+    const input = shell.querySelector<HTMLInputElement>('#change-current')!;
+    input.value = 'test-only proof'; input.dispatchEvent(new Event('input')); harness.detectChanges();
+    await harness.navigateByUrl('/settings/profile'); expect(shell.querySelector('#change-current')).toBeNull();
+    await harness.navigateByUrl('/settings/security'); shell.querySelector<HTMLButtonElement>('.setting-row button')!.click(); harness.detectChanges();
+    expect(shell.querySelector<HTMLInputElement>('#change-current')!.value).toBe('');
+    expect(shell.querySelector('.field-error')).toBeNull();
   });
 
   it.each(['/unknown', '/account/unknown', '/problems/unknown/path'])(
@@ -70,10 +101,10 @@ describe('application routes', () => {
 
   it('renders only existing workspace destinations, not unsupported product features', async () => {
     const harness = await RouterTestingHarness.create('/problems');
-    const links = harness.routeNativeElement?.querySelectorAll('.sidebar .primary-navigation a');
-    expect(Array.from(links ?? []).map((link) => link.getAttribute('href'))).toEqual(['/problems', '/account']);
+    const links = harness.routeNativeElement?.querySelectorAll('.desktop-navigation a');
+    expect(Array.from(links ?? []).map((link) => link.getAttribute('href'))).toEqual(['/problems']);
     expect(harness.routeNativeElement?.querySelector('input[type="search"]')).toBeNull();
-    expect(harness.routeNativeElement?.querySelector('.banner-actions a')?.getAttribute('href')).toBe('/problems#problem-library');
+    expect(harness.routeNativeElement?.querySelector('.sidebar, .workspace-footer, .practice-notes')).toBeNull();
   });
 
   it('uses the supplied theme-specific mark in both desktop navigation and the mobile drawer', async () => {
@@ -130,8 +161,8 @@ describe('application routes', () => {
     expect(drawer.open).toBe(true);
     expect(trigger.getAttribute('aria-expanded')).toBe('true');
 
-    const firstControl = drawer.querySelector<HTMLButtonElement>('.drawer-close')!;
-    const lastControl = drawer.querySelector<HTMLAnchorElement>('.primary-navigation a[href="/account"]')!;
+    const firstControl = drawer.querySelector<HTMLAnchorElement>('.brand')!;
+    const lastControl = drawer.querySelector<HTMLAnchorElement>('.primary-navigation a[href="/settings"]')!;
     firstControl.focus();
     firstControl.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true, cancelable: true }));
     expect(document.activeElement).toBe(lastControl);
@@ -154,8 +185,8 @@ describe('application routes', () => {
     const harness = await RouterTestingHarness.create('/account');
     await renderAuth(harness);
     expect(TestBed.inject(Router).url).toBe('/problems?auth=login&authReturn=%2Faccount');
-    expect(harness.routeNativeElement?.querySelector('h1')?.textContent).toBe('Solve what matters.');
-    expect(harness.routeNativeElement?.querySelector('dialog.auth-dialog[open] #auth-title')?.textContent).toBe('Welcome back.');
+    expect(harness.routeNativeElement?.querySelector('h1')?.textContent).toBe('Problems');
+    expect(harness.routeNativeElement?.querySelector('dialog.auth-dialog[open] #auth-title')?.textContent).toBe('Sign in');
     expect(TestBed.inject(Title).getTitle()).toBe('Problems — Minos');
   });
 
@@ -163,7 +194,7 @@ describe('application routes', () => {
     TestBed.inject(SessionService).signedOut();
     const harness = await RouterTestingHarness.create('/account/register');
     await renderAuth(harness);
-    expect(harness.routeNativeElement?.querySelector('#auth-title')?.textContent).toBe('Make room for progress.');
+    expect(harness.routeNativeElement?.querySelector('#auth-title')?.textContent).toBe('Create account');
     expect(harness.routeNativeElement?.querySelector('input[autocomplete="new-password"]')).not.toBeNull();
   });
 
@@ -171,7 +202,7 @@ describe('application routes', () => {
     TestBed.inject(SessionService).refresh().subscribe();
     TestBed.inject(HttpTestingController).expectOne('/accounts/me').flush({}, { status: 503, statusText: 'Unavailable' });
     const harness = await RouterTestingHarness.create('/account');
-    expect(TestBed.inject(Router).url).toBe('/account');
+    expect(TestBed.inject(Router).url).toBe('/settings/profile');
     expect(harness.routeNativeElement?.querySelector('[role="alert"]')?.textContent).toContain('does not mean you have signed out');
     TestBed.inject(HttpTestingController).verify();
   });

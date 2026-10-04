@@ -13,6 +13,7 @@ import { AccountsApi } from '../data-access/accounts-api';
 import { GoogleSignIn } from '../data-access/google-sign-in';
 import { authErrorMessage } from '../account-error-message';
 import { displayNameValidator, matchingPasswords } from '../account-validators';
+import { FormFeedback } from '../form-feedback';
 
 type Field = 'email' | 'displayName' | 'password' | 'confirmation';
 
@@ -42,6 +43,7 @@ export class AuthForm implements OnInit {
   readonly submitted = signal(false);
   readonly serverError = signal<string | null>(null);
   readonly passwordVisible = signal(false);
+  readonly feedback = new FormFeedback<Field>();
   get fields(): readonly Field[] { return this.registering
     ? ['displayName', 'email', 'password', 'confirmation'] : ['email', 'password']; }
   readonly form = new FormGroup({
@@ -54,7 +56,7 @@ export class AuthForm implements OnInit {
   constructor() {
     effect(() => { if (!this.google.waiting() && !this.pending()) this.form.enable(); });
     this.google.completed.pipe(takeUntilDestroyed()).subscribe(() => {
-      this.form.reset(); this.completed.emit();
+      this.reset(); this.completed.emit();
     });
   }
 
@@ -74,6 +76,7 @@ export class AuthForm implements OnInit {
     this.google.start(event);
     if (this.google.waiting()) {
       this.form.controls.password.reset(); this.form.controls.confirmation.reset();
+      this.feedback.reset(); this.submitted.set(false); this.serverError.set(null); this.passwordVisible.set(false);
       this.form.disable();
     }
   }
@@ -83,7 +86,7 @@ export class AuthForm implements OnInit {
 
   fieldError(field: Field): string | null {
     const control = this.form.controls[field];
-    if (!control.touched && !this.submitted()) return null;
+    if (!this.feedback.visible(field, this.submitted())) return null;
     if (field === 'confirmation' && this.form.hasError('passwordMismatch')) return 'Passwords must match.';
     if (control.hasError('required')) return field === 'displayName' ? 'Enter your display name.'
       : field === 'email' ? 'Enter your email address.' : field === 'confirmation' ? 'Confirm your password.' : 'Enter your password.';
@@ -102,6 +105,16 @@ export class AuthForm implements OnInit {
   trimField(field: 'email' | 'displayName'): void {
     const control = this.form.controls[field];
     control.setValue(control.value.trim());
+  }
+
+  blur(field: Field): void {
+    if (field === 'email' || field === 'displayName') this.trimField(field);
+    this.feedback.blur(field, this.form.controls[field].invalid || (field === 'confirmation' && this.form.hasError('passwordMismatch')));
+  }
+
+  reset(): void {
+    this.form.reset(); this.feedback.reset(); this.submitted.set(false);
+    this.serverError.set(null); this.passwordVisible.set(false);
   }
 
   focusField(event: Event, field: Field): void {
@@ -128,8 +141,7 @@ export class AuthForm implements OnInit {
       takeUntilDestroyed(this.destroyRef),
     ).subscribe({
       next: () => {
-        this.form.reset(); // Never retain password fields after a successful identity change.
-        this.submitted.set(false);
+        this.reset(); // Never retain credentials after a successful identity change.
         this.completed.emit();
       },
       error: (error: unknown) => {

@@ -84,11 +84,22 @@ public sealed class ProblemPublicationTests
             Assert.DoesNotContain("hidden-output-secret", publicJson, StringComparison.Ordinal);
             Assert.DoesNotContain("artifact", publicJson, StringComparison.OrdinalIgnoreCase);
 
+            using var publicReader = AccountTestHost.Client(factory);
+            var catalogResponse = await publicReader.GetAsync("/api/problems/?page=1&pageSize=100", token);
+            Assert.Equal(HttpStatusCode.OK, catalogResponse.StatusCode);
+            var catalog = (await catalogResponse.Content.ReadFromJsonAsync<PublishedProblemPageResponse>(token))!;
+            var catalogItem = Assert.Single(catalog.Items, item => item.ProblemId == problemId);
+            Assert.Equal(secondVersionId, catalogItem.VersionId);
+            Assert.Equal("A + B, revised", catalogItem.Title);
+
             var archive = await author.PostAsync($"/api/authoring/problems/{problemId}/archive", null, token);
             Assert.Equal(HttpStatusCode.NoContent, archive.StatusCode);
             Assert.Equal(HttpStatusCode.NotFound, (await author.GetAsync($"/api/problems/{problemId}", token)).StatusCode);
             var historyAfterArchive = await author.GetFromJsonAsync<PublishedProblemResponse>($"/api/problems/versions/{firstVersionId}", token);
             Assert.Equal(firstVersionId, historyAfterArchive!.VersionId);
+            var archivedCatalog = await publicReader.GetFromJsonAsync<PublishedProblemPageResponse>(
+                "/api/problems/?page=1&pageSize=100", token);
+            Assert.DoesNotContain(archivedCatalog!.Items, item => item.ProblemId == problemId);
         }
 
         await using var restarted = AccountTestHost.Factory();

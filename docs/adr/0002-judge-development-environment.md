@@ -8,6 +8,8 @@ Accepted date: 2026-09-13
 
 Related documents: [ADR 0001](0001-initial-audience-and-access-policy.md), [Decision register](../decisions.md), [Project design](../project-design.md), [Implementation roadmap](../implementation-plan.md)
 
+The native Ubuntu/WSL hosting choice below is historical. [ADR 0011](0011-containerized-worker-development.md) updates local development to a containerized trusted Worker with sibling Docker sandboxes; the native profile remains supported.
+
 ## Context
 
 Minos is a single-developer project on Windows, with the repository remaining on the Windows D: drive. WSL2 is already available. There are no real users during development. The API must not execute submitted programs.

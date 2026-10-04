@@ -14,7 +14,8 @@ namespace Minos.Infrastructure;
 
 public static class DependencyInjection
 {
-    public static IServiceCollection AddMinosInfrastructure(this IServiceCollection services, string? connectionString)
+    public static IServiceCollection AddMinosInfrastructure(
+        this IServiceCollection services, string? connectionString, string? executionWorkspaceVolume = null)
     {
         if (string.IsNullOrWhiteSpace(connectionString))
             throw new InvalidOperationException("ConnectionStrings:Minos is required. Supply it through environment variables or user secrets.");
@@ -23,11 +24,12 @@ public static class DependencyInjection
         catch (ArgumentException) { throw new InvalidOperationException("ConnectionStrings:Minos is malformed."); }
         if (string.IsNullOrWhiteSpace(parsed.Host) || string.IsNullOrWhiteSpace(parsed.Database) || string.IsNullOrWhiteSpace(parsed.Username))
             throw new InvalidOperationException("ConnectionStrings:Minos must specify Host, Database, and Username.");
+        DockerExecutionBackend.ValidateWorkspaceVolume(executionWorkspaceVolume);
         services.AddDbContext<MinosDbContext>(options => options.UseNpgsql(connectionString));
         services.AddScoped<IProblemRepository, ProblemRepository>();
         services.AddScoped<ISubmissionRepository, SubmissionRepository>();
         services.AddScoped<IJudgeJobRepository, JudgeJobRepository>();
-        services.AddSingleton<IExecutionBackend, DockerExecutionBackend>();
+        services.AddSingleton<IExecutionBackend>(_ => new DockerExecutionBackend(executionWorkspaceVolume));
         services.AddScoped<ISubmissionExecutor, OfficialSubmissionExecutor>();
         services.AddScoped<JudgeJobUseCases>();
         services.AddSingleton<IProblemArtifactStore, ProblemArtifactStore>();

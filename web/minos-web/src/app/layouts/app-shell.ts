@@ -27,9 +27,11 @@ export class AppShell {
   private readonly destroyRef = inject(DestroyRef);
   private readonly drawer = viewChild<ElementRef<HTMLDialogElement>>('drawer');
   private readonly main = viewChild.required<ElementRef<HTMLElement>>('main');
+  private readonly accountTrigger = viewChild<ElementRef<HTMLButtonElement>>('accountTrigger');
+  private readonly settingsLink = viewChild<ElementRef<HTMLAnchorElement>>('settingsLink');
 
   readonly navigationOpen = signal(false);
-  readonly pageLabel = signal('Problems');
+  readonly accountMenuOpen = signal(false);
   readonly skipHref = signal('/problems#main-content');
   readonly session = inject(SessionService);
   readonly theme = inject(ThemeService);
@@ -47,11 +49,9 @@ export class AppShell {
       filter((event) => event instanceof NavigationEnd),
       takeUntilDestroyed(),
     ).subscribe((event) => {
-      let route = this.router.routerState.snapshot.root;
-      while (route.firstChild) route = route.firstChild;
-      this.pageLabel.set(route.title?.split(' — ')[0] ?? 'Minos');
       this.skipHref.set(event.urlAfterRedirects.split('#')[0] + '#main-content');
       this.closeNavigation();
+      this.accountMenuOpen.set(false);
       const location = event.urlAfterRedirects.split('?')[0] + '#' + (this.router.routerState.snapshot.root.fragment ?? '');
       const moved = location !== this.lastLocation;
       this.lastLocation = location;
@@ -80,6 +80,18 @@ export class AppShell {
   openSignIn(): void {
     this.closeNavigation();
     this.auth.open();
+  }
+
+  toggleAccountMenu(): void {
+    this.accountMenuOpen.update((open) => !open);
+    if (this.accountMenuOpen()) afterNextRender(() => this.settingsLink()?.nativeElement.focus(), { injector: this.injector });
+  }
+  closeAccountMenu(event: KeyboardEvent): void {
+    if (event.key !== 'Escape') return;
+    event.preventDefault(); this.accountMenuOpen.set(false); this.accountTrigger()?.nativeElement.focus();
+  }
+  leaveAccountMenu(event: FocusEvent): void {
+    if (!(event.currentTarget as HTMLElement).contains(event.relatedTarget as Node | null)) this.accountMenuOpen.set(false);
   }
 
   openNavigation(): void {

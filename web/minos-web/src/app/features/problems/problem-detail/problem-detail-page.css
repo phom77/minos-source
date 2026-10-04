@@ -1,7 +1,6 @@
 .problem-detail { max-width: 74rem; }
 .back-link { display: inline-flex; width: fit-content; min-height: 2.75rem; align-items: center; gap: var(--space-2); font-size: var(--text-label); }
 .back-link minos-icon { transform: rotate(180deg); }
-.problem-heading .technical-label { margin: 0 0 var(--space-3); color: var(--color-action-hover); }
 h1 { margin: 0; font-size: var(--text-title); font-weight: 600; line-height: 1.3; }
 .published { margin: var(--space-3) 0; color: var(--color-text-muted); font-size: var(--text-label); }
 .version-navigation { margin-top: var(--space-5); }
@@ -19,9 +18,7 @@ dl { display: grid; margin: 0; padding: var(--space-5); gap: var(--space-4); }
 dl div { display: grid; min-width: 0; gap: var(--space-1); }
 dt { color: var(--color-text-muted); font-size: var(--text-label); }
 dd { margin: 0; font-size: var(--text-label); font-weight: 600; }
-.checker-note, .version-details p { margin: 0; padding: 0 var(--space-5) var(--space-5); color: var(--color-text-muted); font-size: var(--text-label); line-height: 1.7; }
-.version-details p { padding-top: var(--space-5); padding-bottom: 0; }
-.identifier { overflow-wrap: anywhere; font-family: var(--font-mono); font-size: var(--text-small); font-weight: 400; }
-.submission-note { margin: 0; color: var(--color-text-muted); font-size: var(--text-label); line-height: 1.7; }
+.checker-note { margin: 0; padding: 0 var(--space-5) var(--space-5); color: var(--color-text-muted); font-size: var(--text-label); line-height: 1.7; }
+.version-note { margin: 0; color: var(--color-text-muted); font-size: var(--text-label); line-height: 1.7; }
 @media (max-width: 63.99rem) { .reading-grid { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 47.99rem) { .sample-grid { grid-template-columns: minmax(0, 1fr); } .statement, .sample { padding: var(--space-4); } }
