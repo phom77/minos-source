@@ -30,6 +30,7 @@ internal sealed class DomainExceptionHandler(IProblemDetailsService problemDetai
         if (details.Status == 500)
             logger.LogError("Request failed. TraceId: {TraceId}; ErrorType: {ErrorType}", context.TraceIdentifier, exception.GetType().Name);
         context.Response.StatusCode = details.Status!.Value;
+        if (exception is AdmissionLimitExceededException) context.Response.Headers.RetryAfter = "5";
         return await problemDetails.TryWriteAsync(new ProblemDetailsContext
         {
             HttpContext = context,

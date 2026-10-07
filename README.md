@@ -6,7 +6,7 @@ The backend will use C#, ASP.NET Core, PostgreSQL, and Entity Framework Core. It
 
 ## Current status
 
-**M0–M5 complete and approved; M6 implemented and verified. M7 has not started.** The five-project backend has accounts, immutable published problems, private tests, durable PostgreSQL jobs and real C++20 compilation/judging. M6 adds exact checking, seven contestant verdicts, private per-test evidence and renewed leases. Live Google consent validation remains deferred because no OAuth client exists. See [M6 results](docs/milestones/m6-official-judging.md) and [M6 decisions](docs/adr/0009-official-judging-and-evidence.md).
+**M0–M6 complete; M7 backend complete and verified. The development MVP candidate is ready for owner acceptance. M8 has not started.** The five-project backend has accounts, immutable published problems, private tests, durable PostgreSQL jobs and real C++20 compilation/judging. M7 adds global admission bounds, exclusive judge-host recovery, administrator diagnostics, hourly abandoned-upload cleanup and paired database/artifact backup/restore. Live Google consent validation remains deferred because no OAuth client exists. See [M7 results](docs/milestones/m7-reliability.md), [reliability decisions](docs/adr/0010-development-reliability-and-retention.md) and the [operating runbook](docs/operations/development-runbook.md).
 
 These documents distinguish accepted decisions from proposed architecture and unresolved product choices. D01, D02, D03, the D10 safety baseline and the M6 verdict/checker/accounting policies are accepted. Routine choices are resolved in their relevant milestones.
 
@@ -64,7 +64,7 @@ For later starts, run `docker compose up --build -d --wait` again. The `migrate`
 ```text
 docker compose ps
 docker compose logs --tail 50 worker
-docker compose exec worker dotnet /app/Minos.JudgeWorker.dll --check
+docker compose exec worker /bin/sh /minos/worker-healthcheck.sh
 docker compose down
 ```
 
@@ -74,12 +74,14 @@ To check the containerized profile after startup:
 
 ```text
 docker compose -f compose.yaml -f compose.checks.yaml --profile checks build checks
+docker compose stop worker
 docker compose -f compose.yaml -f compose.checks.yaml --profile checks run --rm checks
+docker compose start worker
 python scripts/check-docker-http.py
 docker compose -f compose.yaml -f compose.checks.yaml --profile checks rm -s -f -v checks-grants checks-migrate checks-postgres
 ```
 
-The .NET suite uses a separate disposable PostgreSQL database and real sibling sandboxes, including cancellation and workspace isolation. The HTTP script trusts the exported development CA directly, creates temporary author/solver accounts and a problem, checks all seven verdicts through the running API/Worker, then archives its problem and disables its accounts. Existing accounts are never changed. Archived fixture evidence remains in the development database. If you changed the port, pass `--base-url https://localhost:<port>` to the HTTP script. The final command removes only the check services and their disposable database.
+The .NET suite uses a separate disposable PostgreSQL database and real sibling sandboxes, including cancellation and workspace isolation. Stop the Worker before running this suite: the tests share its workspace volume and Docker recovery ownership, and M7 permits only one runner. Restart the Worker even if the tests fail; wait for it to become healthy before the HTTP check. Worker health probes inspect its startup marker and running process without acquiring its exclusive lock. `--check` is a startup/recovery check for a stopped Worker, not a live health probe. The HTTP script trusts the exported development CA directly, creates temporary author/solver accounts and a problem, checks all seven verdicts through the running API/Worker, then archives its problem and disables its accounts. Existing accounts are never changed. Archived fixture evidence remains in the development database. If you changed the port, pass `--base-url https://localhost:<port>` to the HTTP script. The final command removes only the check services and their disposable database.
 
 Frontend checks can also use the packaged Node version:
 
@@ -100,7 +102,7 @@ docker pull gcc@sha256:5e927c284bf55a7dc796262e311a0703344f62f41f5621eb56843111b
 bash scripts/check-foundation.sh
 ```
 
-The foundation script and GitHub Actions use the same acceptance pipeline: clean locked Release build, isolated PostgreSQL 18.6 identities, fresh/repeated/upgrade migrations, tests, real HTTPS author/solver flows, all seven official verdicts, a job exceeding its initial lease, and readiness/recovery. Docker execution tests are enabled by default in this Linux profile. This is also the trusted development fixture validation command; it uses temporary problems and known programs, without storing reference source or adding a publication execution gate. Google tests use a fake backchannel. Per-run container/volume/private files are removed afterward. Docker, .NET 10, Bash, Python 3, curl and OpenSSL are required. Windows builds use SDK 10.0.301; WSL checks use 10.0.401. M1 spikes remain archived evidence.
+The foundation script and GitHub Actions use the same acceptance pipeline: clean locked Release build, isolated PostgreSQL 18.6 identities, fresh/repeated/upgrade migrations, tests, real HTTPS author/solver flows, all seven official verdicts, a job exceeding its initial lease, readiness/recovery, an eight-job workload, Worker SIGKILL, runtime database interruption and restored-problem judging. Docker execution tests are enabled by default in this Linux profile. This is also the trusted development fixture validation command; it uses temporary problems and known programs, without storing reference source or adding a publication execution gate. Google tests use a fake backchannel. Per-run container/volume/private files are removed afterward. Docker, .NET 10, Bash, Python 3, curl and OpenSSL are required. The SDK baseline is 10.0.301 with feature-band roll-forward; current Windows/WSL checks use 10.0.401. M1 spikes remain archived evidence.
 
 Normal `dotnet restore`/`dotnet build` and IDE builds automatically use `artifacts/windows` on Windows and `artifacts/linux` in WSL. Restore assets are kept separate because they contain absolute paths to each host's NuGet cache. Explicit `--artifacts-path` overrides remain available for CI/private Linux build directories. After pulling build-configuration changes, restore the solution once on each host before using `--no-restore`.
 
@@ -128,7 +130,7 @@ export ConnectionStrings__Minos
 ASPNETCORE_ENVIRONMENT=Development dotnet run --project src/Minos.Api
 ```
 
-In a second WSL terminal, configure the same artifact-root variable and read a connection string for `minos_worker`, then run `dotnet run --project src/Minos.JudgeWorker`. `-- --check` validates startup and exits. For Windows API hosting, set the equivalent environment variables or API user secrets and use a private Windows directory ACL permitting only the current account, SYSTEM and Administrators. The Worker always runs in Linux; Linux roots must use a native filesystem, private permissions and no symlinked/writable-public ancestors. Migration mode needs only the migrator connection, not storage.
+In a second WSL terminal, configure the same artifact-root variable and read a connection string for `minos_worker`, then run `dotnet run --project src/Minos.JudgeWorker`. Start only one Worker; `-- --check` validates startup, Docker and recovery and exits while the Worker is stopped. For Windows API hosting, set the equivalent environment variables or API user secrets and use a private Windows directory ACL permitting only the current account, SYSTEM and Administrators. The Worker always runs in Linux; Linux roots must use a native filesystem, private permissions and no symlinked/writable-public ancestors. Migration mode needs only the migrator connection, not storage. API admission defaults to 32 active submissions globally and five per account; `Minos__Submissions__MaximumActive` explicitly overrides the global development bound. Apply M7's updated runtime grants before starting an existing database. Active administrators can inspect safe aggregates at `/api/operations/judging`. See the runbook for private backup/restore, failure alerts and rollback.
 
 API health endpoints are `/health/live` and `/health/ready`. The `Minos.Api` launch profile uses `https://localhost:49674` and `http://localhost:49675`; account and authoring endpoints require HTTPS. Startup/readiness validate runtime privileges, migrations and private storage; liveness remains available during outages. Self-service `/accounts` endpoints use protected cookies and `X-CSRF-TOKEN` from `/accounts/csrf`; obtain a new token after signing in. New accounts are Solvers. With the migrator connection, `dotnet run --project src/Minos.Api -- --provision-admin <account-guid>` performs the trusted first-administrator operation; administrators assign named roles through `PUT /accounts/{id}/role`. Setter/Admin authoring routes are under `/api/authoring/problems`; public current/version projections are under `/api/problems`. Authenticated solvers submit through `POST /api/problems/{problemId}/submissions`, read owner detail at `GET /api/submissions/{id}`, and poll history at `GET /api/me/submissions`. Errors use safe ProblemDetails. Private storage, hidden tests and persisted session keys are never served as static content or exposed through API contracts. The Worker processes jobs through real Docker compilation and fresh testcase execution. Owner detail includes pinned configuration, accepted attempt, verdict and bounded compiler diagnostics; runtime input/output and expected answers remain private. Prepare the pinned compiler image before starting the Worker. [ADR 0009](docs/adr/0009-official-judging-and-evidence.md) records the execution bounds and accounting limitations.
 

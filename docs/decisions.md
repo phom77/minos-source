@@ -1,7 +1,7 @@
 # Minos decision register
 
 Date: 2026-09-13\
-Status: M0–M5 complete and approved; M6 policies implemented and verified; M7 requires approval
+Status: M0–M6 complete; M7 backend complete and verified; development MVP owner acceptance pending
 
 Related documents: [M0 closure](m0-closure.md), [Project design](project-design.md), [Implementation roadmap](implementation-plan.md)
 
@@ -78,7 +78,7 @@ All 18 existing decision IDs are preserved. Blocking means "must be clear before
 | D14 | Client result updates | Determines how clients observe committed results | No for M1; during M5 | Polling; no separate ADR needed for polling intervals | Selected and implemented in M5 |
 | D15 | Layer/module packaging | Supports understandable dependencies and tests | No for M1; selected in M2 | Domain/Application/Infrastructure/API/Worker projects, module folders, two meaningful test projects; sandbox experiments remain separate | Initial scaffold implemented and built |
 | D16 | Official test execution order | Determines diagnostic depth, cost, and verdict consistency | No for M1; during M6 | Sequential tests; first failure in fixed order; later tests NotExecuted | Accepted in [ADR 0009](adr/0009-official-judging-and-evidence.md) |
-| D17 | Visibility, retention, and history | Prevents data leakage and uncontrolled storage growth | No for M1; before relevant M3/M4/M7 work | Owner-private source/results, private hidden tests, preserved version history; durations in M7 | M4 hidden-test/version history and M5 owner-private source/history implemented; broad retention remains M7 |
+| D17 | Visibility, retention, and history | Prevents data leakage and uncontrolled storage growth | Resolved for developer-only M7 | Retain durable history and referenced tests for project lifetime; unreferenced uploads expire after 24 hours; immediate stage cleanup/startup recovery; seven daily paired backups | Implemented in [ADR 0010](adr/0010-development-reliability-and-retention.md); public retention remains deferred |
 
 ### Can safely defer
 
@@ -98,7 +98,7 @@ Production judge-host selection, Isolate adoption, external brokers/caches, push
 - [x] Final assumptions, MVP boundary, risks, deferred work, and M1 dependencies reconciled in the M0 closure summary.
 - [x] Project owner accepts the baseline and explicitly requests M0 closure. Starting M1 is a separate next action, not a prerequisite for completing M0.
 
-**M0–M5 complete and approved; M6 implemented and verified.** Live Google validation remains deferred because no OAuth client exists. [ADR 0009](adr/0009-official-judging-and-evidence.md) records the accepted M6 verdict/checker/resource policies; [M6 evidence](milestones/m6-official-judging.md) records passing execution and persistence checks. Historical M0 closure remains unchanged. M7 requires approval.
+**M0–M6 complete; M7 backend authorized and implemented.** Live Google validation remains deferred because no OAuth client exists. [ADR 0009](adr/0009-official-judging-and-evidence.md) records the accepted M6 verdict/checker/resource policies; [M7 evidence](milestones/m7-reliability.md) records reliability implementation and acceptance checks. Historical M0 closure remains unchanged. Development MVP owner acceptance and M8 approval remain separate decisions.
 
 ## Decision completion record
 

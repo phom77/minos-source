@@ -16,10 +16,49 @@ public sealed class DockerExecutionTests
     public void Invalid_volume_configuration_cannot_change_sandbox_mount_options(string volume)
     {
         var services = new ServiceCollection();
-        var error = Assert.Throws<InvalidOperationException>(() =>
-            services.AddMinosInfrastructure("Host=localhost;Database=unused;Username=unused", volume));
+        var error = Assert.Throws<InvalidOperationException>(() => services.AddMinosInfrastructure(
+            "Host=localhost;Database=unused;Username=unused", executionWorkspaceVolume: volume));
         Assert.Contains("Minos:Execution:WorkspaceVolume", error.Message, StringComparison.Ordinal);
         Assert.DoesNotContain("sentinel", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact(Skip = "Requires the approved Linux Docker sandbox profile.", SkipUnless = nameof(SandboxEnabled))]
+    public async Task Sandbox_cannot_reach_network_host_files_or_management_interfaces_and_host_is_exclusive()
+    {
+        var services = new ServiceCollection();
+        services.AddMinosInfrastructure("Host=localhost;Database=unused;Username=unused",
+            executionWorkspaceVolume: Environment.GetEnvironmentVariable("MINOS_TEST_WORKSPACE_VOLUME"));
+        await using var provider = services.BuildServiceProvider();
+        var backend = provider.GetRequiredService<IExecutionBackend>();
+        var token = TestContext.Current.CancellationToken;
+        var source = """
+            #include <unistd.h>
+            #include <sys/socket.h>
+            #include <arpa/inet.h>
+            #include <fcntl.h>
+            #include <cerrno>
+            #include <iostream>
+            int main(){
+                if(getuid()==0) return 1;
+                const char* forbidden[]={"/var/run/docker.sock","/input/main.cpp","/input/output.bin","/mnt/d/Projects/PetProject/Minos/README.md","/root/.ssh/id_rsa"};
+                for(auto path:forbidden) if(access(path,F_OK)==0) return 2;
+                int s=socket(AF_INET,SOCK_STREAM,0); if(s<0) return 3;
+                sockaddr_in a{}; a.sin_family=AF_INET;a.sin_port=htons(80);inet_pton(AF_INET,"1.1.1.1",&a.sin_addr);
+                fcntl(s,F_SETFL,O_NONBLOCK); if(connect(s,(sockaddr*)&a,sizeof(a))==0 || errno!=ENETUNREACH) return 4;
+                close(s);std::cout<<"contained\n";
+            }
+            """;
+        var compilation = await backend.ExecuteAsync(new(ExecutionStage.Compile, System.Text.Encoding.UTF8.GetBytes(source), [],
+            new(TimeSpan.FromSeconds(15), TimeSpan.FromSeconds(8), 256*1024*1024, 64*1024*1024, 32, 32768, 32768)), token);
+        Assert.True(OfficialJudgingPolicy.HasCompleteEvidence(compilation), Summary(compilation));
+        Assert.False(OfficialJudgingPolicy.IsCompilationError(compilation), Summary(compilation));
+        var execution = await backend.ExecuteAsync(new(ExecutionStage.Run, compilation.Artifact!, [],
+            new(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(1), 64*1024*1024, 8*1024*1024, 32, 32768, 32768)), token);
+        Assert.True(OfficialJudgingPolicy.HasCompleteEvidence(execution), Summary(execution));
+        Assert.Equal(0, execution.ExitCode);
+        Assert.Equal("contained\n"u8.ToArray(), execution.Stdout);
+        await using var second = services.BuildServiceProvider();
+        await Assert.ThrowsAsync<IOException>(() => second.GetRequiredService<Minos.Infrastructure.Hosting.JudgeSandboxLifecycle>().InitializeAsync(token));
     }
 
     public static bool SandboxEnabled => OperatingSystem.IsLinux() &&
@@ -30,7 +69,7 @@ public sealed class DockerExecutionTests
     {
         var services = new ServiceCollection();
         services.AddMinosInfrastructure("Host=localhost;Database=unused;Username=unused",
-            Environment.GetEnvironmentVariable("MINOS_TEST_WORKSPACE_VOLUME"));
+            executionWorkspaceVolume: Environment.GetEnvironmentVariable("MINOS_TEST_WORKSPACE_VOLUME"));
         await using var provider = services.BuildServiceProvider();
         var backend = provider.GetRequiredService<IExecutionBackend>();
         var token = TestContext.Current.CancellationToken;
@@ -59,18 +98,20 @@ public sealed class DockerExecutionTests
     public async Task Sandbox_cannot_read_other_workspaces_private_artifacts_or_docker_control_socket()
     {
         if (!OperatingSystem.IsLinux()) return;
+        var services = new ServiceCollection();
+        services.AddMinosInfrastructure("Host=localhost;Database=unused;Username=unused",
+            executionWorkspaceVolume: Environment.GetEnvironmentVariable("MINOS_TEST_WORKSPACE_VOLUME"));
+        await using var provider = services.BuildServiceProvider();
+        var backend = provider.GetRequiredService<IExecutionBackend>();
+        var token = TestContext.Current.CancellationToken;
+        // Complete recovery first. The sentinel represents a live sibling, not crash leftovers.
+        await provider.GetRequiredService<Minos.Infrastructure.Hosting.JudgeSandboxLifecycle>().InitializeAsync(token);
         var siblingName = "other-" + Guid.NewGuid().ToString("N");
         var sibling = Path.Combine("/tmp/minos-judge-execution", siblingName);
         Directory.CreateDirectory(sibling, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
-        await File.WriteAllTextAsync(Path.Combine(sibling, "secret.txt"), "private-sentinel", TestContext.Current.CancellationToken);
         try
         {
-            var services = new ServiceCollection();
-            services.AddMinosInfrastructure("Host=localhost;Database=unused;Username=unused",
-                Environment.GetEnvironmentVariable("MINOS_TEST_WORKSPACE_VOLUME"));
-            await using var provider = services.BuildServiceProvider();
-            var backend = provider.GetRequiredService<IExecutionBackend>();
-            var token = TestContext.Current.CancellationToken;
+            await File.WriteAllTextAsync(Path.Combine(sibling, "secret.txt"), "private-sentinel", token);
             var compilation = await backend.ExecuteAsync(new(ExecutionStage.Compile,
                 "#include <filesystem>\n#include <iostream>\n#include <string>\nint main(){std::string name;std::cin>>name;for(auto path:{std::string(\"/input/\")+name+\"/secret.txt\",std::string(\"/input/../\")+name+\"/secret.txt\",std::string(\"/private/data-protection\"),std::string(\"/var/run/docker.sock\")}){if(std::filesystem::exists(path))return 7;}std::cout<<\"isolated\\n\";}"u8.ToArray(), [],
                 new(TimeSpan.FromSeconds(15), TimeSpan.FromSeconds(8), 256*1024*1024, 64*1024*1024, 32, 32768, 32768)), token);
@@ -92,7 +133,7 @@ public sealed class DockerExecutionTests
     {
         var services = new ServiceCollection();
         services.AddMinosInfrastructure("Host=localhost;Database=unused;Username=unused",
-            Environment.GetEnvironmentVariable("MINOS_TEST_WORKSPACE_VOLUME"));
+            executionWorkspaceVolume: Environment.GetEnvironmentVariable("MINOS_TEST_WORKSPACE_VOLUME"));
         await using var provider = services.BuildServiceProvider();
         var backend = provider.GetRequiredService<IExecutionBackend>();
         var token = TestContext.Current.CancellationToken;
@@ -115,7 +156,7 @@ public sealed class DockerExecutionTests
     {
         var services = new ServiceCollection();
         services.AddMinosInfrastructure("Host=localhost;Database=unused;Username=unused",
-            Environment.GetEnvironmentVariable("MINOS_TEST_WORKSPACE_VOLUME"));
+            executionWorkspaceVolume: Environment.GetEnvironmentVariable("MINOS_TEST_WORKSPACE_VOLUME"));
         await using var provider = services.BuildServiceProvider();
         var backend = provider.GetRequiredService<IExecutionBackend>();
         var token = TestContext.Current.CancellationToken;

@@ -4,7 +4,7 @@ using Minos.Domain.Evaluation;
 
 namespace Minos.Infrastructure.Persistence;
 
-internal sealed class SubmissionRepository(MinosDbContext database) : ISubmissionRepository
+internal sealed class SubmissionRepository(MinosDbContext database, SubmissionCapacity capacity) : ISubmissionRepository
 {
     public async Task<bool> AdmitAsync(
         Submission submission,
@@ -13,12 +13,14 @@ internal sealed class SubmissionRepository(MinosDbContext database) : ISubmissio
         CancellationToken token)
     {
         await using var transaction = await database.Database.BeginTransactionAsync(token);
-        await database.Database.ExecuteSqlInterpolatedAsync(
-            $"SELECT pg_advisory_xact_lock(hashtextextended({submission.OwnerAccountId.ToString()}, 0))", token);
+        // All API instances serialize the short capacity check with admission's commit.
+        await database.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(21754185638891831)", token);
+        var globalActive = await database.Submissions.CountAsync(candidate =>
+            candidate.Status == SubmissionStatus.Pending || candidate.Status == SubmissionStatus.Judging, token);
         var active = await database.Submissions.CountAsync(candidate =>
             candidate.OwnerAccountId == submission.OwnerAccountId &&
             (candidate.Status == SubmissionStatus.Pending || candidate.Status == SubmissionStatus.Judging), token);
-        if (active >= maximumActive)
+        if (active >= maximumActive || globalActive >= capacity.MaximumActive)
         {
             await transaction.RollbackAsync(token);
             return false;
@@ -67,3 +69,5 @@ internal sealed class SubmissionRepository(MinosDbContext database) : ISubmissio
         return (items.Select(item => (item.submission, item.Verdict)).ToArray(), total);
     }
 }
+
+internal sealed record SubmissionCapacity(int MaximumActive);

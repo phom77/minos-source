@@ -6,7 +6,7 @@ GRANT SELECT, INSERT ON problems.published_problem_versions, problems.published_
 GRANT SELECT ON problems.problems, problems.published_problem_versions, problems.published_problem_test_cases TO minos_worker;
 GRANT USAGE ON SCHEMA evaluation TO minos_api, minos_worker;
 GRANT SELECT, INSERT ON evaluation.submissions TO minos_api;
-GRANT INSERT ON evaluation.judge_jobs TO minos_api;
+GRANT SELECT, INSERT ON evaluation.judge_jobs TO minos_api;
 GRANT SELECT ON evaluation.judging_attempts, evaluation.submission_results, evaluation.test_case_results TO minos_api;
 GRANT SELECT, UPDATE ON evaluation.submissions, evaluation.judge_jobs TO minos_worker;
 GRANT SELECT, INSERT, UPDATE ON evaluation.judging_attempts TO minos_worker;

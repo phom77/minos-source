@@ -5,7 +5,7 @@ permissions:
 jobs:
   foundation:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -16,12 +16,14 @@ jobs:
       - name: Prepare pinned C++ toolchain
         # Download on cold hosts before applying the runner's short execution deadlines.
         run: timeout 180s docker pull gcc@sha256:5e927c284bf55a7dc796262e311a0703344f62f41f5621eb56843111b1d37e15
-      - name: Foundation and official judging acceptance
+      - name: Foundation, official judging and M7 reliability acceptance
         run: bash scripts/check-foundation.sh
       - name: Upload test evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: foundation-test-results
-          path: artifacts/tests/*.trx
+          path: |
+            artifacts/tests/*.trx
+            artifacts/m7-workload.json
           if-no-files-found: ignore

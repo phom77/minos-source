@@ -22,7 +22,8 @@ builder.Services.AddExceptionHandler<DomainExceptionHandler>();
 // The exception handler logs only safe metadata. Suppress middleware's raw exception logging.
 builder.Services.Configure<ExceptionHandlerOptions>(options => options.SuppressDiagnosticsCallback = _ => true);
 builder.Logging.AddFilter("Microsoft.AspNetCore.Diagnostics.ExceptionHandlerMiddleware", LogLevel.None);
-builder.Services.AddMinosInfrastructure(builder.Configuration.GetConnectionString("Minos"));
+builder.Services.AddMinosInfrastructure(builder.Configuration.GetConnectionString("Minos"),
+    maximumActiveSubmissions: builder.Configuration.GetValue<int?>("Minos:Submissions:MaximumActive") ?? 32);
 var migrating = args.Contains("--migrate", StringComparer.Ordinal);
 var provisionIndex = Array.FindIndex(args, argument => string.Equals(argument, "--provision-admin", StringComparison.Ordinal));
 Guid? administratorId = null;
@@ -40,6 +41,7 @@ if (!maintenance)
     builder.Services.AddSingleton(new PrivateArtifactDirectory(builder.Configuration["Minos:Artifacts:Root"], builder.Environment.ContentRootPath));
     builder.AddAccountAuthentication();
     builder.Services.AddHostedService<FoundationStartupCheck>();
+    builder.Services.AddHostedService<ProblemArtifactCleanupWorker>();
 }
 else if (administratorId is not null) builder.Services.AddMinosAccountPersistence();
 builder.Services.AddAuthorization();
@@ -69,6 +71,7 @@ app.MapAccountEndpoints();
 app.MapGoogleEndpoints();
 app.MapProblemEndpoints();
 app.MapSubmissionEndpoints();
+app.MapJudgingOperationsEndpoints();
 app.MapHealthChecks("/health/live", new() { Predicate = _ => false });
 app.MapHealthChecks("/health/ready", new() { Predicate = check => check.Tags.Contains("ready") });
 

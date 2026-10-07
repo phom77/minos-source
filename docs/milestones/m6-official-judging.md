@@ -77,3 +77,5 @@ Production judge hosting/Isolate, throughput and fairness targets, hard-crash or
 - [x] Long-running execution completes under a renewed lease in one attempt.
 - [x] Architecture rules retained; no new production projects or speculative dependencies.
 - [x] M7 has not started and requires project-owner approval.
+
+Subsequent status (2026-10-02): the owner authorized backend M7 completion. Current reliability implementation and acceptance evidence are recorded in [M7 results](m7-reliability.md); the statements above preserve the M6 closure record.

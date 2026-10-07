@@ -120,7 +120,7 @@ services:
     init: true
     stop_grace_period: 45s
     healthcheck:
-      test: [CMD-SHELL, 'docker info >/dev/null 2>&1 && dotnet /app/Minos.JudgeWorker.dll --check']
+      test: [CMD, /bin/sh, /minos/worker-healthcheck.sh]
       interval: 20s
       timeout: 10s
       start_period: 120s

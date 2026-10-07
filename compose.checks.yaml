@@ -1,4 +1,4 @@
-# Optional verification image; no additional production projects or hosts.
+# Optional verification image; stop the Worker before running shared-workspace sandbox checks.
 services:
   checks-postgres:
     image: postgres@sha256:1c59e2c3c818eaa0f0628f695b36e7c9e362d6b219b36a54a32df645cbd7e1af
@@ -71,7 +71,5 @@ services:
     depends_on:
       init:
         condition: service_completed_successfully
-      worker:
-        condition: service_healthy
       checks-grants:
         condition: service_completed_successfully

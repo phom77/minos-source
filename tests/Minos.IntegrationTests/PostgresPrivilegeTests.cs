@@ -50,7 +50,7 @@ public sealed class PostgresPrivilegeTests
     [InlineData("MINOS_TEST_WORKER_CONNECTION", "SELECT * FROM accounts.external_logins")]
     [InlineData("ConnectionStrings__Minos", "SELECT * FROM accounts.tokens")]
     [InlineData("ConnectionStrings__Minos", "DELETE FROM accounts.credentials")]
-    [InlineData("ConnectionStrings__Minos", "SELECT * FROM evaluation.judge_jobs")]
+    [InlineData("ConnectionStrings__Minos", "UPDATE evaluation.judge_jobs SET status = 2")]
     [InlineData("ConnectionStrings__Minos", "INSERT INTO evaluation.submission_results (submission_id) VALUES (gen_random_uuid())")]
     [InlineData("ConnectionStrings__Minos", "UPDATE evaluation.submissions SET status = 3")]
     [InlineData("MINOS_TEST_WORKER_CONNECTION", "INSERT INTO evaluation.submissions (id) VALUES (gen_random_uuid())")]

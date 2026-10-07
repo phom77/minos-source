@@ -33,6 +33,7 @@ FROM runtime AS worker
 COPY --from=docker-cli /usr/local/bin/docker /usr/local/bin/docker
 COPY --from=build /out/worker/ ./
 COPY docker/worker-entrypoint.sh /minos/worker-entrypoint.sh
+COPY docker/worker-healthcheck.sh /minos/worker-healthcheck.sh
 ENV DOCKER_HOST=unix:///var/run/docker.sock DOCKER_CONFIG=/tmp/docker-config
 USER 1654:1654
 ENTRYPOINT ["/bin/sh", "/minos/worker-entrypoint.sh"]

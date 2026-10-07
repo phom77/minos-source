@@ -18,7 +18,7 @@ try
     builder.Logging.AddJsonConsole();
     builder.Logging.AddFilter("Microsoft.Extensions.Hosting.Internal.Host", LogLevel.None);
     builder.Services.AddMinosInfrastructure(builder.Configuration.GetConnectionString("Minos"),
-        builder.Configuration["Minos:Execution:WorkspaceVolume"]);
+        executionWorkspaceVolume: builder.Configuration["Minos:Execution:WorkspaceVolume"]);
     builder.Services.AddSingleton(new PrivateArtifactDirectory(builder.Configuration["Minos:Artifacts:Root"], builder.Environment.ContentRootPath));
     builder.Services.AddHostedService<WorkerFoundationStartupCheck>();
     if (!args.Contains("--check", StringComparer.Ordinal)) builder.Services.AddHostedService<SubmissionJobWorker>();

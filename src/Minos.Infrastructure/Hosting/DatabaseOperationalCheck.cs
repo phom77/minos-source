@@ -60,7 +60,7 @@ public sealed class DatabaseOperationalCheck(MinosDbContext database)
                     AND NOT has_schema_privilege('evaluation', 'CREATE')
                     AND (SELECT count(*) = 5 AND bool_and(
                         has_table_privilege(oid, 'SELECT') = CASE WHEN @is_api
-                            THEN relname IN ('submissions','judging_attempts','submission_results','test_case_results')
+                            THEN relname IN ('submissions','judge_jobs','judging_attempts','submission_results','test_case_results')
                             ELSE relname IN ('submissions','judge_jobs','judging_attempts') END
                         AND has_table_privilege(oid, 'INSERT') = CASE WHEN @is_api
                             THEN relname IN ('submissions','judge_jobs')

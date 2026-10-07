@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Diagnostics.Metrics;
 using System.Globalization;
 using System.Net.Sockets;
 using System.Runtime.Versioning;
@@ -16,12 +17,16 @@ internal sealed class DockerExecutionBackend : IExecutionBackend, IDisposable
     private const string Label = "minos.judge=m6";
     private const string Root = "/tmp/minos-judge-execution";
     private const int MaximumExecutableBytes = 16 * 1024 * 1024;
+    private static readonly Meter Metrics = new("Minos.Sandbox");
+    private static readonly Counter<long> CleanupFailures = Metrics.CreateCounter<long>("minos.sandbox.cleanup_failures");
+    private static readonly Counter<long> RecoveredContainers = Metrics.CreateCounter<long>("minos.sandbox.recovered_containers");
     private readonly HttpClient engine;
     private readonly string? workspaceVolume;
     private readonly SemaphoreSlim initialization = new(1, 1);
     private bool initialized;
     private int sandboxUserId;
     private int sandboxGroupId;
+    private FileStream? hostLock;
 
     public DockerExecutionBackend(string? workspaceVolume = null)
     {
@@ -246,6 +251,7 @@ internal sealed class DockerExecutionBackend : IExecutionBackend, IDisposable
             }
             catch
             {
+                CleanupFailures.Add(1);
                 infrastructureFailure ??= "SandboxCleanupFailure";
             }
         }
@@ -260,7 +266,7 @@ internal sealed class DockerExecutionBackend : IExecutionBackend, IDisposable
             infrastructureFailure is not null || exitCode != 0;
     }
 
-    private async Task EnsureInitializedAsync(CancellationToken token)
+    internal async Task EnsureInitializedAsync(CancellationToken token)
     {
         if (initialized) return;
         await initialization.WaitAsync(token);
@@ -272,6 +278,11 @@ internal sealed class DockerExecutionBackend : IExecutionBackend, IDisposable
                 throw new IOException("Execution workspace root is unsafe.");
             Directory.CreateDirectory(Root, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
             File.SetUnixFileMode(Root, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            var lockPath = Path.Combine(Root, ".worker.lock");
+            if (new FileInfo(lockPath).LinkTarget is not null)
+                throw new IOException("Judge host lock is unsafe.");
+            hostLock ??= new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+            // The lifetime lock prevents startup cleanup from touching a live runner.
             var filesystem = await RunTrustedAsync(["run", "--rm", "--network", "none", "--entrypoint", "/bin/true", Image]);
             if (filesystem.ExitCode != 0) throw new IOException("The pinned execution image is unavailable.");
             var stat = await RunProcessAsync("stat", ["-f", "-c", "%T", Root]);
@@ -284,11 +295,34 @@ internal sealed class DockerExecutionBackend : IExecutionBackend, IDisposable
                 !int.TryParse(Encoding.UTF8.GetString(gid.Output).Trim(), CultureInfo.InvariantCulture, out sandboxGroupId) ||
                 sandboxUserId == 0)
                 throw new IOException("The Judge Worker must run as a non-root Linux user.");
+            await RecoverAbandonedAsync(token);
             initialized = true;
         }
         finally
         {
             initialization.Release();
+        }
+    }
+
+    private async Task RecoverAbandonedAsync(CancellationToken token)
+    {
+        var filters = Uri.EscapeDataString(JsonSerializer.Serialize(new { label = new[] { Label } }));
+        using var response = await engine.GetAsync($"containers/json?all=true&filters={filters}", token);
+        response.EnsureSuccessStatusCode();
+        using var containers = JsonDocument.Parse(await response.Content.ReadAsStringAsync(token));
+        foreach (var container in containers.RootElement.EnumerateArray())
+        {
+            var name = container.GetProperty("Names")[0].GetString()!.TrimStart('/');
+            if (!name.StartsWith("minos-m6-", StringComparison.Ordinal) || !Guid.TryParseExact(name[9..], "N", out _))
+                throw new IOException("Unexpected sandbox ownership; recovery requires operator inspection.");
+            token.ThrowIfCancellationRequested();
+            await RemoveContainerAsync(name);
+            RecoveredContainers.Add(1);
+        }
+        foreach (var directory in Directory.EnumerateDirectories(Root))
+        {
+            token.ThrowIfCancellationRequested();
+            DeleteWorkspace(directory);
         }
     }
 
@@ -431,6 +465,7 @@ internal sealed class DockerExecutionBackend : IExecutionBackend, IDisposable
     public void Dispose()
     {
         engine.Dispose();
+        hostLock?.Dispose();
         initialization.Dispose();
     }
 

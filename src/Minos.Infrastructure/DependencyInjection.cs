@@ -15,8 +15,12 @@ namespace Minos.Infrastructure;
 public static class DependencyInjection
 {
     public static IServiceCollection AddMinosInfrastructure(
-        this IServiceCollection services, string? connectionString, string? executionWorkspaceVolume = null)
+        this IServiceCollection services, string? connectionString, int maximumActiveSubmissions = 32,
+        string? executionWorkspaceVolume = null)
     {
+        if (maximumActiveSubmissions is < 1 or > 1000)
+            throw new InvalidOperationException("Minos:Submissions:MaximumActive must be between 1 and 1000.");
+        services.AddSingleton(new SubmissionCapacity(maximumActiveSubmissions));
         if (string.IsNullOrWhiteSpace(connectionString))
             throw new InvalidOperationException("ConnectionStrings:Minos is required. Supply it through environment variables or user secrets.");
         NpgsqlConnectionStringBuilder parsed;
@@ -29,7 +33,10 @@ public static class DependencyInjection
         services.AddScoped<IProblemRepository, ProblemRepository>();
         services.AddScoped<ISubmissionRepository, SubmissionRepository>();
         services.AddScoped<IJudgeJobRepository, JudgeJobRepository>();
-        services.AddSingleton<IExecutionBackend>(_ => new DockerExecutionBackend(executionWorkspaceVolume));
+        services.AddSingleton(_ => new DockerExecutionBackend(executionWorkspaceVolume));
+        services.AddSingleton<IExecutionBackend>(provider => provider.GetRequiredService<DockerExecutionBackend>());
+        services.AddSingleton(provider => new JudgeSandboxLifecycle(provider.GetRequiredService<DockerExecutionBackend>()));
+        services.AddScoped<IJudgingOperationsQuery, JudgingOperationsQuery>();
         services.AddScoped<ISubmissionExecutor, OfficialSubmissionExecutor>();
         services.AddScoped<JudgeJobUseCases>();
         services.AddSingleton<IProblemArtifactStore, ProblemArtifactStore>();
@@ -51,6 +58,7 @@ public static class DependencyInjection
         services.AddScoped<ProblemCatalogUseCases>();
         services.AddScoped<ProblemArtifactMaintenanceUseCases>();
         services.AddScoped<SubmissionUseCases>();
+        services.AddScoped<JudgingOperationsUseCases>();
         return services.AddIdentityCore<CredentialUser>(options =>
         {
             options.User.RequireUniqueEmail = true;

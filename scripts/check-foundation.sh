@@ -270,13 +270,14 @@ for attempt in {1..480}; do
     sleep 0.25
 done
 python3 - "$workspace/renewal-result.json" "$workspace/renewal-published.json" <<'PY'
-import datetime, json, sys
+import datetime, json, re, sys
 r = json.load(open(sys.argv[1]))
 assert r['status'] == 'Completed' and r['result']['verdict'] == 'Accepted'
 assert len(r['attempts']) == 1 and all(t['status'] == 'Passed' for t in r['result']['tests']), r['attempts']
 assert r['problemVersionId'] == json.load(open(sys.argv[2]))['versionId']
 attempt = r['attempts'][0]
-elapsed = datetime.datetime.fromisoformat(attempt['finishedAtUtc']) - datetime.datetime.fromisoformat(attempt['startedAtUtc'])
+timestamp = lambda value: datetime.datetime.fromisoformat(re.sub(r'\.(\d+)([+-]\d\d:\d\d|Z)$', lambda m:'.'+(m[1]+'000000')[:6]+m[2], value))
+elapsed = timestamp(attempt['finishedAtUtc']) - timestamp(attempt['startedAtUtc'])
 assert elapsed.total_seconds() > 30
 PY
 renewed="$(docker exec -i --env "PGPASSWORD=$worker_password" "$container" psql -X -At --set ON_ERROR_STOP=1 -U minos_worker -d minos \
@@ -290,6 +291,7 @@ printf 'real_worker_long_running_lease_renewal=passed\n'
 kill -TERM "$worker_pid"
 wait "$worker_pid"
 worker_pid=''
+source "$repository/scripts/check-m7.sh"
 # Storage must affect readiness, without affecting liveness.
 chmod 755 "$workspace/private-artifacts"
 test "$(curl -ksS -o /dev/null -w '%{http_code}' "$api_url/health/ready")" = 503

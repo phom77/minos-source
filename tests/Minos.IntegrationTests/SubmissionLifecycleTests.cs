@@ -367,7 +367,7 @@ public sealed class SubmissionLifecycleTests
         Assert.Equal(PostgresErrorCodes.CheckViolation, failure.SqlState);
     }
 
-    private static async Task<(Problem Problem, PublishedProblemVersion Version)> SeedPublishedAsync(
+    internal static async Task<(Problem Problem, PublishedProblemVersion Version)> SeedPublishedAsync(
         Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactory<Program> factory,
         Guid ownerId,
         CancellationToken token)
