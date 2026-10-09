@@ -3,6 +3,8 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.DependencyInjection;
 using Minos.Api.Accounts;
 using Minos.Api.Problems;
@@ -263,6 +265,104 @@ public sealed class ProblemPublicationTests
         invalidArtifact.Parameters.AddWithValue("problem", problemId);
         Assert.Equal(PostgresErrorCodes.CheckViolation,
             (await Assert.ThrowsAsync<PostgresException>(() => invalidArtifact.ExecuteNonQueryAsync(token))).SqlState);
+    }
+
+    [Fact]
+    public async Task Test_capacity_upgrade_preserves_old_versions_and_blocks_unsafe_downgrade()
+    {
+        var token = TestContext.Current.CancellationToken;
+        var name = $"minos_test_capacity_{Guid.NewGuid():N}";
+        await using var bootstrap = new NpgsqlConnection(PostgresPrivilegeTests.Connection("MINOS_TEST_BOOTSTRAP_CONNECTION"));
+        await bootstrap.OpenAsync(token);
+        await using (var create = new NpgsqlCommand($"CREATE DATABASE {name}", bootstrap))
+            await create.ExecuteNonQueryAsync(token);
+        try
+        {
+            var bootstrapConfig = new NpgsqlConnectionStringBuilder(PostgresPrivilegeTests.Connection("MINOS_TEST_BOOTSTRAP_CONNECTION"))
+                { Database = name, Pooling = false };
+            await using (var setup = new NpgsqlConnection(bootstrapConfig.ConnectionString))
+            {
+                await setup.OpenAsync(token);
+                await using var grant = new NpgsqlCommand($"REVOKE ALL ON DATABASE {name} FROM PUBLIC; GRANT CONNECT,CREATE ON DATABASE {name} TO minos_migrator; REVOKE ALL ON SCHEMA public FROM PUBLIC; GRANT USAGE,CREATE ON SCHEMA public TO minos_migrator", setup);
+                await grant.ExecuteNonQueryAsync(token);
+            }
+            var config = new NpgsqlConnectionStringBuilder(PostgresPrivilegeTests.Connection("MINOS_TEST_MIGRATION_CONNECTION"))
+                { Database = name, Pooling = false };
+            await using var database = PostgresPrivilegeTests.Database(config.ConnectionString);
+            const string previousMigration = "20260930142219_M6OfficialJudging";
+            await database.GetService<IMigrator>().MigrateAsync(previousMigration, token);
+
+            var owner = Account.Create("Test capacity owner", DateTimeOffset.UtcNow);
+            var problem = Problem.Create(owner.Id, "Preserve version", "Statement", DateTimeOffset.UtcNow);
+            problem.ConfigureExecution(1000, 64, BuiltInChecker.Exact, DateTimeOffset.UtcNow);
+            problem.ReplaceSamples([new("1", "1")], DateTimeOffset.UtcNow);
+            for (var order = 1; order <= 100; order++)
+                problem.AddTestCase(Artifact("input.bin"), Artifact("output.bin"), DateTimeOffset.UtcNow);
+            var oldVersion = problem.Publish(owner.Id, new(true, true, true), DateTimeOffset.UtcNow);
+            database.Accounts.Add(owner);
+            database.Problems.Add(problem);
+            database.PublishedProblemVersions.Add(oldVersion);
+            await database.SaveChangesAsync(token);
+
+            await database.Database.MigrateAsync(token);
+            await database.Database.MigrateAsync(token);
+            for (var order = 101; order <= 1500; order++)
+                problem.AddTestCase(Artifact("input.bin"), Artifact("output.bin"), DateTimeOffset.UtcNow);
+            var largeVersion = problem.Publish(owner.Id, new(true, true, true), DateTimeOffset.UtcNow);
+            database.PublishedProblemVersions.Add(largeVersion);
+            await database.SaveChangesAsync(token);
+            database.ChangeTracker.Clear();
+
+            var persisted = await database.PublishedProblemVersions.Include(version => version.TestCases)
+                .Where(version => version.ProblemId == problem.Id).OrderBy(version => version.VersionNumber).ToArrayAsync(token);
+            Assert.Equal(oldVersion.Id, persisted[0].Id);
+            Assert.Equal(100, persisted[0].PrivateTestCount);
+            Assert.Equal(100, persisted[0].TestCases.Count);
+            Assert.Equal(1500, persisted[1].PrivateTestCount);
+            Assert.Equal(1500, persisted[1].TestCases.Count);
+
+            var error = await Assert.ThrowsAsync<PostgresException>(() =>
+                database.GetService<IMigrator>().MigrateAsync(previousMigration, token));
+            Assert.Equal(PostgresErrorCodes.CheckViolation, error.SqlState);
+            // Later migrations can already have been reverted before the capacity guard fails.
+            // Reapply them and verify the protected version survives the failed downgrade.
+            await database.Database.MigrateAsync(token);
+            Assert.Empty(await database.Database.GetPendingMigrationsAsync(token));
+            Assert.Equal(1500, (await database.PublishedProblemVersions.SingleAsync(version => version.Id == largeVersion.Id, token)).PrivateTestCount);
+        }
+        finally
+        {
+            await using var drop = new NpgsqlCommand($"DROP DATABASE {name} WITH (FORCE)", bootstrap);
+            await drop.ExecuteNonQueryAsync(CancellationToken.None);
+        }
+    }
+
+    [Theory]
+    [InlineData(0, false)]
+    [InlineData(100, true)]
+    [InlineData(1500, true)]
+    [InlineData(1501, false)]
+    public async Task PostgreSQL_enforces_the_expanded_published_test_count(int count, bool valid)
+    {
+        var token = TestContext.Current.CancellationToken;
+        await using var connection = new NpgsqlConnection(PostgresPrivilegeTests.Connection("ConnectionStrings__Minos"));
+        await connection.OpenAsync(token);
+        await using var transaction = await connection.BeginTransactionAsync(token);
+        var (accountId, problemId) = await SeedProblemAsync(connection, transaction, token);
+        await using var version = new NpgsqlCommand(
+            "INSERT INTO problems.published_problem_versions (id,problem_id,version_number,title,statement,time_limit_ms,memory_limit_mb,checker,private_test_count,published_by_account_id,published_at_utc,statement_reviewed,samples_verified,reference_solution_checked) VALUES (gen_random_uuid(),@problem,1,'Title','Statement',1000,64,0,@count,@account,now(),true,true,true)",
+            connection, transaction);
+        version.Parameters.AddWithValue("problem", problemId);
+        version.Parameters.AddWithValue("account", accountId);
+        version.Parameters.AddWithValue("count", count);
+        if (valid)
+            Assert.Equal(1, await version.ExecuteNonQueryAsync(token));
+        else
+        {
+            var error = await Assert.ThrowsAsync<PostgresException>(() => version.ExecuteNonQueryAsync(token));
+            Assert.Equal(PostgresErrorCodes.CheckViolation, error.SqlState);
+            Assert.Equal("ck_published_problem_versions_test_count", error.ConstraintName);
+        }
     }
 
     [Fact]

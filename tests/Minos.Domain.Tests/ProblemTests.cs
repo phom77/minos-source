@@ -94,6 +94,29 @@ public sealed class ProblemTests
         Assert.Throws<DomainValidationException>(() => problem.Publish(problem.OwnerAccountId, new(true, true, true), Now.AddMinutes(2)));
     }
 
+    [Fact]
+    public void Publication_preserves_1500_tests_and_rejects_the_1501st_without_mutation()
+    {
+        var problem = Complete(Guid.NewGuid(), "Large test suite");
+        for (var order = 2; order <= 1500; order++)
+            problem.AddTestCase(Artifact("input.bin", 1), Artifact("output.bin", 1), Now);
+
+        var revision = problem.Revision;
+        Assert.Throws<DomainValidationException>(() =>
+            problem.AddTestCase(Artifact("input.bin", 1), Artifact("output.bin", 1), Now));
+        Assert.Equal(revision, problem.Revision);
+        Assert.Equal(1500, problem.TestCases.Count);
+
+        var version = problem.Publish(problem.OwnerAccountId, new(true, true, true), Now);
+        Assert.Equal(1500, version.PrivateTestCount);
+        Assert.Equal(Enumerable.Range(1, 1500), version.TestCases.Select(test => test.Order));
+
+        Assert.True(problem.RemoveTestCase(problem.TestCases[749].Id, Now));
+        problem.AddTestCase(Artifact("input.bin", 1), Artifact("output.bin", 1), Now);
+        Assert.Equal(Enumerable.Range(1, 1500), problem.TestCases.Select(test => test.Order));
+        Assert.Equal(1500, version.TestCases.Count);
+    }
+
     private static Problem Complete(Guid owner, string title)
     {
         var problem = Problem.Create(owner, title, "Statement", Now);

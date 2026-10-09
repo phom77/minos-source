@@ -1,0 +1,35 @@
+<div class="page">
+  <a routerLink="/contests">← Contests</a>
+  @if (state().data; as contest) {
+    <header class="page-heading"><div><span class="badge" [class.live]="contest.state === 'Live'">{{ contest.state }}</span><h1>{{ contest.title }}</h1></div>
+      @if (contest.canManage && contest.state === 'Draft') { <a class="button" [routerLink]="['/contests', contest.id, 'edit']">Edit contest</a> }
+      @if (contest.canRegister) { <button class="button" [disabled]="pending()" (click)="join()">{{ pending() ? 'Registering…' : 'Register for contest' }}</button> }
+      @if (session.state().status === 'guest' && (contest.state === 'Scheduled' || contest.state === 'Live')) { <button class="button" (click)="signIn()">Sign in to register</button> }
+    </header>
+    @if (error()) { <p class="form-errors" role="alert">{{ error() }}</p> }
+    <section class="panel panel-body stack" aria-label="Contest information">
+      @if (contest.description) { <p class="description">{{ contest.description }}</p> }
+      <dl class="timing"><div><dt>Starts</dt><dd>{{ contest.startsAtUtc | date:'medium' }}</dd></div><div><dt>Ends</dt><dd>{{ contest.endsAtUtc | date:'medium' }}</dd></div><div><dt>Problems</dt><dd>{{ contest.problemCount }}</dd></div></dl>
+      @if (contest.isRegistered) { <p class="notice" role="status">You are registered.@if (contest.state === 'Scheduled') { Problems open when the contest starts. }@if (contest.state === 'Ended') { The contest has ended. Submissions are closed. }</p> }
+      @if (contest.state === 'Draft') { <p class="notice">Only you can see this draft. Publish it to open registration.</p> }
+      @if (contest.canManage && contest.state !== 'Draft') { <p class="notice">The published schedule and problem selection are locked. You can preview problems as the organizer.</p> }
+    </section>
+    <section class="panel" aria-labelledby="contest-problems-heading"><header class="panel-header"><h2 id="contest-problems-heading">Problems</h2></header>
+      @for (problem of contest.problems; track problem.id) {
+        @if (contest.canManage || contest.isRegistered) { <a class="problem-link" [routerLink]="['/contests', contest.id, 'problems', problem.id]"><span>{{ label(problem.order) }}</span>{{ problem.title }}</a> }
+        @else { <div class="problem-link"><span>{{ label(problem.order) }}</span>{{ problem.title }}</div> }
+      } @empty { <p class="panel-body muted">{{ contest.state === 'Scheduled' ? 'The problem list opens when the contest starts.' : 'No problems selected yet.' }}</p> }
+    </section>
+    @if (contest.isRegistered) {
+      <section class="panel" aria-labelledby="contest-submissions-heading"><header class="panel-header"><h2 id="contest-submissions-heading">My submissions</h2><button class="button button--secondary" [disabled]="historyPending()" (click)="loadHistory()">{{ historyPending() ? 'Loading…' : history() ? 'Refresh' : 'Show submissions' }}</button></header>
+        @if (historyError()) { <p class="panel-body" role="alert">Submission history could not be loaded. Try again.</p> }
+        @if (history(); as data) {
+          @for (item of data.items; track item.id) { <a class="problem-link" [routerLink]="['/submissions', item.id]">{{ problemTitle(item.contestProblemId) }} · {{ item.verdict ?? item.status }} · {{ item.createdAtUtc | date:'shortTime' }}</a> }
+          @empty { <p class="panel-body muted">No submissions in this contest yet.</p> }
+          @if (data.total > data.pageSize) { <nav class="pagination" aria-label="Submission pages"><button class="button button--secondary" [disabled]="data.page <= 1 || historyPending()" (click)="loadHistory(data.page - 1)">Previous</button><span>Page {{ data.page }}</span><button class="button button--secondary" [disabled]="data.page * data.pageSize >= data.total || historyPending()" (click)="loadHistory(data.page + 1)">Next</button></nav> }
+        }
+      </section>
+    }
+  } @else if (state().kind === 'loading') { <minos-state-panel kind="loading" heading="Loading contest…" /> }
+  @else { <minos-state-panel kind="error" heading="This contest could not be opened."><button class="button" (click)="retry()">Try again</button></minos-state-panel> }
+</div>

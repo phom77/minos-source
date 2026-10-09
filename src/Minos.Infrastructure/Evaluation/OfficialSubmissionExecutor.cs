@@ -17,11 +17,12 @@ internal sealed class OfficialSubmissionExecutor(
 {
     private const long Megabyte = 1024 * 1024;
     private static readonly ExecutionLimits CompilationLimits = new(
-        TimeSpan.FromSeconds(15), TimeSpan.FromSeconds(8), 256 * Megabyte, 64 * Megabyte, 32,
+        TimeSpan.FromSeconds(15), TimeSpan.FromSeconds(8), 512 * Megabyte, 64 * Megabyte, 32,
         JudgingOutcome.MaximumCompilerDiagnosticsBytes, JudgingOutcome.MaximumCompilerDiagnosticsBytes);
 
     public async Task<SubmissionExecutionResult> ExecuteAsync(ClaimedSubmissionWork work, CancellationToken token)
     {
+        using var totalMeasurement = JudgingMetrics.Measure("submission", "total");
         try
         {
             if (work.Language != SupportedSubmission.Language || work.ToolchainId != SupportedSubmission.ToolchainId)
@@ -37,7 +38,8 @@ internal sealed class OfficialSubmissionExecutor(
                 tests.Where((test, index) => test.Order != index + 1).Any())
                 return SubmissionExecutionResult.InfrastructureFailed();
 
-            await artifacts.VerifyAsync(tests.SelectMany(test => new[] { test.InputArtifact, test.OutputArtifact }), token);
+            using (JudgingMetrics.Measure("submission", "artifact-preflight"))
+                await artifacts.VerifyAsync(tests.SelectMany(test => new[] { test.InputArtifact, test.OutputArtifact }), token);
 
             var compilation = await backend.ExecuteAsync(new(
                 ExecutionStage.Compile,
@@ -51,6 +53,7 @@ internal sealed class OfficialSubmissionExecutor(
                 return SubmissionExecutionResult.InfrastructureFailed();
             }
 
+            JudgingMetrics.RecordCompilerMemory(compilation.MemoryPeakBytes!.Value);
             if (OfficialJudgingPolicy.IsCompilationError(compilation))
             {
                 var diagnostics = DecodeDiagnostics(compilation.Stderr);
@@ -66,14 +69,13 @@ internal sealed class OfficialSubmissionExecutor(
             SubmissionVerdict? finalVerdict = null;
             foreach (var test in tests)
             {
-                if (finalVerdict is not null)
+                byte[] input;
+                byte[] expected;
+                using (JudgingMetrics.Measure("submission", "artifact-read"))
                 {
-                    outcomes.Add(NotExecuted(test.Order));
-                    continue;
+                    input = await artifacts.ReadVerifiedAsync(test.InputArtifact, token);
+                    expected = await artifacts.ReadVerifiedAsync(test.OutputArtifact, token);
                 }
-
-                var input = await artifacts.ReadVerifiedAsync(test.InputArtifact, token);
-                var expected = await artifacts.ReadVerifiedAsync(test.OutputArtifact, token);
                 const int outputLimit = (int)ProblemArtifactReference.MaximumBytes;
                 var runtimeLimits = new ExecutionLimits(
                     MaximumWallTime(version.TimeLimitMilliseconds),
@@ -95,6 +97,7 @@ internal sealed class OfficialSubmissionExecutor(
                     return SubmissionExecutionResult.InfrastructureFailed();
                 }
 
+                using var checking = JudgingMetrics.Measure("submission", "check");
                 var status = OfficialJudgingPolicy.ClassifyTest(execution, expected);
                 outcomes.Add(new(
                     test.Order,
@@ -107,7 +110,7 @@ internal sealed class OfficialSubmissionExecutor(
                     execution.CpuLimit,
                     execution.MemoryFailure,
                     execution.OutputLimit));
-                finalVerdict = OfficialJudgingPolicy.Verdict(status);
+                finalVerdict ??= OfficialJudgingPolicy.Verdict(status);
             }
 
             return SubmissionExecutionResult.Completed(JudgingOutcome.Create(

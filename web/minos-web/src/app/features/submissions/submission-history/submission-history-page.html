@@ -1,0 +1,49 @@
+<section class="page submission-page">
+  <header class="page-heading"><h1 id="history-heading" tabindex="-1">Submissions</h1><button class="button button--secondary" type="button" (click)="refresh()">Refresh</button></header>
+  @if (state(); as current) {
+    <section class="panel" aria-label="Submission history">
+      @if (current.status === 'ready') {
+        @if (current.interrupted) { <p class="notice" role="alert">Updates paused. Refresh to reconnect.</p> }
+        @if (current.data.items.length) {
+          <div class="history-toolbar"><label for="history-page-size">Per page</label><select id="history-page-size" (change)="changePageSize($event)">
+            @if (!pageSizes.includes(current.data.pageSize)) { <option [value]="current.data.pageSize" selected>{{ current.data.pageSize }}</option> }
+            @for (size of pageSizes; track size) { <option [value]="size" [selected]="size === current.data.pageSize">{{ size }}</option> }
+          </select><span>{{ current.data.total }} {{ current.data.total === 1 ? 'submission' : 'submissions' }}</span></div>
+          <ul class="mobile-history" aria-label="Your submissions">
+            @for (item of current.data.items; track item.id) {
+              <li><a [routerLink]="['/submissions', item.id]">
+                <strong>{{ current.labels[item.problemVersionId]?.title ?? 'Problem' }}</strong>
+                <minos-status-badge [tone]="outcomeTone(item.status, item.verdict)">{{ outcomeLabel(item.status, item.verdict) }}</minos-status-badge>
+                <span class="mobile-history-meta">@if (current.labels[item.problemVersionId]?.versionNumber; as version) { Version {{ version }} · }
+                  <time [attr.datetime]="item.createdAtUtc">{{ item.createdAtUtc | date:'MMM d, y, HH:mm:ss' }}</time></span>
+              </a></li>
+            }
+          </ul>
+          <div class="table-scroll history-table-region" role="region" aria-label="Your submissions" tabindex="0">
+            <table class="history-table"><caption class="visually-hidden">Your submissions, newest first</caption><thead><tr><th scope="col">Problem</th><th scope="col">Result</th><th scope="col">Submitted</th><th scope="col"><span class="visually-hidden">Details</span></th></tr></thead>
+              <tbody>@for (item of current.data.items; track item.id) {
+                <tr><th scope="row"><a [routerLink]="['/submissions', item.id]">{{ current.labels[item.problemVersionId]?.title ?? 'Problem' }}</a>
+                  @if (current.labels[item.problemVersionId]?.versionNumber; as version) { <span class="row-version">Version {{ version }}</span> }</th>
+                  <td><minos-status-badge [tone]="outcomeTone(item.status, item.verdict)">{{ outcomeLabel(item.status, item.verdict) }}</minos-status-badge></td>
+                  <td><time [attr.datetime]="item.createdAtUtc">{{ item.createdAtUtc | date:'MMM d, y, HH:mm:ss' }}</time></td>
+                  <td><a class="detail-link" [routerLink]="['/submissions', item.id]" [attr.aria-label]="'View submission for ' + (current.labels[item.problemVersionId]?.title ?? 'problem') + ' submitted ' + (item.createdAtUtc | date:'medium')">View</a></td></tr>
+              }</tbody>
+            </table>
+          </div>
+          <minos-pagination [page]="current.data.page" [pageSize]="current.data.pageSize" [total]="current.data.total" />
+        } @else if (current.data.total > 0 || current.data.page > 1) {
+          <minos-state-panel [headingLevel]="2" heading="No submissions on this page"><a class="button" routerLink="/submissions" [queryParams]="{ page: 1, pageSize: current.data.pageSize }">Go to first page</a></minos-state-panel>
+        } @else { <minos-state-panel [headingLevel]="2" heading="No submissions yet"><a class="button" routerLink="/problems">Choose a problem</a></minos-state-panel> }
+      } @else {
+        @switch (current.status) {
+          @case ('loading') { <minos-state-panel [headingLevel]="2" kind="loading" heading="Loading submissions…" /> }
+          @case ('invalid') { <minos-state-panel [headingLevel]="2" kind="error" heading="Invalid history link"><a class="button" routerLink="/submissions">Open history</a></minos-state-panel> }
+          @case ('guest') { <minos-state-panel [headingLevel]="2" heading="Sign in to view your submissions"><button class="button" type="button" (click)="signIn()">Sign in</button></minos-state-panel> }
+          @case ('denied') { <minos-state-panel [headingLevel]="2" kind="error" heading="Submission history is unavailable for this account" /> }
+          @case ('unavailable') { <minos-state-panel [headingLevel]="2" kind="error" heading="Account unavailable"><button class="button" type="button" (click)="reconnect()">Reconnect</button></minos-state-panel> }
+          @case ('error') { <minos-state-panel [headingLevel]="2" kind="error" heading="Could not load submissions"><button class="button" type="button" (click)="refresh()">Try again</button></minos-state-panel> }
+        }
+      }
+    </section>
+  }
+</section>

@@ -181,7 +181,7 @@ import json, pathlib, sys
 root = pathlib.Path(sys.argv[1])
 sources = {
     'accepted': '#include <iostream>\nint main(){long long a,b;if(std::cin>>a>>b)std::cout<<a+b<<"\\n";}\n',
-    'wrong': '#include <iostream>\nint main(){std::cout<<5<<"\\n";}\n',
+    'wrong': '#include <iostream>\nint main(){long long a,b;std::cin>>a>>b;std::cout<<(a==19?5:a+b)<<"\\n";}\n',
     'compile': 'int main(){ this is not valid C++; }\n',
     'runtime': 'int main(){return 7;}\n',
     'time': 'int main(){volatile unsigned long long n=0;for(;;)++n;}\n',
@@ -235,9 +235,12 @@ assert result['result']['verdict'] == expected_verdict
 assert result['configuration'] == {'timeLimitMilliseconds':1000, 'memoryLimitMegabytes':64, 'checker':'Exact', 'testCount':3}
 statuses = [test['status'] for test in result['result']['tests']]
 if expected_verdict == 'Accepted': assert statuses == ['Passed'] * 3
-elif expected_verdict == 'WrongAnswer': assert statuses == ['Passed','WrongAnswer','NotExecuted']
+elif expected_verdict == 'WrongAnswer': assert statuses == ['Passed','WrongAnswer','Passed']
 elif expected_verdict == 'CompilationError': assert statuses == ['NotExecuted'] * 3
-else: assert statuses == [expected_status,'NotExecuted','NotExecuted']
+else: assert statuses == [expected_status] * 3
+executed = sum(status != 'NotExecuted' for status in statuses)
+passed = statuses.count('Passed')
+assert result['result']['testSummary'] == {'totalTests':3, 'executedTests':executed, 'passedTests':passed, 'failedTests':executed-passed}
 assert result['result']['attemptId'] == result['attempts'][-1]['id']
 serialized = json.dumps(result['result']).lower()
 assert all(secret not in serialized for secret in ('stdout', 'stderr', 'expectedoutput', 'inputartifact', 'outputartifact'))

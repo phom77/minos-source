@@ -77,7 +77,10 @@ All 18 existing decision IDs are preserved. Blocking means "must be clear before
 | D13 | Source and testcase storage | Protects private artifacts and supports reliable access | No M0 block; workspace mechanics in M1, storage in M4 | Bounded source in PostgreSQL; bounded private testcase files behind an opaque-key storage port | Testcase portion implemented in [ADR 0007](adr/0007-versioned-problems-and-private-tests.md); bounded submission source implemented in [ADR 0008](adr/0008-postgresql-submission-jobs-and-leases.md) |
 | D14 | Client result updates | Determines how clients observe committed results | No for M1; during M5 | Polling; no separate ADR needed for polling intervals | Selected and implemented in M5 |
 | D15 | Layer/module packaging | Supports understandable dependencies and tests | No for M1; selected in M2 | Domain/Application/Infrastructure/API/Worker projects, module folders, two meaningful test projects; sandbox experiments remain separate | Initial scaffold implemented and built |
-| D16 | Official test execution order | Determines diagnostic depth, cost, and verdict consistency | No for M1; during M6 | Sequential tests; first failure in fixed order; later tests NotExecuted | Accepted in [ADR 0009](adr/0009-official-judging-and-evidence.md) |
+| D16 | Official test execution order | Determines diagnostic depth, cost, and verdict consistency | Resolved for complete judging | Execute every test after successful compilation; all-pass Accepted, otherwise earliest published failure; accurate owner counts | Historical M6 policy in ADR 0009 superseded for new results by [ADR 0012](adr/0012-complete-private-test-judging.md) |
+| D19 | Lightweight native runtime | Removes measured per-container overhead while preserving per-test evidence | Resolved for opt-in implementation | Compile once in pinned Docker; fresh Isolate box/cgroup per test on a validated direct-Linux host; Docker remains default | Implemented and fixture-validated in [ADR 0013](adr/0013-native-per-test-runtime.md); live host validation/default switch remain separate |
+| D20 | Bounded scheduling and ID delivery | Allows compilation/runtime overlap without exhausting resources or losing attempts | Owner authorized Phase 3 on 2026-10-08 | One Worker, bounded independent job scopes, shared FIFO execution budget, PostgreSQL ID source plus targeted durable claim | Implemented in [ADR 0014](adr/0014-bounded-worker-scheduling.md); validation evidence in the improvement plan; broker/distributed scope deferred |
+| D21 | Separate compile/runtime allocation and multiple native boxes | Removes the single runtime box bottleneck without an unbounded compile-ahead queue | Owner authorized implementation on 2026-10-09 | Separate class quotas under shared slot/memory bounds; per-box UID/GID, CPU, fresh cgroup and independent scratch | Implemented and verified with two boxes in [ADR 0015](adr/0015-compile-runtime-allocation-and-isolate-boxes.md); Docker remains default |
 | D17 | Visibility, retention, and history | Prevents data leakage and uncontrolled storage growth | Resolved for developer-only M7 | Retain durable history and referenced tests for project lifetime; unreferenced uploads expire after 24 hours; immediate stage cleanup/startup recovery; seven daily paired backups | Implemented in [ADR 0010](adr/0010-development-reliability-and-retention.md); public retention remains deferred |
 
 ### Can safely defer
@@ -86,7 +89,7 @@ All 18 existing decision IDs are preserved. Blocking means "must be clear before
 | --- | --- | --- | --- | --- | --- |
 | D18 | Manual rejudging and administrative recovery workflow | Governs intentional result replacement and audit history | No; automatic crash recovery is D07 | Defer the rejudge API/workflow; preserve attempt evidence and original specifications now | Deferred proposal |
 
-Production judge-host selection, Isolate adoption, external brokers/caches, push updates, distributed workers, additional languages, contests, and ratings are future follow-ups outside the M0 gate. No new ADRs or implementation obligations are created for them. Isolate compatibility is an accepted D02 boundary requirement; implementing Isolate is deferred.
+Production judge-host selection, external brokers/caches, push updates, distributed workers, additional languages, contests, and ratings remain outside the M0 gate. Isolate compatibility was accepted at M0; its opt-in implementation was subsequently authorized on 2026-10-08 and is recorded in D19. This does not select a production host or change the Compose default.
 
 ## M0 closure checklist
 
@@ -113,6 +116,8 @@ For each resolved decision, append or update:
 Do not mark a decision accepted because its recommendation was documented. Update the roadmap when decisions change; unresolved scope must not appear as completed implementation.
 
 ## Technology admission rule
+
+The owner approved complete private-test judging and phased performance work on 2026-10-07. [ADR 0012](adr/0012-complete-private-test-judging.md) supersedes the first-failure execution policy for new results; [the three-phase plan](judging-improvement-plan.md) records implementation slices and acceptance evidence. This does not approve M8, a broker, public deployment or multiple worker hosts.
 
 Before adding Redis, a broker, Kubernetes, another service, or a caching layer, record:
 

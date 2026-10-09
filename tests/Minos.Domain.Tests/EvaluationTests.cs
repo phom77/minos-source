@@ -118,7 +118,7 @@ public sealed class EvaluationTests
     }
 
     [Fact]
-    public void Failure_must_match_first_failed_test_and_leave_later_tests_unexecuted()
+    public void Failure_keeps_later_passes_and_mixed_failures_and_uses_published_order()
     {
         var valid = JudgingOutcome.Create(
             SubmissionVerdict.WrongAnswer,
@@ -126,21 +126,34 @@ public sealed class EvaluationTests
             [
                 new(1, TestCaseResultStatus.Passed, 1, 1, 1024, 0),
                 new(2, TestCaseResultStatus.WrongAnswer, 1, 1, 1024, 0),
-                new(3, TestCaseResultStatus.NotExecuted, null, null, null, null)
+                new(3, TestCaseResultStatus.Passed, 2, 3, 2048, 0),
+                new(4, TestCaseResultStatus.RuntimeError, 1, 1, 1024, 9)
             ]);
 
         Assert.Equal(SubmissionVerdict.WrongAnswer, valid.Verdict);
+        Assert.Equal(2, valid.TestCases.Count(test => test.Status == TestCaseResultStatus.Passed));
+        Assert.Equal(TestCaseResultStatus.RuntimeError, valid.TestCases[3].Status);
         Assert.Throws<DomainValidationException>(() => JudgingOutcome.Create(
-            SubmissionVerdict.WrongAnswer,
+            SubmissionVerdict.RuntimeError,
             "",
             [
                 new(1, TestCaseResultStatus.WrongAnswer, 1, 1, 1024, 0),
-                new(2, TestCaseResultStatus.Passed, 1, 1, 1024, 0)
+                new(2, TestCaseResultStatus.RuntimeError, 1, 1, 1024, 9)
             ]));
         Assert.Throws<DomainValidationException>(() => JudgingOutcome.Create(
             SubmissionVerdict.Accepted,
             "",
             [new(1, TestCaseResultStatus.RuntimeError, 1, 1, 1024, 9)]));
+    }
+
+    [Fact]
+    public void Runtime_result_rejects_unexecuted_tests_and_failure_without_a_failed_test()
+    {
+        Assert.Throws<DomainValidationException>(() => JudgingOutcome.Create(SubmissionVerdict.WrongAnswer, "",
+            [new(1, TestCaseResultStatus.WrongAnswer, 1, 1, 1024, 0),
+             new(2, TestCaseResultStatus.NotExecuted, null, null, null, null)]));
+        Assert.Throws<DomainValidationException>(() => JudgingOutcome.Create(SubmissionVerdict.WrongAnswer, "",
+            [new(1, TestCaseResultStatus.Passed, 1, 1, 1024, 0)]));
     }
 
     [Fact]
@@ -182,6 +195,22 @@ public sealed class EvaluationTests
         tests[0] = new(1, TestCaseResultStatus.WrongAnswer, 1, 1, 1024, 0);
         Assert.Equal(TestCaseResultStatus.Passed, outcome.TestCases[0].Status);
         Assert.Throws<NotSupportedException>(() => ((IList<JudgingTestOutcome>)outcome.TestCases).Clear());
+    }
+
+    [Fact]
+    public void Completion_accepts_1500_test_results_and_rejects_1501()
+    {
+        var tests = Enumerable.Range(1, 1500)
+            .Select(order => new JudgingTestOutcome(order, TestCaseResultStatus.Passed, 1, 1, 1024, 0))
+            .ToArray();
+        var outcome = JudgingOutcome.Create(SubmissionVerdict.Accepted, "", tests);
+        var submission = CreateSubmission();
+        var attempt = Guid.NewGuid();
+        submission.StartAttempt(attempt);
+        var result = submission.Complete(attempt, outcome, Now);
+        Assert.Equal(1500, result.TestCaseResults.Count);
+        Assert.Throws<DomainValidationException>(() => JudgingOutcome.Create(SubmissionVerdict.Accepted, "",
+            tests.Append(new(1501, TestCaseResultStatus.Passed, 1, 1, 1024, 0)).ToArray()));
     }
 
     private static JudgingOutcome AcceptedOutcome() => JudgingOutcome.Create(

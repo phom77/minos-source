@@ -1,0 +1,49 @@
+<section class="coding-pane" aria-labelledby="code-heading">
+  <form (submit)="$event.preventDefault(); submit()" (pointerdown)="feedback.prepareSubmit($event)" [attr.aria-busy]="pending()" novalidate>
+    <header class="code-header">
+      <h2 id="code-heading" tabindex="-1"><minos-icon name="code" />Code</h2>
+      <div class="code-controls">
+        @if (inlineResult()) { <button class="icon-button expand-control" type="button" (click)="expand.emit()" [attr.aria-label]="expanded() ? 'Restore split view' : 'Expand editor'" [attr.aria-pressed]="expanded()"><minos-icon [name]="expanded() ? 'restore' : 'expand'" /></button> }
+        @switch (session.state().status) {
+          @case ('authenticated') { <button class="button" type="submit" [disabled]="pending()"><minos-icon name="submit" />{{ pending() ? 'Submitting…' : 'Submit' }}</button> }
+          @case ('guest') { <button class="button" type="button" (click)="signIn()">Sign in to submit</button> }
+          @case ('checking') { <button class="button" type="button" disabled>Checking session…</button> }
+          @case ('unavailable') { <button class="button button--secondary" type="button" (click)="retrySession()">Reconnect account</button> }
+        }
+      </div>
+    </header>
+    <div class="language-bar"><span>C++20</span></div>
+    @if (error() || (submitted() && fieldError())) {
+      <div #summary class="form-errors" role="alert" tabindex="-1" aria-label="Submission error">
+        @if (error()) { <p>{{ error() }}</p> }
+        @if (fieldError(); as message) { <a [href]="fieldLink()" (click)="focusSource($event)">{{ message }}</a> }
+        @if (uncertain()) { <a routerLink="/submissions">Check submission history</a> }
+      </div>
+    }
+    <minos-code-editor #editor [control]="source" [error]="fieldError()" (edited)="edit()" (blurred)="blur()" />
+    @if (fieldError(); as message) { <p id="source-error" class="field-error" aria-live="polite">{{ message }}</p> }
+    <footer class="editor-status"><span>Ln {{ editor.cursor().line }}, Col {{ editor.cursor().column }}</span><span id="source-size">{{ bytes().toLocaleString('en-US') }} bytes</span></footer>
+  </form>
+  @if (inlineResult()) {
+    <section class="console" aria-label="Examples and submission result">
+      <header class="console-header">
+        <div role="tablist" aria-label="Code console" (keydown)="consoleKey($event)">
+          <button id="console-tab-examples" type="button" role="tab" aria-controls="console-examples" [attr.aria-selected]="consoleTab() === 'examples'" [tabIndex]="consoleTab() === 'examples' ? 0 : -1" (click)="selectConsole('examples')">Examples</button>
+          <button id="console-tab-result" type="button" role="tab" aria-controls="console-result" [attr.aria-selected]="consoleTab() === 'result'" [tabIndex]="consoleTab() === 'result' ? 0 : -1" (click)="selectConsole('result')">Result</button>
+        </div>
+        @if (result().data; as data) { <a [routerLink]="['/submissions', data.id]">View details<minos-icon name="arrow" /></a> }
+      </header>
+      <div id="console-examples" role="tabpanel" aria-labelledby="console-tab-examples" [hidden]="consoleTab() !== 'examples'" tabindex="0" class="console-body">
+        @for (sample of samples(); track $index) {
+          <div class="console-example"><h3>Example {{ $index + 1 }}</h3><div class="example-values"><div><h4>Input</h4><pre><code>{{ sample.input }}</code></pre></div><div><h4>Expected output</h4><pre><code>{{ sample.output }}</code></pre></div></div></div>
+        } @empty { <p class="console-empty">No public examples.</p> }
+      </div>
+      <div id="console-result" role="tabpanel" aria-labelledby="console-tab-result" [hidden]="consoleTab() !== 'result'" tabindex="0" class="console-body">
+        @if (result(); as current) {
+          @if (current.data; as data) { <minos-submission-result [submission]="data" [interrupted]="current.interrupted" (refresh)="refreshResult()" /> }
+          @else { <p class="console-empty" [attr.role]="current.message ? 'alert' : null">{{ current.message ?? 'Submit your code to see the result.' }}</p> }
+        }
+      </div>
+    </section>
+  }
+</section>

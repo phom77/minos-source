@@ -102,7 +102,7 @@ describe('application routes', () => {
   it('renders only existing workspace destinations, not unsupported product features', async () => {
     const harness = await RouterTestingHarness.create('/problems');
     const links = harness.routeNativeElement?.querySelectorAll('.desktop-navigation a');
-    expect(Array.from(links ?? []).map((link) => link.getAttribute('href'))).toEqual(['/problems']);
+    expect(Array.from(links ?? []).map((link) => link.getAttribute('href'))).toEqual(['/problems', '/contests', '/submissions']);
     expect(harness.routeNativeElement?.querySelector('input[type="search"]')).toBeNull();
     expect(harness.routeNativeElement?.querySelector('.sidebar, .workspace-footer, .practice-notes')).toBeNull();
   });

@@ -13,6 +13,7 @@ public interface ISubmissionRepository
 public interface IJudgeJobRepository
 {
     Task<ClaimedSubmissionWork?> ClaimNextAsync(string workerId, DateTimeOffset nowUtc, CancellationToken token);
+    Task<ClaimedSubmissionWork?> ClaimAsync(Guid jobId, string workerId, DateTimeOffset nowUtc, CancellationToken token);
     Task<LeaseMutationResult> RenewAsync(
         Guid attemptId, Guid leaseToken, string workerId, DateTimeOffset nowUtc, CancellationToken token);
     Task<LeaseMutationResult> CompleteAsync(
@@ -29,6 +30,12 @@ public interface IJudgeJobRepository
         InfrastructureFailureKind failureKind,
         DateTimeOffset nowUtc,
         CancellationToken token);
+}
+
+// Delivery identifies work; durable attempts/results remain the repository's authority.
+public interface IJudgeJobDelivery
+{
+    Task<Guid?> ReceiveAsync(CancellationToken token);
 }
 
 public interface ISubmissionExecutor

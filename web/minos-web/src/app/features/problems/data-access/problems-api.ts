@@ -25,7 +25,7 @@ const summary = (value: unknown): value is PublishedProblemSummary => record(val
   typeof value['versionId'] === 'string' && isProblemId(value['versionId']) && positive(value['versionNumber']) &&
   typeof value['title'] === 'string' && value['title'].trim().length > 0 &&
   typeof value['publishedAtUtc'] === 'string' && Number.isFinite(Date.parse(value['publishedAtUtc']));
-const detail = (value: unknown): value is PublishedProblem => summary(value) && record(value) &&
+export const isPublishedProblem = (value: unknown): value is PublishedProblem => summary(value) && record(value) &&
   typeof value['statement'] === 'string' && positive(value['timeLimitMilliseconds']) && positive(value['memoryLimitMegabytes']) &&
   value['checker'] === 'Exact' && typeof value['privateTestCount'] === 'number' && Number.isSafeInteger(value['privateTestCount']) &&
   value['privateTestCount'] >= 0 && Array.isArray(value['samples']) && value['samples'].every(sample =>
@@ -50,7 +50,7 @@ export class ProblemsApi {
   version(versionId: string) { return this.read(`/api/problems/versions/${versionId}`, versionId, true); }
   private read(url: string, id: string, version: boolean) {
     return this.http.get<unknown>(url, { context: this.context(), timeout: 15_000 }).pipe(map(value => {
-      if (!detail(value) || (version ? value.versionId : value.problemId).toLowerCase() !== id.toLowerCase()) {
+      if (!isPublishedProblem(value) || (version ? value.versionId : value.problemId).toLowerCase() !== id.toLowerCase()) {
         throw new Error('Invalid published problem response.');
       }
       return value;

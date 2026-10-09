@@ -1,0 +1,7 @@
+<div class="editor-surface" [class.editor-surface--invalid]="error()">
+  <div class="line-gutter" aria-hidden="true"><pre [style.transform]="'translateY(' + gutterOffset() + 'px)'">{{ lineNumbers() }}</pre></div>
+  <label class="visually-hidden" for="submission-source">C++20 source code</label>
+  <textarea #editor id="submission-source" [formControl]="control()" (input)="edit()" (blur)="blurred.emit()" (scroll)="scroll()" (click)="position()" (keyup)="position()" (select)="position()"
+    [attr.aria-invalid]="error() ? 'true' : null" [attr.aria-describedby]="error() ? 'source-error source-size' : 'source-size'"
+    spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" wrap="off"></textarea>
+</div>

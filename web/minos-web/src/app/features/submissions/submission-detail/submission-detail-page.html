@@ -1,0 +1,35 @@
+<article class="page submission-page">
+  <a class="back-link" routerLink="/submissions">← Submission history</a>
+  @if (state(); as current) {
+    @if (current.status === 'ready') {
+      <header class="page-heading">
+        <div><h1>{{ current.label?.title ?? 'Submission' }}</h1><p class="metadata"><time [attr.datetime]="current.data.createdAtUtc">{{ current.data.createdAtUtc | date:'medium' }}</time> · C++20
+          @if (current.label?.versionNumber; as version) { <span> · Version {{ version }}</span> }
+        </p></div>
+        <div class="actions">
+          <a class="button button--secondary" [routerLink]="['/problems/versions', current.data.problemVersionId]">View submitted problem</a>
+          @if (!active(current.data.status) && current.data.language === 'cpp20') { <button class="button" type="button" (click)="edit(current.data)">Edit & submit again</button> }
+        </div>
+      </header>
+      <minos-submission-result [submission]="current.data" [interrupted]="current.interrupted" (refresh)="refresh()" />
+      <section class="panel" aria-labelledby="source-heading">
+        <header class="panel-header"><h2 id="source-heading">Submitted code</h2><div class="actions">
+          <button class="button button--secondary" type="button" (click)="copy(current.data.source)">Copy code</button>
+        </div></header>
+        <span class="copy-notice" role="status">{{ copied() }}</span>
+        <pre class="submitted-source" tabindex="0" aria-label="Submitted C++20 source code"><code>{{ current.data.source }}</code></pre>
+      </section>
+    } @else {
+      <h1>Submission</h1>
+      <section class="panel">@switch (current.status) {
+        @case ('loading') { <minos-state-panel [headingLevel]="2" kind="loading" heading="Loading submission…" /> }
+        @case ('invalid') { <minos-state-panel [headingLevel]="2" kind="error" heading="Invalid submission link"><a class="button" routerLink="/submissions">Open history</a></minos-state-panel> }
+        @case ('missing') { <minos-state-panel [headingLevel]="2" heading="Submission not found"><a class="button" routerLink="/submissions">Open history</a></minos-state-panel> }
+        @case ('denied') { <minos-state-panel [headingLevel]="2" kind="error" heading="This submission is private"><a class="button" routerLink="/submissions">Open your history</a></minos-state-panel> }
+        @case ('guest') { <minos-state-panel [headingLevel]="2" heading="Sign in to view your submission"><button class="button" type="button" (click)="signIn()">Sign in</button></minos-state-panel> }
+        @case ('unavailable') { <minos-state-panel [headingLevel]="2" kind="error" heading="Account unavailable"><button class="button" type="button" (click)="reconnect()">Reconnect</button></minos-state-panel> }
+        @case ('error') { <minos-state-panel [headingLevel]="2" kind="error" heading="Could not load submission"><button class="button" type="button" (click)="refresh()">Try again</button></minos-state-panel> }
+      }</section>
+    }
+  }
+</article>

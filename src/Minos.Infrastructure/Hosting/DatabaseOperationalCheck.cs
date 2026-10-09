@@ -41,6 +41,9 @@ public sealed class DatabaseOperationalCheck(MinosDbContext database)
                     WHERE n.nspname = 'problems' AND c.relname IN (
                         'problems','problem_samples','problem_test_cases','published_problem_versions',
                         'published_problem_samples','published_problem_test_cases')
+                ), contest_tables AS (
+                    SELECT c.oid, c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+                    WHERE n.nspname = 'contests' AND c.relname IN ('contests','contest_problems','registrations','submissions')
                 ), evaluation_tables AS (
                     SELECT c.oid, c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
                     WHERE n.nspname = 'evaluation' AND c.relname IN (
@@ -56,6 +59,15 @@ public sealed class DatabaseOperationalCheck(MinosDbContext database)
                         AND has_table_privilege(oid, 'DELETE') = (@is_api AND relname IN ('problem_samples','problem_test_cases'))
                         AND NOT has_table_privilege(oid, 'TRUNCATE,REFERENCES,TRIGGER')
                     ) FROM problem_tables)
+                    AND has_schema_privilege('contests', 'USAGE') = @is_api
+                    AND NOT has_schema_privilege('contests', 'CREATE')
+                    AND (SELECT count(*) = 4 AND bool_and(
+                        has_table_privilege(oid, 'SELECT') = @is_api
+                        AND has_table_privilege(oid, 'INSERT') = @is_api
+                        AND has_table_privilege(oid, 'UPDATE') = (@is_api AND relname IN ('contests','contest_problems'))
+                        AND has_table_privilege(oid, 'DELETE') = (@is_api AND relname = 'contest_problems')
+                        AND NOT has_table_privilege(oid, 'TRUNCATE,REFERENCES,TRIGGER')
+                    ) FROM contest_tables)
                     AND has_schema_privilege('evaluation', 'USAGE')
                     AND NOT has_schema_privilege('evaluation', 'CREATE')
                     AND (SELECT count(*) = 5 AND bool_and(

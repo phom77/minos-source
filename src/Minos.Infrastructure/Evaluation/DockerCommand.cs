@@ -20,12 +20,12 @@ internal static class DockerCommand
         return process;
     }
 
-    public static async Task<byte[]> CaptureAsync(Stream stream, int limit, Action exceeded)
+    public static async Task<byte[]> CaptureAsync(Stream stream, int limit, Action exceeded, CancellationToken token = default)
     {
         using var retained = new MemoryStream();
         var buffer = new byte[81920];
         int count;
-        while ((count = await stream.ReadAsync(buffer)) != 0)
+        while ((count = await stream.ReadAsync(buffer, token)) != 0)
         {
             var allowed = Math.Min(count, Math.Max(0, limit - (int)retained.Length));
             if (allowed > 0) retained.Write(buffer, 0, allowed);

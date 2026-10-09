@@ -538,6 +538,14 @@
           "Npgsql.EntityFrameworkCore.PostgreSQL": "[10.0.3, )"
         }
       },
+      "minos.judgeworker": {
+        "type": "Project",
+        "dependencies": {
+          "Microsoft.Extensions.Hosting": "[10.0.12, )",
+          "Minos.Application": "[1.0.0, )",
+          "Minos.Infrastructure": "[1.0.0, )"
+        }
+      },
       "Microsoft.AspNetCore.Authentication.Google": {
         "type": "CentralTransitive",
         "requested": "[10.0.12, )",

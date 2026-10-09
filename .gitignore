@@ -1,6 +1,8 @@
 **/bin/
 **/obj/
 artifacts/
+__pycache__/
+/data/codecontests-200/
 .vs/
 *.user
 .env
@@ -9,3 +11,5 @@ TestResults/
 core
 core.*
 /.agents/
+/AGENTS.md
+/SKILLS.md

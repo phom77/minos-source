@@ -1,0 +1,31 @@
+@if (submission(); as data) {
+  <section class="panel result-panel" aria-labelledby="result-heading">
+    <div class="result-heading"><h2 id="result-heading" tabindex="-1" aria-live="polite"><minos-status-badge [tone]="outcomeTone(data.status, data.result?.verdict ?? null)">{{ outcomeLabel(data.status, data.result?.verdict ?? null) }}</minos-status-badge></h2>
+      <button type="button" class="button button--secondary" (click)="refresh.emit()">Refresh</button></div>
+    @if (interrupted()) { <p class="notice" role="alert">Updates paused. Refresh to reconnect.</p> }
+    @if (data.status === 'SystemFailed') { <p class="result-note">The judge could not finish this submission. No verdict was assigned.</p> }
+    @if (data.status === 'Completed' && !data.result?.verdict) { <p class="result-note">This older submission has no recorded verdict.</p> }
+    @if (data.result; as result) {
+      @if (result.maximumCpuTimeMilliseconds !== null || result.maximumMemoryBytes !== null || result.maximumWallTimeMilliseconds !== null) {
+        <dl class="metrics">
+          <div><dt>Max CPU time</dt><dd>{{ result.maximumCpuTimeMilliseconds === null ? '—' : result.maximumCpuTimeMilliseconds + ' ms' }}</dd></div>
+          <div><dt>Max wall time</dt><dd>{{ result.maximumWallTimeMilliseconds === null ? '—' : result.maximumWallTimeMilliseconds + ' ms' }}</dd></div>
+          <div><dt>Peak memory</dt><dd>@if (result.maximumMemoryBytes !== null) { {{ result.maximumMemoryBytes / 1048576 | number:'1.0-2' }} MiB } @else { — }</dd></div>
+        </dl>
+      }
+      @if (result.compilerDiagnostics) {
+        <details class="evidence" [open]="result.verdict === 'CompilationError'"><summary>Compiler output</summary><pre tabindex="0" aria-label="Compiler output"><code>{{ result.compilerDiagnostics }}</code></pre></details>
+      }
+      @if (result.tests.length) {
+        <div class="table-scroll" role="region" aria-label="Test results" tabindex="0">
+          <table><caption class="visually-hidden">Test results</caption><thead><tr><th scope="col">Test</th><th scope="col">Result</th><th scope="col">CPU</th><th scope="col">Wall</th><th scope="col">Memory</th></tr></thead>
+            <tbody>@for (test of result.tests; track test.order) { <tr><th scope="row">{{ test.order }}</th><td><minos-status-badge [tone]="test.status === 'Passed' ? 'success' : test.status === 'NotExecuted' ? 'neutral' : 'danger'">{{ testLabel(test.status) }}</minos-status-badge></td>
+              <td>{{ test.cpuTimeMilliseconds === null ? '—' : test.cpuTimeMilliseconds + ' ms' }}</td><td>{{ test.wallTimeMilliseconds === null ? '—' : test.wallTimeMilliseconds + ' ms' }}</td>
+              <td>@if (test.memoryPeakBytes !== null) { {{ test.memoryPeakBytes / 1048576 | number:'1.0-2' }} MiB } @else { — }</td></tr> }</tbody>
+          </table>
+        </div>
+      }
+    }
+    @if (data.configuration; as config) { <p class="result-note">Limits: {{ config.timeLimitMilliseconds }} ms · {{ config.memoryLimitMegabytes }} MB</p> }
+  </section>
+}

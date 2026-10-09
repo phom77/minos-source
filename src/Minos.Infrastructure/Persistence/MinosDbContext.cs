@@ -7,11 +7,16 @@ using Minos.Infrastructure.Persistence.Configurations.Accounts;
 using Minos.Infrastructure.Persistence.Configurations.Problems;
 using Minos.Infrastructure.Persistence.Configurations.Evaluation;
 using Minos.Domain.Evaluation;
+using Minos.Domain.Contests;
+using Minos.Infrastructure.Persistence.Configurations;
 
 namespace Minos.Infrastructure.Persistence;
 
 public sealed class MinosDbContext(DbContextOptions<MinosDbContext> options) : IdentityUserContext<CredentialUser, Guid>(options)
 {
+    public DbSet<Contest> Contests => Set<Contest>();
+    public DbSet<ContestRegistration> ContestRegistrations => Set<ContestRegistration>();
+    public DbSet<ContestSubmission> ContestSubmissions => Set<ContestSubmission>();
     public DbSet<Problem> Problems => Set<Problem>();
     public DbSet<ProblemTestCase> ProblemTestCases => Set<ProblemTestCase>();
     public DbSet<PublishedProblemVersion> PublishedProblemVersions => Set<PublishedProblemVersion>();
@@ -26,6 +31,11 @@ public sealed class MinosDbContext(DbContextOptions<MinosDbContext> options) : I
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+        var contests = new ContestConfiguration();
+        modelBuilder.ApplyConfiguration<Contest>(contests);
+        modelBuilder.ApplyConfiguration<ContestProblem>(contests);
+        modelBuilder.ApplyConfiguration<ContestRegistration>(contests);
+        modelBuilder.ApplyConfiguration<ContestSubmission>(contests);
 
         modelBuilder.ApplyConfiguration(new AccountConfiguration());
         modelBuilder.ApplyConfiguration(new CredentialUserConfiguration());

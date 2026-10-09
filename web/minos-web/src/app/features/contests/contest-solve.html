@@ -1,0 +1,26 @@
+<div class="page">
+  @if (state().data; as data) {
+    <a [routerLink]="['/contests', data.contest.id]">← {{ data.contest.title }}</a>
+    <header class="page-heading"><h1>{{ data.problem.title }}</h1><span>{{ data.contest.state }} · Ends {{ data.contest.endsAtUtc | date:'medium' }}</span></header>
+    <div class="solve-grid">
+      <article class="panel panel-body stack" aria-label="Problem statement"><p class="muted">{{ data.problem.timeLimitMilliseconds }} ms · {{ data.problem.memoryLimitMegabytes }} MiB</p><div class="statement">{{ data.problem.statement }}</div>
+        @for (sample of data.problem.samples; track $index) { <section><h2>Example {{ $index + 1 }}</h2><h3>Input</h3><pre>{{ sample.input }}</pre><h3>Expected output</h3><pre>{{ sample.output }}</pre></section> }
+        <p class="muted">Output must match exactly, including whitespace and line endings.</p>
+      </article>
+      <section class="panel" aria-labelledby="contest-code-heading">
+        @if (data.contest.isRegistered) {
+          <form (submit)="$event.preventDefault(); submit()" (pointerdown)="feedback.prepareSubmit($event)" novalidate [attr.aria-busy]="pending()">
+            <header class="panel-header"><h2 id="contest-code-heading">C++20</h2><button class="button" type="submit" [disabled]="pending() || !data.contest.canSubmit">{{ pending() ? 'Submitting…' : 'Submit to contest' }}</button></header>
+            @if (!data.contest.canSubmit) { <p class="panel-body notice">The contest has ended. You can still copy your code.</p> }
+            @if (error() || (submitted() && fieldError())) { <div #summary class="form-errors" role="alert" tabindex="-1">{{ error() ?? fieldError() }}<p><a [routerLink]="['/contests', data.contest.id]">Check contest submission history</a></p></div> }
+            <minos-code-editor [control]="source" [error]="fieldError()" (edited)="feedback.edit('source')" (blurred)="blur()" />
+            <p id="source-size" class="panel-body muted">C++20 source · maximum 64 KiB</p>
+            @if (fieldError()) { <p id="source-error" class="field-error panel-body">{{ fieldError() }}</p> }
+          </form>
+        } @else { <div class="panel-body"><h2 id="contest-code-heading">Submissions closed</h2><p>{{ data.contest.canManage ? 'Organizers can preview problems but cannot participate in their own contest.' : 'Submissions are accepted only during the contest.' }}</p></div> }
+        @if (submissionId(); as id) { <div class="panel-body notice" role="status">Submission received. <a [routerLink]="['/submissions', id]">View judging result</a></div> }
+      </section>
+    </div>
+  } @else if (state().kind === 'loading') { <minos-state-panel kind="loading" heading="Loading contest problem…" /> }
+  @else { <minos-state-panel kind="error" heading="This problem is not available."><p>Register for the contest and wait for it to start.</p><a class="button button--secondary" routerLink="/contests">Contests</a><button class="button" (click)="retry()">Try again</button></minos-state-panel> }
+</div>

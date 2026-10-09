@@ -125,6 +125,161 @@ namespace Minos.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Minos.Domain.Contests.Contest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(8000)
+                        .HasColumnType("character varying(8000)")
+                        .HasColumnName("description");
+
+                    b.Property<DateTimeOffset>("EndsAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("ends_at_utc");
+
+                    b.Property<Guid>("OwnerAccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("owner_account_id");
+
+                    b.Property<DateTimeOffset?>("PublishedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("published_at_utc");
+
+                    b.Property<long>("Revision")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint")
+                        .HasColumnName("revision");
+
+                    b.Property<DateTimeOffset>("StartsAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("starts_at_utc");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("title");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OwnerAccountId");
+
+                    b.HasIndex("StartsAtUtc", "Id");
+
+                    b.ToTable("contests", "contests", t =>
+                        {
+                            t.HasCheckConstraint("ck_contest_description", "length(description) <= 8000");
+
+                            t.HasCheckConstraint("ck_contest_publication", "published_at_utc IS NULL OR published_at_utc < starts_at_utc");
+
+                            t.HasCheckConstraint("ck_contest_revision", "revision > 0");
+
+                            t.HasCheckConstraint("ck_contest_schedule", "ends_at_utc >= starts_at_utc + interval '1 minute' AND ends_at_utc <= starts_at_utc + interval '7 days'");
+
+                            t.HasCheckConstraint("ck_contest_title", "length(btrim(title)) BETWEEN 1 AND 120");
+                        });
+                });
+
+            modelBuilder.Entity("Minos.Domain.Contests.ContestProblem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ContestId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("contest_id");
+
+                    b.Property<int>("Order")
+                        .HasColumnType("integer")
+                        .HasColumnName("position");
+
+                    b.Property<Guid>("ProblemId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("problem_id");
+
+                    b.Property<Guid>("VersionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("version_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProblemId");
+
+                    b.HasIndex("VersionId");
+
+                    b.HasIndex("ContestId", "Order")
+                        .IsUnique();
+
+                    b.HasIndex("ContestId", "ProblemId")
+                        .IsUnique();
+
+                    b.HasIndex("ContestId", "VersionId")
+                        .IsUnique();
+
+                    b.ToTable("contest_problems", "contests", t =>
+                        {
+                            t.HasCheckConstraint("ck_contest_problem_order", "position BETWEEN 1 AND 26");
+                        });
+                });
+
+            modelBuilder.Entity("Minos.Domain.Contests.ContestRegistration", b =>
+                {
+                    b.Property<Guid>("ContestId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("contest_id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<DateTimeOffset>("RegisteredAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("registered_at_utc");
+
+                    b.HasKey("ContestId", "AccountId");
+
+                    b.HasIndex("AccountId");
+
+                    b.ToTable("registrations", "contests");
+                });
+
+            modelBuilder.Entity("Minos.Domain.Contests.ContestSubmission", b =>
+                {
+                    b.Property<Guid>("SubmissionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("submission_id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<Guid>("ContestId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("contest_id");
+
+                    b.Property<Guid>("ContestProblemId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("contest_problem_id");
+
+                    b.HasKey("SubmissionId")
+                        .HasName("PK_contest_submissions");
+
+                    b.HasIndex("ContestId", "AccountId");
+
+                    b.HasIndex("ContestId", "ContestProblemId");
+
+                    b.ToTable("submissions", "contests");
+                });
+
             modelBuilder.Entity("Minos.Domain.Evaluation.JudgeJob", b =>
                 {
                     b.Property<Guid>("Id")
@@ -773,7 +928,7 @@ namespace Minos.Infrastructure.Persistence.Migrations
 
                             t.HasCheckConstraint("ck_published_problem_versions_number", "version_number > 0");
 
-                            t.HasCheckConstraint("ck_published_problem_versions_test_count", "private_test_count BETWEEN 1 AND 100");
+                            t.HasCheckConstraint("ck_published_problem_versions_test_count", "private_test_count BETWEEN 1 AND 1500");
 
                             t.HasCheckConstraint("ck_published_problem_versions_time_limit", "time_limit_ms BETWEEN 100 AND 10000");
                         });
@@ -870,6 +1025,73 @@ namespace Minos.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Minos.Domain.Contests.Contest", b =>
+                {
+                    b.HasOne("Minos.Domain.Accounts.Account", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerAccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Minos.Domain.Contests.ContestProblem", b =>
+                {
+                    b.HasOne("Minos.Domain.Contests.Contest", null)
+                        .WithMany("Problems")
+                        .HasForeignKey("ContestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Minos.Domain.Problems.Problem", null)
+                        .WithMany()
+                        .HasForeignKey("ProblemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Minos.Domain.Problems.PublishedProblemVersion", null)
+                        .WithMany()
+                        .HasForeignKey("VersionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Minos.Domain.Contests.ContestRegistration", b =>
+                {
+                    b.HasOne("Minos.Domain.Accounts.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Minos.Domain.Contests.Contest", null)
+                        .WithMany()
+                        .HasForeignKey("ContestId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Minos.Domain.Contests.ContestSubmission", b =>
+                {
+                    b.HasOne("Minos.Domain.Evaluation.Submission", null)
+                        .WithMany()
+                        .HasForeignKey("SubmissionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Minos.Domain.Contests.ContestRegistration", null)
+                        .WithMany()
+                        .HasForeignKey("ContestId", "AccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Minos.Domain.Contests.ContestProblem", null)
+                        .WithMany()
+                        .HasForeignKey("ContestId", "ContestProblemId")
+                        .HasPrincipalKey("ContestId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
 
@@ -1164,6 +1386,11 @@ namespace Minos.Infrastructure.Persistence.Migrations
                         .HasForeignKey("Minos.Infrastructure.Accounts.CredentialUser", "Id")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("Minos.Domain.Contests.Contest", b =>
+                {
+                    b.Navigation("Problems");
                 });
 
             modelBuilder.Entity("Minos.Domain.Evaluation.SubmissionResult", b =>

@@ -17,3 +17,8 @@ GRANT SELECT, INSERT, UPDATE ON accounts.accounts, accounts.credentials TO minos
 GRANT SELECT, INSERT ON accounts.external_logins TO minos_api;
 GRANT SELECT ON accounts.claims TO minos_api;
 -- Worker has no account, credential, external-login, claim or token access.
+GRANT USAGE ON SCHEMA contests TO minos_api;
+GRANT SELECT, INSERT, UPDATE ON contests.contests TO minos_api;
+GRANT SELECT, INSERT, UPDATE, DELETE ON contests.contest_problems TO minos_api;
+GRANT SELECT, INSERT ON contests.registrations, contests.submissions TO minos_api;
+-- Contest membership and associations are API-owned; Worker processes ordinary pinned jobs.

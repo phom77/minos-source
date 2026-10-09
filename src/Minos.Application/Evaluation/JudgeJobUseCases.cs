@@ -16,6 +16,13 @@ public sealed class JudgeJobUseCases(
     public Task<LeaseMutationResult> RenewAsync(ClaimedSubmissionWork work, CancellationToken token) =>
         jobs.RenewAsync(work.AttemptId, work.LeaseToken, work.WorkerId, clock.GetUtcNow(), token);
 
+    public Task<ClaimedSubmissionWork?> ClaimAsync(Guid jobId, string workerId, CancellationToken token)
+    {
+        if (jobId == Guid.Empty) throw new ArgumentOutOfRangeException(nameof(jobId));
+        ValidateWorker(workerId);
+        return jobs.ClaimAsync(jobId, workerId, clock.GetUtcNow(), token);
+    }
+
     public async Task<LeaseMutationResult> ProcessAsync(ClaimedSubmissionWork work, CancellationToken token)
     {
         SubmissionExecutionResult result;

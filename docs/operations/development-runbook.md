@@ -1,6 +1,6 @@
 # Backend development operations
 
-Date: 2026-10-02. Applies to the developer-only WSL2 Ubuntu/Docker profile; public hosting remains deferred.
+Updated: 2026-10-09. Applies to the developer-only WSL2 Ubuntu/Docker profile and explicitly configured direct-Linux runtime; public hosting remains deferred.
 
 ## Release and fresh deployment
 
@@ -13,6 +13,67 @@ Date: 2026-10-02. Applies to the developer-only WSL2 Ubuntu/Docker profile; publ
 ## Detect and recover failures
 
 Authenticated active administrators poll `GET /api/operations/judging`. It reports current Pending/Leased counts, expired leases, oldest Pending age, configured capacity and completed/SystemFailed/failed-attempt/executor-failure counts for the last hour. Counters are computed from one repeatable-read database snapshot and include no submission contents. Process instruments are exposed through .NET's `System.Diagnostics.Metrics` diagnostic infrastructure: meters `Minos.JudgeWorker` and `Minos.Sandbox`, counters `minos.worker.claims`, `minos.worker.lost_leases`, `minos.worker.iteration_failures`, `minos.sandbox.recovered_containers` and `minos.sandbox.cleanup_failures`. Attach a local diagnostic collector when investigating; no public metrics listener or exporter is enabled.
+
+Judging phase timing is available through meter `Minos.Judging`, histogram `minos.judging.phase_duration` (seconds). Its fixed `stage`/`phase` labels separate sandbox provisioning, execution, evidence and cleanup from private artifact reads/checking. Native `runtime/export` records initialization's pinned-library export. Total durations overlap component phases; do not sum them together or use them as contestant CPU/wall measurements. Native cleanup faults use the existing sandbox cleanup counter. See [judging performance evidence and the opt-in benchmarks](../judging-performance.md). Stop all Workers before sandbox benchmarking because startup recovery shares the daemon's judge label.
+
+## Native runtime profile
+
+Docker remains the default, including the non-root Compose Worker. The opt-in native adapter keeps Docker compilation and replaces runtime containers with fresh Isolate boxes/cgroups. Provision a separate direct x86-64 Linux host profile before enabling it; never make the Compose Worker privileged to run this adapter. [ADR 0013](../adr/0013-native-per-test-runtime.md) records the security/correctness requirements and [performance evidence](../judging-performance.md) records trusted-fixture reproduction.
+
+Use Isolate 2.7 at commit `8f185bb37f3f23e29b33b0c7727c91c13429abe3`, built with its configuration path in a dedicated root-owned `/opt/minos-*` prefix. Required files are mode-4755 `isolate`, root-owned `isolate.cf` and the keeper-generated `cgroup` path. The config must bind `box_root`/`lock_root` to that prefix's `boxes`/`locks`, use `cg_root=auto:<prefix>/cgroup`, `num_boxes=1`, `box0.cpus=0`, and reserved unused UID/GID 61000. Root installation paths must not be symlinks or group/other writable. Give the non-root Worker its own mode-700 `<prefix>/work`; do not run it as UID 61000. Mount `boxes` as an eight-MiB noexec/nosuid/nodev tmpfs and delegate a dedicated cgroup v2 tree through the keeper, with `memory.swap.max=0`. Retain the pinned GCC image and the ordinary Docker/execution-workspace permissions and exclusive host lock.
+
+Native startup also requires `fs.protected_hardlinks=1` and a non-piped `kernel.core_pattern`. A piped crash collector can execute outside the sandbox even with core size zero. The tested WSL host's `/wsl-capture-crash` pipe was not changed; live native startup on that host is expected to fail. The fixture harness bypasses this single gate only in internal test composition for known programs. There is no runtime configuration bypass. Select and validate a suitable host policy through a separate hosting decision before running untrusted submissions.
+
+With every Worker stopped, configure `Minos__Execution__Runner=isolate` and `Minos__Execution__IsolateRoot=<prefix>` on the direct-Linux Worker; omit `Minos__Execution__WorkspaceVolume`. Database/private artifact configuration is unchanged. Run `Minos.JudgeWorker --check` first. It validates native hosting, acquires the existing lock, recovers the reserved box and recognized workspaces, exports only the pinned runtime libraries and prevents claims if any step fails. Then start the sole Worker. The default one-box profile serializes runtimes. Multiple boxes require the explicit installation below; PostgreSQL remains the queue. Runtime evidence requires descendants gone and the exact configured cgroup memory/swap limits; cleanup failure follows existing bounded retries.
+
+To roll back, stop the Worker, select `Minos__Execution__Runner=docker`, remove `IsolateRoot`, restore the ordinary Docker workspace configuration and run `--check` before starting. Do not delete private tests or rewrite durable results. The experiment setup/cleanup scripts target only the explicitly approved temporary WSL prefix; they are not general deployment scripts. Always remove that temporary helper, service and mounts after trusted-fixture validation. Full experiment cleanup refuses unexpected ownership, active sandbox processes or surviving cgroups/mounts.
+
+## Multiple native boxes and compile allocation
+
+[ADR 0015](../adr/0015-compile-runtime-allocation-and-isolate-boxes.md) records the owner-authorized extension. `Minos__Execution__CompileSlots` and `RuntimeSlots` default to one each; both must be 1-`SandboxSlots`. `Minos__Execution__IsolateBoxCount` defaults to one, allows 1-16, and requires the native runner when greater than one. Native runtime quota must not exceed box count. Keep total stage slots and worst-case memory bounded even when the two class quotas add up to more than total capacity. These ceilings do not guarantee immediate compilation or preallocate RAM.
+
+A candidate two-box profile uses eight active jobs, four total slots, two compilers, two runtimes, 4096 MiB stage memory and 768 MiB controller reserve. This requires at least five available logical CPUs and enough memory on both Docker and the native host, plus separate headroom for other workloads. Benchmark before adopting it; the default application runner remains Docker. For example:
+
+```text
+Minos__Judging__MaximumConcurrentJobs=8
+Minos__Execution__SandboxSlots=4
+Minos__Execution__CompileSlots=2
+Minos__Execution__RuntimeSlots=2
+Minos__Execution__MemoryBudgetMegabytes=4096
+Minos__Execution__ControllerReserveMegabytes=768
+Minos__Execution__IsolateBoxCount=2
+Minos__Execution__Runner=isolate
+Minos__Execution__IsolateRoot=<validated-two-box-prefix>
+```
+
+For N > 1, build each unmodified pinned helper with `CONFIG=<prefix>/helpers/<id>/isolate.cf` and install it root-owned mode 4755. Its root-owned configuration has `box_root=<prefix>/boxes/slot-<id>`, `lock_root=<prefix>/locks`, `cg_root=auto:<prefix>/cgroup`, `first_uid=61000`, `first_gid=61000`, `num_boxes=N`, and `box<id>.cpus=<id>`. Every slot root is a separate eight-MiB noexec/nosuid/nodev tmpfs; Isolate creates/removes its `<id>` directory below that mount. Reserve unused UID/GIDs 61000 through 61000+N-1. All helpers share the root-owned keeper delegation, with swap disabled. `<prefix>/helpers`, each helper parent, `<prefix>/boxes`, slot roots and locks must be root-owned and not writable by group/others. The controller remains a distinct non-root identity, with private `<prefix>/work`. CPU IDs 0 through N-1 must be available to the controller. Other native host/core-dump requirements above remain mandatory.
+
+Before claims, startup validates every helper and recovers every box; unknown scratch/cgroup state prevents startup. A box is returned only after cleanup. Cleanup uncertainty stops the entire pool and new job deliveries until restart/recovery. Per-job cancellation only interrupts/cleans its assigned box. To revert to a one-box installation, stop the Worker, change the installation/root/count and stage quotas consistently, then run `--check`; merely changing the count against a multi-box installation fails validation.
+
+Temporary trusted WSL reproduction, requiring the existing owner-authorized root experiment and current built checks image:
+
+```bash
+source_dir="$PWD/artifacts/judging-phase2-20261008/isolate-source"
+MINOS_ISOLATE_BOXES=2 bash scripts/experiments/build-isolate-boxes.sh "$source_dir"
+sudo env MINOS_ISOLATE_BOXES=2 bash scripts/experiments/isolate-multibox-host.sh setup "$source_dir"
+MINOS_TEST_RUNNER=isolate MINOS_TEST_ISOLATE_BOXES=2 \
+MINOS_TEST_ISOLATE_ROOT=/opt/minos-isolate-multibox-20261009-8f185bb \
+MINOS_TEST_BENCHMARK=0 MINOS_TEST_BURST=1 MINOS_TEST_ALL=1 \
+bash scripts/benchmark-native-judging.sh minos-judging-multibox-20261009-checks:local
+sudo bash scripts/experiments/isolate-multibox-host.sh cleanup
+```
+
+These scripts install only the marked temporary prefix/unit and mounts, do not provision a production host or change the application's runner/core policy, and only execute known fixtures with the internal test-only core-policy override. Run cleanup even after a failed check. The twenty-job benchmark records admission duration rather than assuming every run admits within two seconds; its baseline and larger pipeline preserve counts and resource bounds.
+
+## Operational alerts
+
+Phase 3 keeps one Worker process with bounded jobs and a shared execution budget. Configure `Minos__Judging__MaximumConcurrentJobs` (default 4, range 1–16), `Minos__Execution__SandboxSlots` (default up to 2, at most processor count minus one), `Minos__Execution__MemoryBudgetMegabytes` (default 2048, range 1152–65536), and `Minos__Execution__ControllerReserveMegabytes` (default 512, range 256–16384 and at least `256 + 64 × MaximumConcurrentJobs`). Use private host environment/configuration; for Compose supply these keys under the Worker's `environment` in an override. `--check` validates the Docker execution host's CPU/RAM headroom before claims; native mode also validates the direct host. At least two CPUs are required, with one CPU reserved outside the sandbox slot budget. Account/global admission limits remain 5/32. Do not size the budget to all available host RAM; reserve more for the API/database and other workloads as needed.
+
+One slot is reserved per stage, with requested memory plus scratch; output/input controller buffers are covered by the bounded jobs and management reserve. Waiters use FIFO within each stage class. A class at its quota cannot block the other class, while an eligible older memory-heavy stage is not bypassed by smaller stages. Leases renew independently while waiting. Native runtime uses its configured box pool (default one CPU-0 box); compilation remains Docker and can overlap with runtimes across active jobs. Tests within each submission remain sequential and every contestant failure still allows later tests. Set one concurrent job and one sandbox slot for serial scheduling; stop/restart the Worker when changing policy.
+
+New local instruments include `minos.judging.active_stages` with fixed `compile`/`run` labels, `minos.judging.compiler_memory_peak` in bytes, `minos.worker.active_jobs`, `minos.worker.job_duration` (seconds), `minos.judging.active_sandboxes` (reserved stage slots, including provisioning/native box wait/cleanup), `minos.judging.reserved_memory` (bytes) and phase `budget-wait`. These report operational resource waiting, not contestant CPU/wall. A sandbox cleanup fault blocks new stage reservations and job delivery until restart/recovery. Preserve the failed attempt and pending jobs; investigate before restart. The Worker awaits active job cleanup on shutdown with a 40-second host timeout inside Compose's 45-second grace period. Forced termination remains recoverable through leases/startup cleanup.
+
+For repeatable correctness/load checks, stop every Worker/sandbox first and run `bash scripts/check-judging-concurrency.sh minos-checks:local` on the documented WSL controller UID/GID 1000 profile with a trusted current checks image. The existing disposable harness runs Domain/full integration tests over private PostgreSQL and artifacts, including eight mixed jobs at concurrency one/two. `JUDGING_CONCURRENCY_JSON` reports queue P95 from persisted timestamps, owner-observed completion P95, peak slots/memory and counts. No machine-dependent performance threshold is enforced. It cleans only marked resources and leaves failed private workspaces for inspection. `MINOS_TEST_RUNNER=isolate` requires the explicitly approved temporary helper and only executes known fixtures with the internal core-policy override. See [ADR 0014](../adr/0014-bounded-worker-scheduling.md); a future MQ still needs durable handoff/acknowledgement/retry work, beyond replacing the ID source.
 
 | Condition | Development alert and action |
 | --- | --- |
@@ -47,6 +108,10 @@ bash scripts/restore-development.sh /absolute/private/completed-backup
 Restore refuses a nonempty database or artifact directory, incomplete/corrupt backup, links or unsafe archive members. It restores database content in one transaction. If any later step fails, discard only the newly created restore targets and retry to fresh targets; never point runtime hosts at a partial restore. Grant `USAGE ON SCHEMA problems TO minos_api, minos_worker` and reapply `scripts/postgres-runtime-grants.sql` as migrator. Supply updated runtime connections/artifact root, start the same release, require readiness, compare owner history and immutable versions, then submit and judge a restored problem through Docker. The M7 fixture performs this rehearsal, including restored data-protection keys and exact result-history equality.
 
 ## Retention and rollback
+
+The 2026-10-08 test-capacity change adds migration `20261008160526_ExpandProblemTestCapacity`: up to 1,500 private test files per problem instead of 100. Stop API and Worker, back up both stores, apply the migration with the new release's migrator and reapply runtime grants before starting updated binaries. Existing published versions/results remain unchanged. The down migration restores the 100-test constraint and fails transactionally if any version exceeds 100; never truncate retained tests to make it pass. Old binaries also reject results above 100, so keep the new schema/binaries together or restore the complete pre-change backup to fresh targets.
+
+Capacity is not a latency target. Per-file input/answer limits remain eight MiB each, and every test still executes in a fresh sandbox after one compilation. The theoretical input/answer storage ceiling at 1,500 full-size pairs is about 23.44 GiB per suite, before history and backups; memory is bounded per stage because files execute serially. Retain the existing queue, sandbox budgets, lease renewal and disk alerts. Published order continues to determine the primary failed verdict while all tests retain evidence.
 
 Source, bounded diagnostics, attempts/results and referenced immutable tests are retained for the development project's lifetime. API startup and its hourly maintenance remove only unreferenced uploads/staging older than 24 hours. Containers and transient execution workspaces are deleted after each stage; startup recovery removes recognized hard-crash leftovers before new work. Cookie keys follow platform key management and are included in backups. Keep originals of visual references unchanged. Future custom executions have no retention policy because M8 has not started.
 

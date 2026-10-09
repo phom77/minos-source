@@ -80,7 +80,12 @@ internal static class SubmissionEndpoints
                 test.Status.ToString(),
                 test.CpuTimeMilliseconds,
                 test.WallTimeMilliseconds,
-                test.MemoryPeakBytes)).ToArray()),
+                test.MemoryPeakBytes)).ToArray(),
+            submission.Result.TestSummary is null ? null : new SubmissionTestSummaryResponse(
+                submission.Result.TestSummary.TotalTests,
+                submission.Result.TestSummary.ExecutedTests,
+                submission.Result.TestSummary.PassedTests,
+                submission.Result.TestSummary.FailedTests)),
         submission.Configuration is null ? null : new SubmissionJudgingConfigurationResponse(
             submission.Configuration.TimeLimitMilliseconds,
             submission.Configuration.MemoryLimitMegabytes,

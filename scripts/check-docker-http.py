@@ -152,10 +152,16 @@ def main():
             assert result["result"]["attemptId"] == result["attempts"][-1]["id"]
             statuses = [test["status"] for test in result["result"]["tests"]]
             expected_statuses = (["Passed"] * 3 if verdict == "Accepted" else
-                                 ["Passed", "WrongAnswer", "NotExecuted"] if verdict == "WrongAnswer" else
+                                 ["Passed", "WrongAnswer", "WrongAnswer"] if verdict == "WrongAnswer" else
                                  ["NotExecuted"] * 3 if verdict == "CompilationError" else
-                                 [verdict, "NotExecuted", "NotExecuted"])
+                                 [verdict] * 3)
             assert statuses == expected_statuses, (verdict, statuses)
+            executed = sum(status != "NotExecuted" for status in statuses)
+            passed = statuses.count("Passed")
+            assert result["result"]["testSummary"] == {
+                "totalTests": 3, "executedTests": executed,
+                "passedTests": passed, "failedTests": executed - passed,
+            }
             evidence = json.dumps(result["result"]).lower()
             assert all(key not in evidence for key in ("stdout", "stderr", "expectedoutput", "inputartifact", "outputartifact"))
             if verdict != "CompilationError":

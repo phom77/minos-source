@@ -26,6 +26,10 @@ public sealed class PostgresPrivilegeTests
     }
 
     [Theory]
+    [InlineData("MINOS_TEST_WORKER_CONNECTION", "SELECT * FROM contests.registrations")]
+    [InlineData("MINOS_TEST_WORKER_CONNECTION", "SELECT * FROM contests.submissions")]
+    [InlineData("ConnectionStrings__Minos", "DELETE FROM contests.registrations")]
+    [InlineData("ConnectionStrings__Minos", "UPDATE contests.submissions SET account_id = gen_random_uuid()")]
     [InlineData("ConnectionStrings__Minos", "CREATE SCHEMA forbidden_schema")]
     [InlineData("ConnectionStrings__Minos", "CREATE TEMP TABLE forbidden_table (id integer)")]
     [InlineData("MINOS_TEST_WORKER_CONNECTION", "CREATE SCHEMA forbidden_schema")]

@@ -1,12 +1,14 @@
 # Minos frontend implementation plan
 
-Status: Phases 1–3 implemented. Phase 4 profile editing, password changes, and account disabling are implemented in FE. Explicit Google account linking remains blocked by the existing browser transport contract (details below); Phase 3 Google sign-in remains intact. Automated checks and browser evidence are recorded in the frontend README. Live API/cookie/Google-consent verification remains pending while the development API returns 502. Phase 5 onward remains planned.
+Status: Phases 1–3 implemented. Phase 4 profile editing, password changes, and account disabling are implemented in FE. Explicit Google account linking remains blocked by the existing browser transport contract (details below); Phase 3 Google sign-in remains intact. The owner authorized Phase 6 on 2026-10-07: submission, results and history are implemented against the completed M5–M7 backend contracts. Phase 5 authoring and Phase 7 administration remain planned. Current submission UX, automated checks, browser evidence and live verification limits are recorded in [submission-flow.md](design/submission-flow.md).
 
 Owner-requested addition to Phase 2: support persistent light/dark mode, preserving the approved Minos palette and forest navigation. Historical milestone labels below describe the plan's original baseline; current backend approvals in `AGENTS.md` take precedence. This implementation does not change backend code or authorize additional backend work.
 
-Scope: complete the Angular frontend for the approved M1–M5 capabilities. Do not change backend code or implement M6 without owner approval.
+Scope: frontend capabilities explicitly requested by the owner, including existing M6 verdict/result contracts. Do not change backend code or start M8. Backend approvals in `AGENTS.md` remain authoritative; this frontend delivery does not decide development MVP acceptance.
 
 ## Evidence and design contract
+
+2026-10-09 addition: the owner explicitly requested BE/FE contests and clarified Setter/Admin-only organization. [The contest plan](contest-implementation-plan.md) adds real contest pages and contextual new-problem authoring using existing publication APIs. This scoped authoring flow supersedes the earlier blanket Phase 5 deferral for contest problem creation; full authoring dashboards and administration remain separate. Earlier frontend-only scope restrictions do not override this later BE/FE authorization.
 
 - [Frontend structure and engineering rules](../web/minos-web/README.md)
 - [Approved visual reference](design/minos-visual-reference.md) and original images in `design/references/`
@@ -15,7 +17,7 @@ Scope: complete the Angular frontend for the approved M1–M5 capabilities. Do n
 - [Problem endpoints](../src/Minos.Api/Problems/ProblemEndpoints.cs) and [contracts](../src/Minos.Api/Problems/ProblemContracts.cs)
 - [Submission endpoints](../src/Minos.Api/Submissions/SubmissionEndpoints.cs) and [contracts](../src/Minos.Api/Submissions/SubmissionContracts.cs)
 
-Preserve the approved forest palette, folded M branding, dark navigation, warm light workspace, compact controls, fine borders, restrained elevation, and functional typography. Use editorial and technical accents selectively. The reference board is visual evidence, not authorization for contests, ratings, discussions, fabricated metrics, or real contestant verdicts.
+Preserve the approved forest palette, folded M branding, warm light workspace, compact controls, fine borders, restrained elevation, and functional typography. The owner-approved compact top header supersedes the original board's global sidebar. The reference board is visual evidence, not authorization for contests, ratings, discussions or fabricated metrics. The submission implementation uses actual backend verdict contracts.
 
 ## Original planning baseline
 
@@ -161,12 +163,13 @@ There is no author-owned draft-list endpoint. Initially support creation and ope
 - Start with an accessible source textarea and the supported `cpp20` language. A heavyweight editor is unnecessary initially.
 - Validate nonempty source, null characters, and the 65,536-byte UTF-8 limit; show a byte count.
 - Prevent duplicate clicks and handle admission-limit, authorization, validation, and network failures. Do not blindly retry an ambiguous submission POST.
-- Navigate successful submissions to owner-only detail.
+- Keep successful submissions in the solve workspace, show the actual result below the editor, and link to owner-only detail. The owner-requested 2026-10-08 [solve workspace](design/solve-workspace.md) records the LeetCode-style layout and verification.
 - Build paginated history from `/api/me/submissions`; do not request or expose source unnecessarily in history.
-- Show the actual returned pinned problem-version ID, language/toolchain, timestamps, attempts, status, and failure information. Source belongs on owner detail.
+- Show the public problem title and pinned version number, C++20, submission time, verdict, bounded compiler diagnostics and per-test measurements. Keep internal IDs, toolchain identities and infrastructure attempts out of ordinary UI. Source belongs on owner detail.
 - Use the version returned by the submission response as authoritative; the creation request does not let the client select a historical version.
 - Poll active submissions conservatively, stop at terminal states, and cancel on navigation. Provide refresh/retry after connection failures.
-- Clear account-scoped state when identity changes.
+- Clear account-scoped state when identity changes. Keep one bounded source draft in memory across internal navigation; warn before a full reload with unsent code.
+- Offer editing and submitting again as a new submission to the latest published problem, with source restored and the editor focused. Historical readers expose an explicit latest-version action rather than submitting to a client-selected historical version.
 
 ### Dependencies
 
@@ -174,9 +177,9 @@ Phases 1–3. Phase 5 supplies realistic published content but is not a technica
 
 ### Expected result
 
-Users can submit source and follow the actual M5 lifecycle: `Pending`, `Judging`, `Completed`, and `SystemFailed`.
+Implemented: users can submit source and follow `Pending`, `Judging`, `Completed`, and `SystemFailed`, including the actual seven M6 verdicts and bounded result evidence. History remains source-free and owner-only. Mobile history exposes title, result and time without horizontal scrolling.
 
-`Completed` does not mean `Accepted`. Do not add Run, compiler output, contestant verdicts, rejudge, or per-test results before M6 approval.
+`Completed` does not imply `Accepted`: legacy completion without a recorded verdict remains neutral. Infrastructure exhaustion has no contestant verdict. Custom Run and manual rejudge remain deferred. See [submission-flow.md](design/submission-flow.md) for implemented behavior and verification limits.
 
 ## Phase 7 — Administration and completion verification
 

@@ -87,7 +87,15 @@ public sealed class SubmissionUseCases(
                     test.Status,
                     test.CpuTimeMilliseconds,
                     test.WallTimeMilliseconds,
-                    test.MemoryPeakBytes)).ToArray()), configuration);
+                    test.MemoryPeakBytes)).ToArray(), SummarizeTests(result)), configuration);
+
+    private static SubmissionTestSummary? SummarizeTests(SubmissionResult result)
+    {
+        if (result.Verdict is null) return null;
+        var executed = result.TestCaseResults.Count(test => test.Status != TestCaseResultStatus.NotExecuted);
+        var passed = result.TestCaseResults.Count(test => test.Status == TestCaseResultStatus.Passed);
+        return new(result.TestCaseResults.Count, executed, passed, executed - passed);
+    }
 
     private static SubmissionJudgingConfiguration Configuration(Minos.Domain.Problems.PublishedProblemVersion version) =>
         new(version.TimeLimitMilliseconds, version.MemoryLimitMegabytes, version.Checker.ToString(), version.PrivateTestCount);

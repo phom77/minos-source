@@ -1,53 +1,55 @@
-<article class="page problem-detail">
-  <a class="back-link" routerLink="/problems"><minos-icon name="arrow" /> Problem library</a>
+<article class="problem-detail" [class.solve-workspace]="!immutable" [class.readonly-workspace]="immutable">
   @if (state(); as current) {
     @if (current.status === 'ready') {
-      <header class="problem-heading">
-        <h1>{{ current.data.title }}</h1>
-        <p class="published">Version {{ current.data.versionNumber }} · Published <time [attr.datetime]="current.data.publishedAtUtc">{{ current.data.publishedAtUtc | date:'medium':'UTC' }}</time> UTC</p>
-        <div class="version-navigation">
-          @if (immutable) { <a class="button button--secondary" [routerLink]="['/problems', current.data.problemId]">Read the latest version</a> }
-          @else { <a class="button button--secondary" [routerLink]="['/problems/versions', current.data.versionId]">Open published version</a> }
-        </div>
-      </header>
-      <div class="reading-grid">
-        <div class="reading-content">
-          <section class="panel" aria-labelledby="statement-heading">
-            <header class="panel-header"><h2 id="statement-heading">Problem statement</h2></header>
-            <div class="statement">{{ current.data.statement }}</div>
-          </section>
-          <section class="panel" aria-labelledby="samples-heading">
-            <header class="panel-header"><h2 id="samples-heading">Samples</h2></header>
-            @for (sample of current.data.samples; track $index) {
-              <section class="sample" [attr.aria-labelledby]="'sample-' + $index">
-                <h3 [id]="'sample-' + $index">Sample {{ $index + 1 }}</h3>
-                <div class="sample-grid">
-                  <div><h4 [id]="'input-' + $index">Input</h4><pre tabindex="0" role="region" [attr.aria-labelledby]="'sample-' + $index + ' input-' + $index"><code>{{ sample.input }}</code></pre></div>
-                  <div><h4 [id]="'output-' + $index">Expected output</h4><pre tabindex="0" role="region" [attr.aria-labelledby]="'sample-' + $index + ' output-' + $index"><code>{{ sample.output }}</code></pre></div>
-                </div>
-              </section>
-            } @empty { <p class="sample">No samples were supplied with this published version.</p> }
-          </section>
-        </div>
-        <aside class="reading-aside">
-          <section class="panel" aria-labelledby="limits-heading">
-            <header class="panel-header"><h2 id="limits-heading">Limits & checking</h2></header>
-            <dl><div><dt>Time limit</dt><dd>{{ current.data.timeLimitMilliseconds }} ms</dd></div><div><dt>Memory limit</dt><dd>{{ current.data.memoryLimitMegabytes }} MB</dd></div><div><dt>Checker</dt><dd>{{ current.data.checker }}</dd></div></dl>
-            <p class="checker-note">Exact checking compares every byte. Whitespace and line endings matter.</p>
-          </section>
-          @if (immutable) { <p class="version-note">This published version stays unchanged when the problem is edited.</p> }
-        </aside>
+      <div class="solve-layout" [class.solve-layout--expanded]="editorExpanded()">
+        <section class="description-pane" aria-labelledby="description-heading">
+          <header class="pane-tabs"><span class="pane-title" id="description-heading"><minos-icon name="problems" />Description</span>
+            @if (!immutable && session.account()) { <a routerLink="/submissions"><minos-icon name="library" />Submissions</a> }
+            @if (!immutable) { <a class="code-jump" href="#submission-source" (click)="focusCode($event)">Code<minos-icon name="arrow" /></a> }
+          </header>
+          <div class="description-content" role="region" aria-label="Problem description" tabindex="0">
+            <a class="back-link" routerLink="/problems"><minos-icon name="arrow" />Problem library</a>
+            <header class="problem-heading">
+              <h1>{{ current.data.title }}</h1>
+              <div class="version-navigation">
+                @if (immutable) { <span>Version {{ current.data.versionNumber }}</span><a class="button" [routerLink]="['/problems', current.data.problemId]">Solve latest version</a> }
+                @else { <a class="edition-link" [routerLink]="['/problems/versions', current.data.versionId]">Version {{ current.data.versionNumber }}</a> }
+                <span>{{ current.data.timeLimitMilliseconds }} ms</span><span>{{ current.data.memoryLimitMegabytes }} MB</span>
+              </div>
+            </header>
+            <section aria-labelledby="statement-heading"><h2 id="statement-heading" class="visually-hidden">Problem statement</h2><div class="statement">{{ current.data.statement }}</div></section>
+            <section class="samples" aria-labelledby="samples-heading">
+              <h2 id="samples-heading" class="visually-hidden">Samples</h2>
+              @for (sample of current.data.samples; track $index) {
+                <section class="sample" [attr.aria-labelledby]="'sample-' + $index">
+                  <h3 [id]="'sample-' + $index">Example {{ $index + 1 }}</h3>
+                  <div class="sample-grid">
+                    <div><h4 [id]="'input-' + $index">Input</h4><pre tabindex="0" role="region" [attr.aria-labelledby]="'sample-' + $index + ' input-' + $index"><code>{{ sample.input }}</code></pre></div>
+                    <div><h4 [id]="'output-' + $index">Expected output</h4><pre tabindex="0" role="region" [attr.aria-labelledby]="'sample-' + $index + ' output-' + $index"><code>{{ sample.output }}</code></pre></div>
+                  </div>
+                </section>
+              } @empty { <p>No samples were supplied with this published version.</p> }
+              <p class="checker-note">Output must match exactly, including whitespace and line endings.</p>
+            </section>
+            @if (immutable) { <p class="version-note">This published version stays unchanged when the problem is edited.</p> }
+          </div>
+        </section>
+        @if (!immutable) {
+          <aside class="editing-pane" aria-label="Code and submission result"><minos-submission-form [problemId]="current.data.problemId" [samples]="current.data.samples" [inlineResult]="true" [expanded]="editorExpanded()" (expand)="expandEditor()" /></aside>
+        }
       </div>
     } @else {
-      <section class="panel" aria-labelledby="problem-state-heading">
-        <header class="panel-header"><h1 id="problem-state-heading">Read a problem</h1></header>
-        @switch (current.status) {
-          @case ('loading') { <minos-state-panel [headingLevel]="2" kind="loading" heading="Loading the problem…" description="Fetching the published statement and samples." /> }
-          @case ('invalid') { <minos-state-panel [headingLevel]="2" kind="error" heading="This problem link is invalid." description="Open a problem from the library to get a valid problem or published-version link." /> }
-          @case ('missing') { <minos-state-panel [headingLevel]="2" heading="This published problem is not available." description="It may have been archived, or this problem/version does not exist. Try another problem in the library." /> }
-          @case ('error') { <minos-state-panel [headingLevel]="2" kind="error" heading="The problem could not be reached." description="Check your connection and try again."><button class="button" type="button" (click)="retry()">Retry loading problem</button></minos-state-panel> }
-        }
-      </section>
+      <div class="page reader-state"><a class="back-link" routerLink="/problems"><minos-icon name="arrow" />Problem library</a>
+        <section class="panel" aria-labelledby="problem-state-heading">
+          <header class="panel-header"><h1 id="problem-state-heading">Read a problem</h1></header>
+          @switch (current.status) {
+            @case ('loading') { <minos-state-panel [headingLevel]="2" kind="loading" heading="Loading the problem…" /> }
+            @case ('invalid') { <minos-state-panel [headingLevel]="2" kind="error" heading="This problem link is invalid."><a class="button" routerLink="/problems">Open library</a></minos-state-panel> }
+            @case ('missing') { <minos-state-panel [headingLevel]="2" heading="This published problem is not available."><a class="button" routerLink="/problems">Open library</a></minos-state-panel> }
+            @case ('error') { <minos-state-panel [headingLevel]="2" kind="error" heading="The problem could not be reached."><button class="button" type="button" (click)="retry()">Try again</button></minos-state-panel> }
+          }
+        </section>
+      </div>
     }
   }
 </article>

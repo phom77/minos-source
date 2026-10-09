@@ -6,7 +6,14 @@ namespace Minos.Infrastructure.Persistence;
 
 internal sealed class JudgeJobRepository(MinosDbContext database) : IJudgeJobRepository
 {
-    public async Task<ClaimedSubmissionWork?> ClaimNextAsync(
+    public Task<ClaimedSubmissionWork?> ClaimNextAsync(string workerId, DateTimeOffset nowUtc, CancellationToken token) =>
+        ClaimAsync(null, workerId, nowUtc, token);
+
+    public Task<ClaimedSubmissionWork?> ClaimAsync(Guid jobId, string workerId, DateTimeOffset nowUtc, CancellationToken token) =>
+        ClaimAsync((Guid?)jobId, workerId, nowUtc, token);
+
+    private async Task<ClaimedSubmissionWork?> ClaimAsync(
+        Guid? jobId,
         string workerId,
         DateTimeOffset nowUtc,
         CancellationToken token)
@@ -16,9 +23,10 @@ internal sealed class JudgeJobRepository(MinosDbContext database) : IJudgeJobRep
             await using var transaction = await database.Database.BeginTransactionAsync(token);
             var jobs = await database.JudgeJobs.FromSqlInterpolated($$"""
                 SELECT job.* FROM evaluation.judge_jobs AS job
-                WHERE (job.status = 0 AND job.attempt_count < {{JudgeJob.MaximumAttempts}} AND job.available_at_utc <= {{nowUtc}})
-                   OR (job.status = 1 AND job.lease_expires_at_utc <= {{nowUtc}})
-                ORDER BY CASE WHEN job.status = 1 THEN job.lease_expires_at_utc ELSE job.available_at_utc END, job.created_at_utc
+                WHERE ({{jobId}}::uuid IS NULL OR job.id = {{jobId}}::uuid)
+                  AND ((job.status = 0 AND job.attempt_count < {{JudgeJob.MaximumAttempts}} AND job.available_at_utc <= {{nowUtc}})
+                   OR (job.status = 1 AND job.lease_expires_at_utc <= {{nowUtc}}))
+                ORDER BY CASE WHEN job.status = 1 THEN job.lease_expires_at_utc ELSE job.available_at_utc END, job.created_at_utc, job.id
                 FOR UPDATE OF job SKIP LOCKED
                 LIMIT 1
                 """).ToArrayAsync(token);
@@ -44,6 +52,7 @@ internal sealed class JudgeJobRepository(MinosDbContext database) : IJudgeJobRep
                     await database.SaveChangesAsync(token);
                     await transaction.CommitAsync(token);
                     database.ChangeTracker.Clear();
+                    if (jobId is not null) return null;
                     continue;
                 }
             }

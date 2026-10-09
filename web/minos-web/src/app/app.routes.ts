@@ -20,6 +20,14 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'submissions',
+        loadChildren: () => import('./features/submissions/submissions.routes').then(({ submissionsRoutes }) => submissionsRoutes),
+      },
+      {
+        path: 'contests',
+        loadChildren: () => import('./features/contests/contests.routes').then(({ contestsRoutes }) => contestsRoutes),
+      },
+      {
         path: 'settings',
         loadChildren: () => import('./features/accounts/accounts.routes').then(({ settingsRoutes }) => settingsRoutes),
       },

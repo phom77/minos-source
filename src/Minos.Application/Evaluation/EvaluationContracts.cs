@@ -63,7 +63,10 @@ public sealed record SubmissionResultDetails(
     long? MaximumWallTimeMilliseconds,
     long? MaximumMemoryBytes,
     DateTimeOffset CompletedAtUtc,
-    IReadOnlyList<SubmissionTestResultDetails> Tests);
+    IReadOnlyList<SubmissionTestResultDetails> Tests,
+    SubmissionTestSummary? TestSummary);
+
+public sealed record SubmissionTestSummary(int TotalTests, int ExecutedTests, int PassedTests, int FailedTests);
 
 public sealed record SubmissionPage(IReadOnlyList<SubmissionSummary> Items, int Page, int PageSize, int Total);
 

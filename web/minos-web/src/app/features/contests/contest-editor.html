@@ -1,0 +1,32 @@
+<div class="page">
+  <a [routerLink]="contest() ? ['/contests', contest()!.id] : ['/contests']">← Back to contests</a>
+  <h1>{{ contest() ? 'Edit contest' : 'Create contest' }}</h1>
+  @if (!organizer()) { <minos-state-panel heading="Contest organization requires a Setter or Admin account." [headingLevel]="2" /> }
+  @else if (loading()) { <minos-state-panel kind="loading" heading="Loading draft…" [headingLevel]="2" /> }
+  @else if (loadError()) { <minos-state-panel kind="error" heading="This draft is not available for editing." [headingLevel]="2"><button class="button" (click)="retry()">Reload</button></minos-state-panel> }
+  @else {
+    <form class="panel panel-body" [formGroup]="form" (ngSubmit)="save()" (pointerdown)="feedback.prepareSubmit($event)" novalidate [attr.aria-busy]="pending()">
+      @if (error()) { <div #summary class="form-errors" role="alert" tabindex="-1">{{ error() }}</div> }
+      <fieldset class="stack" [disabled]="pending()">
+        <div class="form-field"><label for="contest-title">Contest title</label><input id="contest-title" formControlName="title" (input)="feedback.edit('title')" (blur)="blur('title')" [attr.aria-invalid]="fieldError('title') ? true : null" [attr.aria-describedby]="fieldError('title') ? 'contest-title-error' : null" /><minos-field-feedback fieldId="contest-title" [error]="fieldError('title')" /></div>
+        <div class="form-field"><label for="contest-description">Description (optional)</label><textarea id="contest-description" formControlName="description" rows="4" (input)="feedback.edit('description')" (blur)="blur('description')" [attr.aria-invalid]="fieldError('description') ? true : null" [attr.aria-describedby]="fieldError('description') ? 'contest-description-error' : null"></textarea><minos-field-feedback fieldId="contest-description" [error]="fieldError('description')" /></div>
+        <div class="columns">
+          <div class="form-field"><label for="contest-start">Starts</label><input id="contest-start" type="datetime-local" formControlName="start" (input)="feedback.edit('start')" (blur)="blur('start')" [attr.aria-invalid]="fieldError('start') ? true : null" [attr.aria-describedby]="fieldError('start') ? 'contest-start-error' : null" /><minos-field-feedback fieldId="contest-start" [error]="fieldError('start')" /></div>
+          <div class="form-field"><label for="contest-end">Ends</label><input id="contest-end" type="datetime-local" formControlName="end" (input)="feedback.edit('end')" (blur)="blur('end')" [attr.aria-invalid]="fieldError('end') ? true : null" [attr.aria-describedby]="fieldError('end') ? 'contest-end-error' : null" /><minos-field-feedback fieldId="contest-end" [error]="fieldError('end')" /></div>
+        </div><p class="muted">Times are in {{ timezone }}.</p>
+        <minos-contest-problem-picker [selected]="selected()" [disabled]="pending()" (changed)="changeProblems($event)" />
+        <div class="actions"><button class="button" type="submit">{{ pending() ? 'Saving…' : 'Save draft' }}</button><a class="button button--secondary" routerLink="/contests">Cancel</a></div>
+      </fieldset>
+    </form>
+    @if (contest(); as draft) {
+      <section class="panel panel-body stack" aria-labelledby="publish-heading"><h2 id="publish-heading">Prepare for participants</h2>
+        @if (!form.dirty) {
+          <a class="button button--secondary" [routerLink]="['/contests', draft.id, 'problems', 'new']">Create a new problem</a>
+          <p class="notice">Publishing opens registration and locks the saved schedule and problem selection. Problems used here are public in the problem library.</p>
+          @if (!confirmPublish()) { <button class="button" [disabled]="pending()" (click)="confirmPublish.set(true)">Review publication</button> }
+          @else { <div class="actions"><span>Publish this contest with {{ draft.problemCount }} problems?</span><button class="button" [disabled]="pending()" (click)="publish()">Confirm publish</button><button class="button button--secondary" [disabled]="pending()" (click)="confirmPublish.set(false)">Keep draft</button></div> }
+        } @else { <p>Save your changes before creating another problem or publishing.</p> }
+      </section>
+    }
+  }
+</div>

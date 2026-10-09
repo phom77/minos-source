@@ -101,20 +101,10 @@ public sealed class JudgingOutcome
             return new(verdict, "", Array.AsReadOnly(testCases.ToArray()));
         }
 
-        var failureStatus = VerdictStatus(verdict);
-        var failureIndex = -1;
-        for (var index = 0; index < testCases.Count; index++)
-        {
-            var expected = failureIndex < 0 ? TestCaseResultStatus.Passed : TestCaseResultStatus.NotExecuted;
-            if (failureIndex < 0 && testCases[index].Status == failureStatus)
-            {
-                failureIndex = index;
-                continue;
-            }
-            if (testCases[index].Status != expected)
-                throw new DomainValidationException(nameof(TestCases), "Failure evidence must stop at the first failed test.");
-        }
-        if (failureIndex < 0)
+        if (testCases.Any(test => test.Status == TestCaseResultStatus.NotExecuted))
+            throw new DomainValidationException(nameof(TestCases), "Runtime results require every private test to be executed.");
+        var firstFailure = testCases.FirstOrDefault(test => test.Status != TestCaseResultStatus.Passed);
+        if (firstFailure is null || firstFailure.Status != VerdictStatus(verdict))
             throw new DomainValidationException(nameof(TestCases), "The verdict must match the first failed test.");
         return new(verdict, "", Array.AsReadOnly(testCases.ToArray()));
     }

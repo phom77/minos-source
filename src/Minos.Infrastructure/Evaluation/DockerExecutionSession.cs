@@ -11,6 +11,7 @@ internal sealed class DockerExecutionSession : IDisposable
     private readonly string id;
     private readonly HttpResponseMessage attachment;
     private readonly CancellationTokenSource captureCancellation = new();
+    private bool disposed;
 
     private DockerExecutionSession(HttpClient engine, string id, HttpResponseMessage attachment)
     {
@@ -85,6 +86,8 @@ internal sealed class DockerExecutionSession : IDisposable
 
     public void Dispose()
     {
+        if (disposed) return;
+        disposed = true;
         captureCancellation.Cancel();
         attachment.Dispose();
         captureCancellation.Dispose();

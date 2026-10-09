@@ -1,0 +1,14 @@
+<div class="page">
+  <header class="page-heading"><h1>Contests</h1>@if (organizer()) { <a class="button" routerLink="/contests/new">Create contest</a> }</header>
+  @if (organizer()) { <nav class="local-nav" aria-label="Contest lists"><a routerLink="/contests" [attr.aria-current]="!query().mine ? 'page' : null">All contests</a><a routerLink="/contests" [queryParams]="{view: 'mine'}" [attr.aria-current]="query().mine ? 'page' : null">My contests</a></nav> }
+  <section class="panel" aria-label="Contests">
+    @if (state().data; as data) {
+      @for (contest of data.items; track contest.id) {
+        <article class="contest-row"><div><span class="badge" [class.live]="contest.state === 'Live'">{{ contest.state }}</span><h2><a [routerLink]="['/contests', contest.id]">{{ contest.title }}</a></h2><p>{{ contest.startsAtUtc | date:'medium' }} – {{ contest.endsAtUtc | date:'shortTime' }} · {{ contest.problemCount }} problems</p></div><a class="button button--secondary" [routerLink]="['/contests', contest.id]">Open contest<span class="visually-hidden"> {{ contest.title }}</span></a></article>
+      } @empty { <minos-state-panel heading="No contests yet" [headingLevel]="2" /> }
+      @if (data.total > data.pageSize) { <nav class="pagination" aria-label="Contest pages">@if (query().page > 1) { <a class="button button--secondary" routerLink="/contests" [queryParams]="{view: query().mine ? 'mine' : null, page: query().page - 1}">Previous</a> }<span>Page {{ data.page }}</span>@if (data.page * data.pageSize < data.total) { <a class="button button--secondary" routerLink="/contests" [queryParams]="{view: query().mine ? 'mine' : null, page: query().page + 1}">Next</a> }</nav> }
+    } @else if (state().kind === 'loading') { <minos-state-panel kind="loading" heading="Loading contests…" [headingLevel]="2" /> }
+    @else if (state().kind === 'denied') { <minos-state-panel heading="Contest organization requires a Setter or Admin account." [headingLevel]="2"><a routerLink="/contests">Browse contests</a></minos-state-panel> }
+    @else { <minos-state-panel kind="error" heading="Contests could not be loaded." [headingLevel]="2"><button class="button" (click)="retry()">Try again</button></minos-state-panel> }
+  </section>
+</div>

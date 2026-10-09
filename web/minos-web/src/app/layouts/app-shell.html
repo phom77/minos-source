@@ -8,6 +8,8 @@
     <ng-container [ngTemplateOutlet]="brand" />
     <nav class="primary-navigation desktop-navigation" aria-label="Primary navigation">
       <a routerLink="/problems" routerLinkActive="active" ariaCurrentWhenActive="page">Problems</a>
+      <a routerLink="/contests" routerLinkActive="active" ariaCurrentWhenActive="page">Contests</a>
+      @if (session.state().status === 'authenticated') { <a routerLink="/submissions" routerLinkActive="active" ariaCurrentWhenActive="page">Submissions</a> }
     </nav>
     <div class="header-actions">
       <button class="theme-button" type="button" (click)="theme.toggle()"
@@ -45,7 +47,9 @@
   </div>
   <h2 id="navigation-title" class="visually-hidden">Navigation</h2>
   <nav class="primary-navigation" aria-label="Mobile navigation">
+    <a routerLink="/contests" routerLinkActive="active" ariaCurrentWhenActive="page" (click)="closeNavigation()">Contests</a>
     <a routerLink="/problems" routerLinkActive="active" ariaCurrentWhenActive="page" (click)="closeNavigation()"><minos-icon name="problems" />Problems</a>
+    @if (session.state().status === 'authenticated') { <a routerLink="/submissions" routerLinkActive="active" ariaCurrentWhenActive="page" (click)="closeNavigation()"><minos-icon name="library" />Submissions</a> }
     @if (session.state().status === 'authenticated' || session.state().status === 'unavailable') {
       <a routerLink="/settings" routerLinkActive="active" ariaCurrentWhenActive="page" (click)="closeNavigation()"><minos-icon name="account" />Settings</a>
     } @else if (session.state().status === 'guest') {

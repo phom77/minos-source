@@ -1,4 +1,8 @@
 using Microsoft.Extensions.DependencyInjection;
+using System.Collections.Concurrent;
+using System.Diagnostics;
+using System.Diagnostics.Metrics;
+using System.Text.Json;
 using Minos.Application.Evaluation;
 using Minos.Infrastructure;
 using Xunit;
@@ -26,8 +30,7 @@ public sealed class DockerExecutionTests
     public async Task Sandbox_cannot_reach_network_host_files_or_management_interfaces_and_host_is_exclusive()
     {
         var services = new ServiceCollection();
-        services.AddMinosInfrastructure("Host=localhost;Database=unused;Username=unused",
-            executionWorkspaceVolume: Environment.GetEnvironmentVariable("MINOS_TEST_WORKSPACE_VOLUME"));
+        SandboxTestProfile.AddInfrastructure(services, "Host=localhost;Database=unused;Username=unused");
         await using var provider = services.BuildServiceProvider();
         var backend = provider.GetRequiredService<IExecutionBackend>();
         var token = TestContext.Current.CancellationToken;
@@ -67,9 +70,21 @@ public sealed class DockerExecutionTests
     [Fact(Skip = "Requires the approved Linux Docker sandbox profile.", SkipUnless = nameof(SandboxEnabled))]
     public async Task Compiler_and_runtime_return_complete_evidence_for_correct_solution()
     {
+        var measurements = new ConcurrentBag<(double Seconds, string Stage, string Phase)>();
+        using var listener = new MeterListener();
+        listener.InstrumentPublished = (instrument, meterListener) =>
+        {
+            if (instrument.Meter.Name == "Minos.Judging") meterListener.EnableMeasurementEvents(instrument);
+        };
+        listener.SetMeasurementEventCallback<double>((_, value, tags, _) =>
+        {
+            var labels = tags.ToArray();
+            Assert.Equal(new[] { "stage", "phase" }, labels.Select(tag => tag.Key));
+            measurements.Add((value, (string)labels[0].Value!, (string)labels[1].Value!));
+        });
+        listener.Start();
         var services = new ServiceCollection();
-        services.AddMinosInfrastructure("Host=localhost;Database=unused;Username=unused",
-            executionWorkspaceVolume: Environment.GetEnvironmentVariable("MINOS_TEST_WORKSPACE_VOLUME"));
+        SandboxTestProfile.AddInfrastructure(services, "Host=localhost;Database=unused;Username=unused");
         await using var provider = services.BuildServiceProvider();
         var backend = provider.GetRequiredService<IExecutionBackend>();
         var token = TestContext.Current.CancellationToken;
@@ -89,6 +104,108 @@ public sealed class DockerExecutionTests
         Assert.True(OfficialJudgingPolicy.HasCompleteEvidence(execution), Summary(execution));
         Assert.Equal("42\n"u8.ToArray(), execution.Stdout);
         Assert.Equal(0, execution.ExitCode);
+        foreach (var stage in new[] { "compile", "run" })
+            foreach (var phase in new[] { "total", "initialize", "workspace", "provision", "guard", "baseline-evidence", "execution", "evidence", "cleanup" })
+                if (stage != "run" || !SandboxTestProfile.Native || phase is not ("guard" or "baseline-evidence"))
+                    Assert.Contains(measurements, sample => sample.Stage == stage && sample.Phase == phase && sample.Seconds >= 0);
+    }
+
+    [Fact(Skip = "Opt-in 100-test performance measurement on the Linux sandbox profile.", SkipUnless = nameof(BenchmarkEnabled))]
+    public async Task Benchmark_compile_and_100_serial_tests()
+    {
+        var measurements = new ConcurrentBag<(double Seconds, string Stage, string Phase)>();
+        using var listener = new MeterListener();
+        listener.InstrumentPublished = (instrument, meterListener) =>
+        {
+            if (instrument.Meter.Name == "Minos.Judging") meterListener.EnableMeasurementEvents(instrument);
+        };
+        listener.SetMeasurementEventCallback<double>((_, value, tags, _) =>
+            measurements.Add((value, (string)tags[0].Value!, (string)tags[1].Value!)));
+        listener.Start();
+        var services = new ServiceCollection();
+        SandboxTestProfile.AddInfrastructure(services, "Host=localhost;Database=unused;Username=unused");
+        await using var provider = services.BuildServiceProvider();
+        var backend = provider.GetRequiredService<IExecutionBackend>();
+        var token = TestContext.Current.CancellationToken;
+        var timer = Stopwatch.StartNew();
+        await provider.GetRequiredService<Minos.Infrastructure.Hosting.JudgeSandboxLifecycle>().InitializeAsync(token);
+        var initializeSeconds = timer.Elapsed.TotalSeconds;
+        timer.Restart();
+        var compilation = await backend.ExecuteAsync(new(ExecutionStage.Compile,
+            "#include <iostream>\nint main(){int a,b;std::cin>>a>>b;std::cout<<a+b<<'\\n';}"u8.ToArray(), [],
+            new(TimeSpan.FromSeconds(15), TimeSpan.FromSeconds(8), 256*1024*1024, 64*1024*1024, 32, 32768, 32768)), token);
+        var compileSeconds = timer.Elapsed.TotalSeconds;
+        Assert.True(OfficialJudgingPolicy.HasCompleteEvidence(compilation), Summary(compilation));
+        Assert.False(OfficialJudgingPolicy.IsCompilationError(compilation), Summary(compilation));
+        Assert.NotNull(compilation.Artifact);
+        var limits = new ExecutionLimits(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1), 64*1024*1024, 8*1024*1024, 32, 8*1024*1024, 32768);
+        var durations = new List<double>();
+        var wallSeconds = 0d;
+        var runs = Stopwatch.StartNew();
+        for (var index = 0; index < 100; index++)
+        {
+            timer.Restart();
+            var result = await backend.ExecuteAsync(new(ExecutionStage.Run, compilation.Artifact, "19 23\n"u8.ToArray(), limits), token);
+            durations.Add(timer.Elapsed.TotalSeconds);
+            wallSeconds += result.WallElapsed.TotalSeconds;
+            Assert.True(OfficialJudgingPolicy.HasCompleteEvidence(result), Summary(result));
+            Assert.Equal(Minos.Domain.Evaluation.TestCaseResultStatus.Passed, OfficialJudgingPolicy.ClassifyTest(result, "42\n"u8));
+        }
+        var runtimeSeconds = runs.Elapsed.TotalSeconds;
+        var phases = measurements.GroupBy(value => (value.Stage, value.Phase)).Select(group => new
+        {
+            stage = group.Key.Stage, phase = group.Key.Phase, count = group.Count(), seconds = group.Sum(value => value.Seconds)
+        }).OrderBy(value => value.stage).ThenBy(value => value.phase).ToArray();
+        var ordered = durations.Order().ToArray();
+        TestContext.Current.TestOutputHelper!.WriteLine("JUDGING_BENCHMARK_JSON=" + JsonSerializer.Serialize(new
+        {
+            measuredAtUtc = DateTimeOffset.UtcNow, fixture = "trusted C++20 sum, 100 serial executions, exact checker",
+            scope = "IExecutionBackend; excludes API/database/queue; image already present",
+            initializeSeconds, compileSeconds, runtimeSeconds, compileAnd100RunsSeconds = compileSeconds + runtimeSeconds,
+            runMedianSeconds = (ordered[49] + ordered[50]) / 2, runP95Seconds = ordered[94],
+            capturedExecutionWallSeconds = wallSeconds, outsideExecutionWatchSeconds = durations.Sum() - wallSeconds, phases
+        }));
+    }
+
+    public static bool BenchmarkEnabled => SandboxEnabled && Environment.GetEnvironmentVariable("MINOS_TEST_BENCHMARK") == "1";
+
+    [Theory(Skip = "Requires the approved Linux Docker sandbox profile.", SkipUnless = nameof(SandboxEnabled))]
+    [InlineData(0, Minos.Domain.Evaluation.TestCaseResultStatus.Passed)]
+    [InlineData(1, Minos.Domain.Evaluation.TestCaseResultStatus.WrongAnswer)]
+    [InlineData(2, Minos.Domain.Evaluation.TestCaseResultStatus.RuntimeError)]
+    [InlineData(3, Minos.Domain.Evaluation.TestCaseResultStatus.TimeLimitExceeded)]
+    [InlineData(4, Minos.Domain.Evaluation.TestCaseResultStatus.OutputLimitExceeded)]
+    [InlineData(5, Minos.Domain.Evaluation.TestCaseResultStatus.MemoryLimitExceeded)]
+    public async Task Cpu_output_memory_and_failure_fixtures_keep_complete_evidence_and_cleanup(int mode, Minos.Domain.Evaluation.TestCaseResultStatus expected)
+    {
+        var services = new ServiceCollection();
+        SandboxTestProfile.AddInfrastructure(services, "Host=localhost;Database=unused;Username=unused");
+        await using var provider = services.BuildServiceProvider();
+        var backend = provider.GetRequiredService<IExecutionBackend>();
+        var token = TestContext.Current.CancellationToken;
+        var compilation = await backend.ExecuteAsync(new(ExecutionStage.Compile, """
+            #include <iostream>
+            #include <cstdlib>
+            #include <cstring>
+            int main(){int mode;std::cin>>mode;
+                if(mode==0){volatile unsigned long long value=0;for(int i=0;i<10000000;i++)value+=i;std::cout<<"42\n";return 0;}
+                if(mode==1){std::cout<<"wrong\n";return 0;}
+                if(mode==2)return 7;
+                if(mode==3){volatile unsigned long long value=0;for(;;)++value;}
+                if(mode==4){for(;;)std::cout<<"01234567890123456789012345678901234567890123456789";}
+                for(int i=0;i<512;i++){auto p=(volatile char*)malloc(1024*1024);if(!p)return 9;for(int j=0;j<1024*1024;j+=4096)p[j]=1;}
+            }
+            """u8.ToArray(), [],
+            new(TimeSpan.FromSeconds(15), TimeSpan.FromSeconds(8), 256*1024*1024, 64*1024*1024, 32, 32768, 32768)), token);
+        Assert.True(OfficialJudgingPolicy.HasCompleteEvidence(compilation), Summary(compilation));
+        Assert.False(OfficialJudgingPolicy.IsCompilationError(compilation), Summary(compilation));
+        var wall = Stopwatch.StartNew();
+        var result = await backend.ExecuteAsync(new(ExecutionStage.Run, compilation.Artifact!, System.Text.Encoding.UTF8.GetBytes($"{mode}\n"),
+            new(TimeSpan.FromSeconds(3), TimeSpan.FromMilliseconds(300), 64*1024*1024, 8*1024*1024, 32, 4096, 32768)), token);
+        Assert.True(OfficialJudgingPolicy.HasCompleteEvidence(result), Summary(result));
+        Assert.Equal(expected, OfficialJudgingPolicy.ClassifyTest(result, "42\n"u8));
+        Assert.True(result.Stdout.Length <= 4096);
+        TestContext.Current.TestOutputHelper!.WriteLine($"JUDGING_FIXTURE mode={mode} status={expected} total_seconds={wall.Elapsed.TotalSeconds:F3} cpu_ms={result.CpuUsage!.Value.TotalMilliseconds:F3} wall_ms={result.WallElapsed.TotalMilliseconds:F3}");
     }
 
     private static string Summary(ExecutionEvidence evidence) =>
@@ -99,8 +216,7 @@ public sealed class DockerExecutionTests
     {
         if (!OperatingSystem.IsLinux()) return;
         var services = new ServiceCollection();
-        services.AddMinosInfrastructure("Host=localhost;Database=unused;Username=unused",
-            executionWorkspaceVolume: Environment.GetEnvironmentVariable("MINOS_TEST_WORKSPACE_VOLUME"));
+        SandboxTestProfile.AddInfrastructure(services, "Host=localhost;Database=unused;Username=unused");
         await using var provider = services.BuildServiceProvider();
         var backend = provider.GetRequiredService<IExecutionBackend>();
         var token = TestContext.Current.CancellationToken;
@@ -132,8 +248,7 @@ public sealed class DockerExecutionTests
     public async Task Silent_program_can_run_past_transport_deadlines_without_a_cpu_timeout()
     {
         var services = new ServiceCollection();
-        services.AddMinosInfrastructure("Host=localhost;Database=unused;Username=unused",
-            executionWorkspaceVolume: Environment.GetEnvironmentVariable("MINOS_TEST_WORKSPACE_VOLUME"));
+        SandboxTestProfile.AddInfrastructure(services, "Host=localhost;Database=unused;Username=unused");
         await using var provider = services.BuildServiceProvider();
         var backend = provider.GetRequiredService<IExecutionBackend>();
         var token = TestContext.Current.CancellationToken;
@@ -155,8 +270,7 @@ public sealed class DockerExecutionTests
     public async Task Descendants_do_not_extend_wall_time_and_cancellation_cleans_the_sandbox()
     {
         var services = new ServiceCollection();
-        services.AddMinosInfrastructure("Host=localhost;Database=unused;Username=unused",
-            executionWorkspaceVolume: Environment.GetEnvironmentVariable("MINOS_TEST_WORKSPACE_VOLUME"));
+        SandboxTestProfile.AddInfrastructure(services, "Host=localhost;Database=unused;Username=unused");
         await using var provider = services.BuildServiceProvider();
         var backend = provider.GetRequiredService<IExecutionBackend>();
         var token = TestContext.Current.CancellationToken;

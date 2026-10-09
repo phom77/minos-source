@@ -70,6 +70,7 @@ app.UseAccountRequestProtection();
 app.MapAccountEndpoints();
 app.MapGoogleEndpoints();
 app.MapProblemEndpoints();
+Minos.Api.Contests.ContestEndpoints.MapContestEndpoints(app);
 app.MapSubmissionEndpoints();
 app.MapJudgingOperationsEndpoints();
 app.MapHealthChecks("/health/live", new() { Predicate = _ => false });

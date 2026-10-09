@@ -11,7 +11,7 @@ public sealed class Problem
     public const int MinimumMemoryLimitMegabytes = 16;
     public const int MaximumMemoryLimitMegabytes = 1024;
     public const int MaximumSamples = 20;
-    public const int MaximumTestCases = 100;
+    public const int MaximumTestCases = 1500;
 
     private readonly List<ProblemSample> samples = [];
     private readonly List<ProblemTestCase> testCases = [];

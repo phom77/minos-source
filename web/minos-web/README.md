@@ -1,10 +1,14 @@
 # Minos web
 
-The Minos Angular application uses standalone components, strict TypeScript, and feature-first organization. Phases 1–3 provide the approved responsive shell, persistent light/dark themes, HTTP protection, popup authentication, Google sign-in integration, and the real public problem catalog/reader. Phase 4 adds profile editing, password changes, and account disabling; explicit Google linking remains a documented contract gap. Backend code and milestone scope are unchanged by this frontend work; current backend approvals in `AGENTS.md` remain authoritative.
+The Minos Angular application uses standalone components, strict TypeScript, and feature-first organization. Phases 1–3 provide the approved responsive shell, persistent light/dark themes, HTTP protection, popup authentication, Google sign-in integration, and the real public problem catalog/reader. Phase 4 adds profile editing, password changes, and account disabling; explicit Google linking remains a documented contract gap. The owner-requested Phase 6 adds C++20 submission, automatic result tracking and private paginated history using the completed backend contracts. Backend code is unchanged; current backend approvals in `AGENTS.md` remain authoritative.
+
+The 2026-10-07 [submission flow](../../docs/design/submission-flow.md) records source handling, pinned-version behavior and verification limits. The owner-requested 2026-10-08 [solve workspace](../../docs/design/solve-workspace.md) adds a LeetCode-style split description/editor, numbered code, expand/restore and inline results. Final frontend checks pass 249 tests in 22 files and a production build. Phase 5 authoring, Phase 7 administration, custom Run and manual rejudge remain outside this delivery.
 
 The owner-approved 2026-10-04 [UX refinement](../../docs/design/frontend-ux-refinement.md) replaces the global sidebar with a compact top header and puts account maintenance at `/settings`, accessible through the user menu. Profile, Security and Account have local section links and contextual editors; the old `/account` URL redirects to Profile. Password operations require evidence from a successful local login/registration in the current browser runtime because `/accounts/me` does not report credential capabilities. Reloaded or Google sessions see concise limitations rather than invented password/provider state. The refinement supersedes the earlier Phase 4 layout and validation behavior below; its evidence and future backend candidates are recorded in the linked document.
 
 ## Commands
+
+The owner-authorized 2026-10-09 contest increment adds `/contests`, organizer draft/edit/publication, public problem selection, contextual new-problem authoring, participant registration, pinned problem solving and private contest submission history. Only Setter/Admin accounts organize. [The contest plan](../../docs/contest-implementation-plan.md) records the contracts, scope and verification. Browser fixtures live only in `testing/contest-browser.cjs`; no production fixture fallback is used.
 
 ```bash
 npm ci
@@ -39,13 +43,20 @@ src/
 │   │   │   ├── account-validators.ts, account-error-message.ts, settings-form.css
 │   │   │   ├── data-access/ (account API, Google flow, tests)
 │   │   │   └── account-entry-page.{ts,html,css}
-│   │   └── problems/
+│   │   ├── problems/
 │   │       ├── problems.routes.ts
 │   │       ├── data-access/ (public contracts, response validation, tests)
 │   │       ├── problem-detail/ (latest/immutable published reader)
 │   │       ├── testing/ (test-only fixtures; never production fallbacks)
 │   │       ├── catalog-query.{ts,spec.ts}
 │   │       └── problem-catalog-page.{ts,html,css}
+│   │   └── submissions/
+│   │       ├── submissions.routes.ts (private lazy routes)
+│   │       ├── data-access/ (contracts, API, memory draft, serial polling, public titles)
+│   │       ├── submission-form/ (embedded in the latest problem reader)
+│   │       ├── code-editor/, submission-result/ (editor presentation and shared result evidence)
+│   │       ├── submission-detail/, submission-history/
+│   │       └── testing/ (test-only fixtures)
 │   ├── layouts/app-shell.{ts,html,css}
 │   ├── shared/ui/ (headings, icons, feedback, badges, field messages)
 │   ├── app.component.ts

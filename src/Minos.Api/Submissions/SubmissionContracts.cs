@@ -40,7 +40,9 @@ public sealed record SubmissionResultResponse(
     long? MaximumWallTimeMilliseconds,
     long? MaximumMemoryBytes,
     DateTimeOffset CompletedAtUtc,
-    IReadOnlyList<SubmissionTestResultResponse> Tests);
+    IReadOnlyList<SubmissionTestResultResponse> Tests,
+    SubmissionTestSummaryResponse? TestSummary);
+public sealed record SubmissionTestSummaryResponse(int TotalTests, int ExecutedTests, int PassedTests, int FailedTests);
 public sealed record SubmissionSummaryResponse(
     Guid Id,
     Guid ProblemId,

@@ -1,0 +1,32 @@
+<div class="page">
+  <a [routerLink]="['/contests', contestId, 'edit']">← Back to contest</a><h1>Create a problem</h1>
+  @if (error()) { <div #summary class="form-errors" role="alert" tabindex="-1">{{ error() }}@if (published()) { <p>The problem is published. Retry adding it to your contest.</p> }</div> }
+  @if (checkingTarget()) { <p role="status">Checking contest…</p> }
+  @else if (!allowed()) { <p role="alert">Problem authoring requires an editable contest and your original Setter or Admin session.</p> }
+  @else {
+    <form class="panel panel-body" [formGroup]="form" (ngSubmit)="save()" (pointerdown)="feedback.prepareSubmit($event)" novalidate>
+      <fieldset class="stack" [disabled]="pending() || !!published()">
+        <div class="form-field"><label for="problem-title">Title</label><input id="problem-title" formControlName="title" (input)="feedback.edit('title')" (blur)="blur('title')" [attr.aria-invalid]="fieldError('title') ? true : null" [attr.aria-describedby]="fieldError('title') ? 'problem-title-error' : null" /><minos-field-feedback fieldId="problem-title" [error]="fieldError('title')" /></div>
+        <div class="form-field"><label for="problem-statement">Statement</label><textarea id="problem-statement" formControlName="statement" rows="9" (input)="feedback.edit('statement')" (blur)="blur('statement')" [attr.aria-invalid]="fieldError('statement') ? true : null" [attr.aria-describedby]="fieldError('statement') ? 'problem-statement-error' : null"></textarea><minos-field-feedback fieldId="problem-statement" [error]="fieldError('statement')" /></div>
+        <div class="columns"><div class="form-field"><label for="problem-time">Time limit (ms)</label><input id="problem-time" type="number" formControlName="timeLimitMilliseconds" (input)="feedback.edit('timeLimitMilliseconds')" (blur)="blur('timeLimitMilliseconds')" [attr.aria-invalid]="fieldError('timeLimitMilliseconds') ? true : null" /><minos-field-feedback fieldId="problem-time" [error]="fieldError('timeLimitMilliseconds')" /></div><div class="form-field"><label for="problem-memory">Memory limit (MiB)</label><input id="problem-memory" type="number" formControlName="memoryLimitMegabytes" (input)="feedback.edit('memoryLimitMegabytes')" (blur)="blur('memoryLimitMegabytes')" [attr.aria-invalid]="fieldError('memoryLimitMegabytes') ? true : null" /><minos-field-feedback fieldId="problem-memory" [error]="fieldError('memoryLimitMegabytes')" /></div></div>
+        <fieldset><legend>Public example</legend><div class="columns"><div class="form-field"><label for="sample-input">Input</label><textarea id="sample-input" rows="4" formControlName="sampleInput"></textarea></div><div class="form-field"><label for="sample-output">Expected output</label><textarea id="sample-output" rows="4" formControlName="sampleOutput"></textarea></div></div></fieldset>
+        <div class="actions"><button class="button" type="submit">{{ pending() ? 'Saving…' : 'Save problem' }}</button>@if (saved()) { <span role="status">Problem saved.</span> }</div>
+      </fieldset>
+    </form>
+    @if (draft(); as d) {
+      <section class="panel panel-body stack" aria-labelledby="private-tests-heading"><h2 id="private-tests-heading">Private tests</h2>
+        <p>Upload one ZIP per test, containing <code>input.txt</code> and <code>output.txt</code> at the root. Test contents stay private.</p>
+        <div class="form-field"><label for="private-test">Add test package</label><input id="private-test" type="file" accept=".zip,application/zip" [disabled]="pending() || !!published()" (change)="upload($event)" /></div>
+        <p role="status">{{ d.testCases.length }} tests uploaded</p>
+        @for (test of d.testCases; track test.id) { <div class="actions"><span>Test {{ test.order }} · input {{ test.inputSizeBytes }} bytes · output {{ test.outputSizeBytes }} bytes</span>@if (!published()) { <button class="button button--secondary" [disabled]="pending()" (click)="remove(test.id)" [attr.aria-label]="'Remove test ' + test.order">Remove</button> }</div> }
+      </section>
+      <section class="panel panel-body stack" [formGroup]="form" aria-labelledby="publish-problem-heading"><h2 id="publish-problem-heading">Publish and add to contest</h2>
+        <p class="notice">Publishing makes the statement and public example available in the problem library immediately.</p>
+        <label class="check-row"><input type="checkbox" formControlName="statementReviewed" />I reviewed the statement.</label>
+        <label class="check-row"><input type="checkbox" formControlName="samplesVerified" />I verified the public example.</label>
+        <label class="check-row"><input type="checkbox" formControlName="referenceSolutionChecked" />I checked a trusted reference solution against the tests.</label>
+        <button class="button" [disabled]="pending()" (click)="publish()">{{ published() ? 'Retry adding to contest' : 'Publish and add to contest' }}</button>
+      </section>
+    }
+  }
+</div>

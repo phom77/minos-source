@@ -4,6 +4,7 @@
     <UserSecretsId>minos-worker-development</UserSecretsId>
   </PropertyGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="Minos.IntegrationTests" />
     <ProjectReference Include="../Minos.Application/Minos.Application.csproj" />
     <ProjectReference Include="../Minos.Infrastructure/Minos.Infrastructure.csproj" />
     <PackageReference Include="Microsoft.Extensions.Hosting" />

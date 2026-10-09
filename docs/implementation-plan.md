@@ -5,7 +5,11 @@ Status: M0–M6 complete; M7 backend complete and verified; development MVP owne
 
 Related documents: [M0 closure](m0-closure.md), [Project design](project-design.md), [Decision register](decisions.md)
 
+The owner authorized [three phases of judging improvements](judging-improvement-plan.md) on 2026-10-07, beginning with complete-test results/counts ([ADR 0012](adr/0012-complete-private-test-judging.md)). This is a new correctness requirement that supersedes M6's first-failure execution policy for new submissions; M8 and public/distributed hosting remain separate.
+
 ## Planning rules
+
+The owner separately authorized contest creation/participation on 2026-10-09, restricted to Setter/Admin organizers. [The contest implementation plan](contest-implementation-plan.md) and [ADR 0016](adr/0016-public-practice-contests.md) define the public-practice scope, pinned versions, registration and admission. This is independent of the still-deferred M8 custom-input milestone.
 
 - This is an ordered milestone plan, not a commitment to calendar dates.
 - M0 approval precedes implementation, including the sandbox spike.
