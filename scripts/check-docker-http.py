@@ -186,7 +186,8 @@ def main():
             print(f"Containerized judging: {verdict} passed", flush=True)
         print("Cross-account denial and private result projections: passed", flush=True)
         if args.browser_smoke:
-            starts = datetime.now(timezone.utc) + timedelta(seconds=3)
+            # Leave room for the contest endpoint's first-use JIT and fixture persistence before publication.
+            starts = datetime.now(timezone.utc) + timedelta(seconds=30)
             contest = author.request("/api/contests", "POST", {
                 "title": "Phase 1 browser contest", "description": "Temporary acceptance fixture.",
                 "startsAtUtc": starts.isoformat(), "endsAtUtc": (starts + timedelta(minutes=5)).isoformat(),
