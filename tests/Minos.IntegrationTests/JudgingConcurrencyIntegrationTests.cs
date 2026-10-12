@@ -103,8 +103,12 @@ public sealed class JudgingConcurrencyIntegrationTests
         var token = TestContext.Current.CancellationToken;
         var fixture = real ? null : new FixtureBackend();
         var slots = concurrency >= 4 ? 4 : 2;
+        // Real fixtures must retain a management CPU on small hosted CI runners.
+        // Active jobs still exercise independent leases while stages queue within this host budget.
+        if (real) slots = Math.Min(slots, Math.Max(1, Environment.ProcessorCount - 1));
         var compilers = concurrency >= 4 ? 2 : 1;
         var runtimes = real && SandboxTestProfile.Native ? Math.Min(SandboxTestProfile.BoxCount, concurrency >= 4 ? 2 : 1) : concurrency >= 4 ? 2 : 1;
+        compilers = Math.Min(compilers, slots); runtimes = Math.Min(runtimes, slots);
         var memory = concurrency >= 4 ? 2048 : 1152;
         await using var workers = OfficialJudgingIntegrationTests.Workers(fixture, new(slots, memory, 256 + 64 * concurrency, compilers, runtimes));
         await OfficialJudgingIntegrationTests.DrainAsync(workers, token);
