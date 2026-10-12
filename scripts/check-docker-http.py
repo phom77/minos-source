@@ -74,6 +74,7 @@ def main():
     parser.add_argument("--base-url", default="https://localhost:8443")
     parser.add_argument("--ca", type=Path, default=REPOSITORY / "artifacts" / "minos-local-ca.crt")
     parser.add_argument("--browser-smoke", action="store_true", help="Also run real browser practice/contest journeys with the temporary solver.")
+    parser.add_argument("--browser-only", action="store_true", help="Create the same temporary fixture and run only browser journeys, without repeating the seven API verdict cases.")
     parser.add_argument("--compose-project", help="Use a separately named disposable Compose stack.")
     parser.add_argument("--compose-env-file", type=Path, help="Use that stack's private Compose environment file.")
     args = parser.parse_args()
@@ -146,7 +147,7 @@ def main():
             "MemoryLimitExceeded": '#include <cstddef>\nint main(){volatile char* p=new char[128*1024*1024];for(std::size_t i=0;i<128*1024*1024;i+=4096)p[i]=1;}\n',
             "OutputLimitExceeded": '#include <iostream>\nint main(){for(;;)std::cout<<"xxxxxxxxxxxxxxxx";}\n',
         }
-        for verdict, source in cases.items():
+        for verdict, source in ({} if args.browser_only else cases).items():
             request_key = str(uuid.uuid4())
             submission = solver.request(f"/api/problems/{problem_id}/submissions", "POST",
                                         {"language": "cpp20", "source": source, "requestKey": request_key}, expected=201)
@@ -184,8 +185,9 @@ def main():
                                     {"language": "cpp20", "source": source, "requestKey": request_key}, expected=201)
             assert replay["id"] == submission["id"] and replay["attempts"] == result["attempts"]
             print(f"Containerized judging: {verdict} passed", flush=True)
-        print("Cross-account denial and private result projections: passed", flush=True)
-        if args.browser_smoke:
+        if not args.browser_only:
+            print("Cross-account denial and private result projections: passed", flush=True)
+        if args.browser_smoke or args.browser_only:
             # Leave room for the contest endpoint's first-use JIT and fixture persistence before publication.
             starts = datetime.now(timezone.utc) + timedelta(seconds=30)
             contest = author.request("/api/contests", "POST", {

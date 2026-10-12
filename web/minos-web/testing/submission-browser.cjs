@@ -7,7 +7,7 @@ const sid = '44444444-4444-4444-8444-444444444444', aid = '55555555-5555-4555-85
 const now = new Date().toISOString();
 const problem = { problemId: pid, versionId: vid, versionNumber: 1, title: 'Browser sum', statement: 'Print the sum.',
   timeLimitMilliseconds: 1000, memoryLimitMegabytes: 64, checker: 'Exact', privateTestCount: 1, publishedAtUtc: now, samples: [{ input: '1 2\n', output: '3\n' }] };
-const completed = { id: sid, problemId: pid, problemVersionId: vid, language: 'cpp20', toolchainId: 'pinned-fixture', source: 'int main(){}',
+const completed = { id: sid, problemId: pid, problemVersionId: vid, language: 'cpp20', toolchainId: 'pinned-fixture', source: 'int main(){' + '/* long fixture source */'.repeat(20) + '}',
   status: 'Completed', createdAtUtc: now, completedAtUtc: now, attempts: [{ id: aid, number: 1, status: 'Succeeded', failureKind: null, startedAtUtc: now, finishedAtUtc: now }],
   configuration: { timeLimitMilliseconds: 1000, memoryLimitMegabytes: 64, checker: 'Exact', testCount: 1 },
   result: { attemptId: aid, verdict: 'Accepted', compilerDiagnostics: '', maximumCpuTimeMilliseconds: 1, maximumWallTimeMilliseconds: 2, maximumMemoryBytes: 1024,
@@ -24,7 +24,7 @@ const completed = { id: sid, problemId: pid, problemVersionId: vid, language: 'c
     await page.route('**/api/**', async route => {
       const req = route.request(), url = new URL(req.url());
       if (req.method() === 'POST' && url.pathname === `/api/problems/${pid}/submissions`) {
-        const body = req.postDataJSON(); assert.equal(body.language, 'cpp20'); assert.match(body.requestKey, /^[0-9a-f-]{36}$/);
+        const body = req.postDataJSON(); assert.equal(body.language, 'cpp20'); assert.equal(body.source, completed.source); assert.match(body.requestKey, /^[0-9a-f-]{36}$/);
         keys.push(body.requestKey);
         // The first response is lost after the fixture accepted the work; the next request must replay its key.
         if (keys.length === 1) return route.abort('failed');
@@ -42,7 +42,7 @@ const completed = { id: sid, problemId: pid, problemVersionId: vid, language: 'c
     await page.getByRole('button', { name: 'Submit', exact: true }).click();
     await page.getByRole('alert', { name: 'Submission error' }).waitFor();
     assert.equal(await page.evaluate(() => document.activeElement.getAttribute('role')), 'alert');
-    await source.fill('int main(){}'); await page.getByRole('button', { name: 'Submit', exact: true }).click();
+    await source.fill(completed.source); await page.getByRole('button', { name: 'Submit', exact: true }).click();
     await page.getByRole('button', { name: 'Retry submission', exact: true }).waitFor();
     await page.getByRole('button', { name: 'Retry submission', exact: true }).click();
     await page.getByText('Accepted', { exact: true }).first().waitFor();
@@ -58,6 +58,12 @@ const completed = { id: sid, problemId: pid, problemVersionId: vid, language: 'c
     }
     await page.goto(process.env.MINOS_BROWSER_BASE_URL + `/submissions/${sid}`);
     await page.getByText('Accepted', { exact: true }).first().waitFor();
+    for (const width of [320, 768, 1024, 1440]) {
+      await page.setViewportSize({ width, height: 1000 });
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `owner result overflows at ${width}`);
+      await page.getByRole('region', { name: 'Test results' }).focus();
+      assert.equal(await page.evaluate(() => document.activeElement.getAttribute('aria-label')), 'Test results');
+    }
     await page.getByRole('link', { name: 'Submission history', exact: false }).click();
     await page.waitForURL('**/submissions'); await page.getByText('Browser sum', { exact: true }).filter({ visible: true }).first().waitFor();
     assert.deepEqual(errors, []);

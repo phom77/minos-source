@@ -1,4 +1,5 @@
-.submission-page { max-width: 74rem; }
+:host { display: block; min-width: 0; }
+.submission-page { max-width: 74rem; grid-template-columns: minmax(0, 1fr); }
 .back-link { display: inline-flex; align-items: center; width: fit-content; min-height: 2.75rem; font-size: var(--text-label); }
 .page-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-4); }
 .page-heading > div { min-width: 0; flex: 1 1 20rem; }
