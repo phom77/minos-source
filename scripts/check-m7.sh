@@ -18,8 +18,13 @@ m7_stop_worker() {
 }
 m7_submit() {
     local name="$1" payload="$2" cookies="${3:-solver-cookies}" request_csrf="${4:-$solver_csrf}"
+    python3 - "$workspace/$payload-request.json" "$workspace/$name-keyed-request.json" <<'PY'
+import json,sys,uuid
+request=json.load(open(sys.argv[1]));request['requestKey']=str(uuid.uuid4())
+with open(sys.argv[2], 'w') as output: json.dump(request, output)
+PY
     curl -kfsS -b "$workspace/$cookies" -H "X-CSRF-TOKEN: $request_csrf" -H 'Content-Type: application/json' \
-        --data-binary "@$workspace/$payload-request.json" "$api_url/api/problems/$draft_id/submissions" > "$workspace/$name-created.json"
+        --data-binary "@$workspace/$name-keyed-request.json" "$api_url/api/problems/$draft_id/submissions" > "$workspace/$name-created.json"
     python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["id"])' "$workspace/$name-created.json"
 }
 m7_poll() {
@@ -212,6 +217,13 @@ python3 - "$workspace/crash-result.json" "$workspace/restored-history.json" <<'P
 import json,sys
 assert json.load(open(sys.argv[1])) == json.load(open(sys.argv[2]))
 PY
+curl -kfsS -b "$workspace/solver-cookies" -H "X-CSRF-TOKEN: $solver_csrf" -H 'Content-Type: application/json' \
+    --data-binary "@$workspace/crash-keyed-request.json" "$api_url/api/problems/$draft_id/submissions" > "$workspace/restored-replay.json"
+python3 - "$workspace/crash-result.json" "$workspace/restored-replay.json" <<'PY'
+import json,sys
+assert json.load(open(sys.argv[1])) == json.load(open(sys.argv[2]))
+PY
+printf 'phase1_restored_request_key_replays_original_attempt=passed\n'
 m7_start_worker
 restored_id="$(m7_submit restored accepted)"
 m7_poll "$restored_id" restored

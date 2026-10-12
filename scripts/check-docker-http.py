@@ -74,10 +74,17 @@ def main():
     parser.add_argument("--base-url", default="https://localhost:8443")
     parser.add_argument("--ca", type=Path, default=REPOSITORY / "artifacts" / "minos-local-ca.crt")
     parser.add_argument("--browser-smoke", action="store_true", help="Also run real browser practice/contest journeys with the temporary solver.")
+    parser.add_argument("--compose-project", help="Use a separately named disposable Compose stack.")
+    parser.add_argument("--compose-env-file", type=Path, help="Use that stack's private Compose environment file.")
     args = parser.parse_args()
+    compose = ["docker", "compose"]
+    if args.compose_project:
+        compose += ["--project-name", args.compose_project]
+    if args.compose_env_file:
+        compose += ["--env-file", str(args.compose_env_file)]
     if not args.ca.is_file():
         args.ca.parent.mkdir(parents=True, exist_ok=True)
-        subprocess.run(["docker", "compose", "cp", "web:/certs/ca.crt", str(args.ca)], cwd=REPOSITORY, check=True)
+        subprocess.run(compose + ["cp", "web:/certs/ca.crt", str(args.ca)], cwd=REPOSITORY, check=True)
     context = ssl.create_default_context(cafile=str(args.ca))
     author = Session(args.base_url, context)
     solver = Session(args.base_url, context)
@@ -92,7 +99,7 @@ def main():
         author_id = author.register(email, password, "Docker fixture author")
         registered.append(author)
         maintenance = subprocess.run(
-            ["docker", "compose", "run", "--rm", "-T", "--no-deps", "migrate", "--provision-admin", author_id],
+            compose + ["run", "--rm", "-T", "--no-deps", "migrate", "--provision-admin", author_id],
             cwd=REPOSITORY, capture_output=True, text=True,
         )
         assert maintenance.returncode == 0, "Fixture administrator provisioning failed."
