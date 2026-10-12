@@ -59,6 +59,9 @@ public sealed class PostgresPrivilegeTests
     [InlineData("ConnectionStrings__Minos", "UPDATE evaluation.submissions SET status = 3")]
     [InlineData("MINOS_TEST_WORKER_CONNECTION", "INSERT INTO evaluation.submissions (id) VALUES (gen_random_uuid())")]
     [InlineData("MINOS_TEST_WORKER_CONNECTION", "DELETE FROM evaluation.judging_attempts")]
+    [InlineData("MINOS_TEST_WORKER_CONNECTION", "SELECT * FROM evaluation.submission_requests")]
+    [InlineData("ConnectionStrings__Minos", "UPDATE evaluation.submission_requests SET fingerprint = fingerprint")]
+    [InlineData("ConnectionStrings__Minos", "DELETE FROM evaluation.submission_requests")]
     public async Task PostgreSQL_denies_operations_outside_each_actors_responsibility(string variable, string sql)
     {
         await using var connection = new NpgsqlConnection(Connection(variable));

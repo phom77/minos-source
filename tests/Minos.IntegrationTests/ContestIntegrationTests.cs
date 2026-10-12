@@ -11,6 +11,7 @@ using Minos.Api.Submissions;
 using Minos.Application;
 using Minos.Application.Accounts;
 using Minos.Application.Contests;
+using Minos.Application.Evaluation;
 using Minos.Application.Problems;
 using Minos.Domain.Accounts;
 using Minos.Domain.Problems;
@@ -107,7 +108,7 @@ public sealed class ContestIntegrationTests
         using var client = AccountTestHost.Client(factory); var user = await AccountAsync(factory, client, AccountRole.Solver);
         await using var scope = factory.Services.CreateAsyncScope(); var provider = scope.ServiceProvider;
         var accountCases = new AccountUseCases(provider.GetRequiredService<IAccountStore>(), new TestCurrentAccount(user.Id), clock);
-        var cases = new ContestUseCases(provider.GetRequiredService<IContestRepository>(), provider.GetRequiredService<IProblemRepository>(), accountCases, new TestCurrentAccount(user.Id), clock);
+        var cases = new ContestUseCases(provider.GetRequiredService<IContestRepository>(), provider.GetRequiredService<IProblemRepository>(), accountCases, new TestCurrentAccount(user.Id), clock, provider.GetRequiredService<ISubmissionRepository>());
         var command = new SaveContest("Title", "", clock.Now.AddHours(1), clock.Now.AddHours(2), []);
         await Assert.ThrowsAsync<AccessDeniedException>(() => cases.CreateAsync(command, Token));
         var db = provider.GetRequiredService<MinosDbContext>();

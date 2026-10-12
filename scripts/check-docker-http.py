@@ -8,6 +8,8 @@ import argparse
 import http.cookiejar
 import io
 import json
+import os
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import secrets
 import ssl
@@ -71,6 +73,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--base-url", default="https://localhost:8443")
     parser.add_argument("--ca", type=Path, default=REPOSITORY / "artifacts" / "minos-local-ca.crt")
+    parser.add_argument("--browser-smoke", action="store_true", help="Also run real browser practice/contest journeys with the temporary solver.")
     args = parser.parse_args()
     if not args.ca.is_file():
         args.ca.parent.mkdir(parents=True, exist_ok=True)
@@ -122,7 +125,8 @@ def main():
         assert any(item["problemId"] == problem_id for item in stranger.request("/api/problems/?page=1&pageSize=100")["items"])
         print("HTTPS proxy, protected cookies, CSRF, profile and problem publication: passed", flush=True)
 
-        solver.register(f"docker-solver-{suffix}@example.test", password, "Docker fixture solver")
+        solver_email = f"docker-solver-{suffix}@example.test"
+        solver.register(solver_email, password, "Docker fixture solver")
         registered.append(solver)
         stranger.register(f"docker-stranger-{suffix}@example.test", password, "Docker fixture stranger")
         registered.append(stranger)
@@ -136,8 +140,9 @@ def main():
             "OutputLimitExceeded": '#include <iostream>\nint main(){for(;;)std::cout<<"xxxxxxxxxxxxxxxx";}\n',
         }
         for verdict, source in cases.items():
+            request_key = str(uuid.uuid4())
             submission = solver.request(f"/api/problems/{problem_id}/submissions", "POST",
-                                        {"language": "cpp20", "source": source}, expected=201)
+                                        {"language": "cpp20", "source": source, "requestKey": request_key}, expected=201)
             path = f"/api/submissions/{submission['id']}"
             deadline = time.monotonic() + 120
             while True:
@@ -168,8 +173,27 @@ def main():
                 assert result["result"]["maximumCpuTimeMilliseconds"] is not None
                 assert result["result"]["maximumMemoryBytes"] is not None
             stranger.request(path, expected=403)
+            replay = solver.request(f"/api/problems/{problem_id}/submissions", "POST",
+                                    {"language": "cpp20", "source": source, "requestKey": request_key}, expected=201)
+            assert replay["id"] == submission["id"] and replay["attempts"] == result["attempts"]
             print(f"Containerized judging: {verdict} passed", flush=True)
         print("Cross-account denial and private result projections: passed", flush=True)
+        if args.browser_smoke:
+            starts = datetime.now(timezone.utc) + timedelta(seconds=3)
+            contest = author.request("/api/contests", "POST", {
+                "title": "Phase 1 browser contest", "description": "Temporary acceptance fixture.",
+                "startsAtUtc": starts.isoformat(), "endsAtUtc": (starts + timedelta(minutes=5)).isoformat(),
+                "versionIds": [published["versionId"]]}, expected=201)
+            contest = author.request(f"/api/contests/{contest['id']}/publish", "POST", {"revision": contest["revision"]})
+            solver.request(f"/api/contests/{contest['id']}/registration", "PUT", value={})
+            time.sleep(max(0, (starts - datetime.now(timezone.utc)).total_seconds()))
+            browser_env = {**os.environ, "MINOS_LIVE_BROWSER_URL": args.base_url,
+                           "MINOS_LIVE_BROWSER_EMAIL": solver_email, "MINOS_LIVE_BROWSER_PASSWORD": password,
+                           "MINOS_LIVE_BROWSER_PROBLEM": problem_id, "MINOS_LIVE_BROWSER_SOURCE": cases["Accepted"],
+                           "MINOS_LIVE_BROWSER_CONTEST": contest["id"],
+                           "MINOS_LIVE_BROWSER_CONTEST_PROBLEM": contest["problems"][0]["id"]}
+            subprocess.run(["node", str(REPOSITORY / "web/minos-web/testing/live-browser.cjs")],
+                           cwd=REPOSITORY, env=browser_env, check=True)
     finally:
         if problem_id is not None:
             author.request(f"/api/authoring/problems/{problem_id}/archive", "POST", expected=204)

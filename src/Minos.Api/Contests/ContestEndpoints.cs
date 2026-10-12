@@ -8,7 +8,7 @@ namespace Minos.Api.Contests;
 public sealed record SaveContestRequest(string? Title, string? Description, DateTimeOffset StartsAtUtc,
     DateTimeOffset EndsAtUtc, IReadOnlyList<Guid>? VersionIds, long? Revision);
 public sealed record PublishContestRequest(long Revision);
-public sealed record ContestSubmissionRequest(string? Language, string? Source);
+public sealed record ContestSubmissionRequest(string? Language, string? Source, Guid? RequestKey = null);
 public sealed record ContestSummaryResponse(Guid Id, string Title, DateTimeOffset StartsAtUtc, DateTimeOffset EndsAtUtc, string State, int ProblemCount);
 public sealed record ContestPageResponse(IReadOnlyList<ContestSummaryResponse> Items, int Page, int PageSize, int Total);
 public sealed record ContestProblemResponse(Guid Id, Guid ProblemId, Guid VersionId, int Order, string Title);
@@ -57,7 +57,7 @@ internal static class ContestEndpoints
         group.MapPost("/{id:guid}/problems/{problemId:guid}/submissions", async (Guid id, Guid problemId,
             ContestSubmissionRequest request, ContestUseCases cases, CancellationToken ct) =>
         {
-            var submission = await cases.SubmitAsync(id, problemId, new(request.Language, request.Source), ct);
+            var submission = await cases.SubmitAsync(id, problemId, new(request.Language, request.Source, request.RequestKey), ct);
             return Results.Created($"/api/submissions/{submission}", new CreatedContestSubmissionResponse(submission));
         }).RequireAuthorization().WithMetadata(new RequestSizeLimitAttribute(Minos.Domain.Evaluation.Submission.MaximumSourceBytes * 6L + 4096));
         group.MapGet("/{id:guid}/submissions/mine", async (Guid id, int? page, int? pageSize, ContestUseCases cases, CancellationToken ct) =>

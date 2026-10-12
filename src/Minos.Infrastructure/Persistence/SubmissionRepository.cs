@@ -6,15 +6,27 @@ namespace Minos.Infrastructure.Persistence;
 
 internal sealed class SubmissionRepository(MinosDbContext database, SubmissionCapacity capacity) : ISubmissionRepository
 {
+    public Task<Guid?> FindRequestAsync(Guid ownerAccountId, SubmissionRequestIdentity request, CancellationToken token) =>
+        SubmissionRequestStore.FindAsync(database, ownerAccountId, request, token);
+
+    public Task<Guid?> AdmitOnceAsync(Submission submission, JudgeJob job, int maximumActive,
+        SubmissionRequestIdentity request, CancellationToken token) => AdmitCoreAsync(submission, job, maximumActive, request, token);
+
     public async Task<bool> AdmitAsync(
         Submission submission,
         JudgeJob job,
         int maximumActive,
         CancellationToken token)
+        => await AdmitCoreAsync(submission, job, maximumActive, null, token) is not null;
+
+    private async Task<Guid?> AdmitCoreAsync(Submission submission, JudgeJob job, int maximumActive,
+        SubmissionRequestIdentity? request, CancellationToken token)
     {
         await using var transaction = await database.Database.BeginTransactionAsync(token);
         // All API instances serialize the short capacity check with admission's commit.
         await database.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(21754185638891831)", token);
+        if (request is not null && await SubmissionRequestStore.FindAsync(database, submission.OwnerAccountId, request, token) is { } replay)
+            return replay;
         var globalActive = await database.Submissions.CountAsync(candidate =>
             candidate.Status == SubmissionStatus.Pending || candidate.Status == SubmissionStatus.Judging, token);
         var active = await database.Submissions.CountAsync(candidate =>
@@ -23,14 +35,15 @@ internal sealed class SubmissionRepository(MinosDbContext database, SubmissionCa
         if (active >= maximumActive || globalActive >= capacity.MaximumActive)
         {
             await transaction.RollbackAsync(token);
-            return false;
+            return null;
         }
 
         database.Submissions.Add(submission);
         database.JudgeJobs.Add(job);
+        if (request is not null) SubmissionRequestStore.Add(database, submission, request);
         await database.SaveChangesAsync(token);
         await transaction.CommitAsync(token);
-        return true;
+        return submission.Id;
     }
 
     public async Task<(Submission Submission, IReadOnlyList<JudgingAttempt> Attempts, SubmissionResult? Result)?> FindAsync(

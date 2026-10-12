@@ -8,8 +8,8 @@ import { isSubmission, isSubmissionSummary, record, SubmissionPage } from './sub
 @Injectable({ providedIn: 'root' })
 export class SubmissionsApi {
   private readonly http = inject(HttpClient);
-  create(problemId: string, source: string) {
-    return this.http.post<unknown>(`/api/problems/${problemId}/submissions`, { language: 'cpp20', source }, {
+  create(problemId: string, source: string, requestKey?: string) {
+    return this.http.post<unknown>(`/api/problems/${problemId}/submissions`, { language: 'cpp20', source, ...(requestKey ? { requestKey } : {}) }, {
       context: this.context(), timeout: 15_000,
     }).pipe(map(value => {
       if (!isSubmission(value) || value.problemId.toLowerCase() !== problemId.toLowerCase()) throw new Error('Invalid submission response.');

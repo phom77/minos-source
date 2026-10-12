@@ -22,7 +22,7 @@ internal static class SubmissionEndpoints
         SubmissionUseCases useCases,
         CancellationToken token)
     {
-        var submission = await useCases.CreateAsync(problemId, new(request.Language, request.Source), token);
+        var submission = await useCases.CreateAsync(problemId, new(request.Language, request.Source, request.RequestKey), token);
         return Results.Created($"/api/submissions/{submission.Id}", Map(submission));
     }
 

@@ -66,8 +66,8 @@ export class ContestsApi {
       return value;
     }));
   }
-  submit(contestId: string, problemId: string, source: string) {
-    return this.http.post<unknown>(`/api/contests/${contestId}/problems/${problemId}/submissions`, { language: 'cpp20', source }, this.options()).pipe(map(v => {
+  submit(contestId: string, problemId: string, source: string, requestKey?: string) {
+    return this.http.post<unknown>(`/api/contests/${contestId}/problems/${problemId}/submissions`, { language: 'cpp20', source, ...(requestKey ? { requestKey } : {}) }, this.options()).pipe(map(v => {
       if (!record(v) || !id(v['id'])) throw new Error('Invalid submission response.');
       return { id: v['id'] };
     }));

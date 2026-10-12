@@ -49,19 +49,30 @@ internal sealed class ContestRepository(MinosDbContext database, SubmissionCapac
             throw new Minos.Domain.DomainValidationException("Registration", "Registration is closed.");
     }
     public async Task<bool> AdmitAsync(Contest contest, ContestSubmission association, Submission submission, JudgeJob job, CancellationToken token)
+        => await AdmitCoreAsync(contest, () => association, submission, job, null, token) is not null;
+
+    public Task<Guid?> AdmitOnceAsync(Contest contest, ContestRegistration registration, Guid contestProblemId, Submission submission, JudgeJob job,
+        SubmissionRequestIdentity request, CancellationToken token) => AdmitCoreAsync(contest,
+            () => ContestSubmission.Create(contest, registration, contestProblemId, submission), submission, job, request, token);
+
+    private async Task<Guid?> AdmitCoreAsync(Contest contest, Func<ContestSubmission> association, Submission submission, JudgeJob job,
+        SubmissionRequestIdentity? request, CancellationToken token)
     {
         await using var transaction = await database.Database.BeginTransactionAsync(token);
         // Same lock as practice admission: a contest is never a separate capacity pool.
         await database.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(21754185638891831)", token);
+        if (request is not null && await SubmissionRequestStore.FindAsync(database, submission.OwnerAccountId, request, token) is { } replay)
+            return replay;
         contest.EnsureCanSubmit(submission.OwnerAccountId, clock.GetUtcNow());
         var active = database.Submissions.Where(s => s.Status == SubmissionStatus.Pending || s.Status == SubmissionStatus.Judging);
         if (await active.CountAsync(token) >= capacity.MaximumActive ||
             await active.CountAsync(s => s.OwnerAccountId == submission.OwnerAccountId, token) >= SupportedSubmission.MaximumActivePerAccount)
-            return false;
-        database.Submissions.Add(submission); database.JudgeJobs.Add(job); database.ContestSubmissions.Add(association);
+            return null;
+        database.Submissions.Add(submission); database.JudgeJobs.Add(job); database.ContestSubmissions.Add(association());
+        if (request is not null) SubmissionRequestStore.Add(database, submission, request);
         await database.SaveChangesAsync(token);
         await transaction.CommitAsync(token);
-        return true;
+        return submission.Id;
     }
     public async Task<(IReadOnlyList<ContestSubmissionItem> Items, int Total)> ListSubmissionsAsync(Guid contestId, Guid ownerId,
         int offset, int limit, CancellationToken token)

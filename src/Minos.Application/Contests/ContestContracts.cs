@@ -26,6 +26,8 @@ public interface IContestRepository
     Task<ContestRegistration?> FindRegistrationAsync(Guid contestId, Guid accountId, CancellationToken token);
     Task RegisterAsync(ContestRegistration registration, CancellationToken token);
     Task<bool> AdmitAsync(Contest contest, ContestSubmission association, Submission submission, JudgeJob job, CancellationToken token);
+    Task<Guid?> AdmitOnceAsync(Contest contest, ContestRegistration registration, Guid contestProblemId, Submission submission, JudgeJob job,
+        SubmissionRequestIdentity request, CancellationToken token);
     Task<(IReadOnlyList<ContestSubmissionItem> Items, int Total)> ListSubmissionsAsync(Guid contestId, Guid ownerId,
         int offset, int limit, CancellationToken token);
 }

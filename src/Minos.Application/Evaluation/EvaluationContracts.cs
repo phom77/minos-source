@@ -9,7 +9,7 @@ public static class SupportedSubmission
     public const int MaximumActivePerAccount = 5;
 }
 
-public sealed record CreateSubmission(string? Language, string? Source);
+public sealed record CreateSubmission(string? Language, string? Source, Guid? RequestKey = null);
 
 public sealed record SubmissionSummary(
     Guid Id,

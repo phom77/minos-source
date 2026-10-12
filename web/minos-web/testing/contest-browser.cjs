@@ -9,6 +9,7 @@ const now = new Date().toISOString();
 const problem = { problemId: pid, versionId: vid, versionNumber: 1, title: 'Tổng hai số — Sum of two numbers', statement: 'Read two integers and print their sum.',
   timeLimitMilliseconds: 1000, memoryLimitMegabytes: 64, checker: 'Exact', privateTestCount: 1, publishedAtUtc: now, samples: [{ input: '1 2\n', output: '3\n' }] };
 let role = 'Setter', joined = false, phase = 'Draft', created = false, submitted = false;
+const submissionKeys = [];
 let contest = { id: cid, title: 'Minos practice', description: 'A short practice contest.', startsAtUtc: '2099-10-09T01:00:00Z', endsAtUtc: '2099-10-09T03:00:00Z', revision: 2, problemCount: 1 };
 const details = () => ({ ...contest, state: phase, canManage: role === 'Setter', isRegistered: joined, canRegister: role === 'Solver' && !joined && phase !== 'Ended',
   canSubmit: role === 'Solver' && joined && phase === 'Live', serverTimeUtc: now,
@@ -36,14 +37,19 @@ const details = () => ({ ...contest, state: phase, canManage: role === 'Setter',
     if (pathname.endsWith('/submissions/mine')) return route.fulfill({ json: { items: [], page: 1, pageSize: 20, total: 0 } });
     if (pathname.endsWith('/submissions')) {
       assert.equal(pathname, `/api/contests/${cid}/problems/${pid}/submissions`);
-      assert.equal(req.postDataJSON().language, 'cpp20'); submitted = true; return route.fulfill({ status: 201, json: { id: sid } });
+      assert.equal(req.postDataJSON().language, 'cpp20');
+      const key = req.postDataJSON().requestKey; assert.match(key, /^[0-9a-f-]{36}$/); submissionKeys.push(key);
+      submitted = true;
+      if (submissionKeys.length === 1) { phase = 'Ended'; return route.abort('failed'); }
+      assert.equal(submissionKeys[1], submissionKeys[0]);
+      return route.fulfill({ status: 201, json: { id: sid } });
     }
     if (pathname === `/api/contests/${cid}/problems/${pid}`) return route.fulfill({ json: problem });
     if (pathname === `/api/contests/${cid}`) return route.fulfill({ json: details() });
     throw new Error(`Unmocked request: ${req.method()} ${pathname}`);
   });
   const out = path.resolve(__dirname, '../../../artifacts/contest-browser'); await fs.mkdir(out, { recursive: true });
-  await page.goto('http://127.0.0.1:4320/contests');
+  await page.goto((process.env.MINOS_BROWSER_BASE_URL || 'http://127.0.0.1:4320') + '/contests');
   await page.getByRole('link', { name: 'Create contest', exact: true }).click();
   await page.getByLabel('Contest title', { exact: true }).focus(); await page.keyboard.press('Tab');
   assert.equal(await page.getByLabel('Contest title', { exact: true }).getAttribute('aria-invalid'), null);
@@ -67,7 +73,10 @@ const details = () => ({ ...contest, state: phase, canManage: role === 'Setter',
   assert.equal(await page.getByRole('link', { name: problem.title, exact: false }).count(), 0);
   phase = 'Live'; await page.reload(); await page.getByRole('link', { name: problem.title, exact: false }).click();
   await page.getByLabel('C++20 source code').fill('int main() { return 0; }');
-  await page.getByRole('button', { name: 'Submit to contest' }).click(); await page.getByRole('link', { name: 'View judging result' }).waitFor(); assert.ok(submitted);
+  await page.getByRole('button', { name: 'Submit to contest' }).click();
+  await page.getByRole('button', { name: 'Retry submission' }).waitFor();
+  await page.getByRole('button', { name: 'Retry submission' }).click();
+  await page.getByRole('link', { name: 'View judging result' }).waitFor(); assert.ok(submitted); assert.equal(submissionKeys.length, 2);
   for (const width of [320, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: 1000 });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `solve overflows at ${width}`);

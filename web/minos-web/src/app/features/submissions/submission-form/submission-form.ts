@@ -76,7 +76,10 @@ export class SubmissionForm {
         afterNextRender(() => this.document.getElementById('submission-source')?.focus(), { injector: this.injector });
       }
     });
-    this.source.valueChanges.pipe(takeUntilDestroyed()).subscribe(source => { this.bytes.set(sourceBytes(source)); this.draft.save(this.problemId(), source); });
+    this.source.valueChanges.pipe(takeUntilDestroyed()).subscribe(source => {
+      this.bytes.set(sourceBytes(source)); this.draft.save(this.problemId(), source);
+      if (!this.draft.hasRequestKey(this.problemId(), source)) this.uncertain.set(false);
+    });
     const warnOnReload = (event: BeforeUnloadEvent) => { if (this.pending() || (this.source.value.trim() && this.source.value !== this.acknowledgedSource)) event.preventDefault(); };
     this.document.defaultView?.addEventListener('beforeunload', warnOnReload);
     this.destroyRef.onDestroy(() => this.document.defaultView?.removeEventListener('beforeunload', warnOnReload));
@@ -109,10 +112,10 @@ export class SubmissionForm {
     this.pending.set(true); this.source.disable({ emitEvent: false });
     const id = this.problemId();
     const sentSource = this.source.value;
-    this.api.create(id, sentSource).pipe(finalize(() => { this.pending.set(false); this.source.enable({ emitEvent: false }); }), takeUntilDestroyed(this.destroyRef)).subscribe({
+    this.api.create(id, sentSource, this.draft.requestKey(id, sentSource)).pipe(finalize(() => { this.pending.set(false); this.source.enable({ emitEvent: false }); }), takeUntilDestroyed(this.destroyRef)).subscribe({
       next: submission => {
         if (this.session.account()?.id !== owner) return;
-        this.draft.clear(id); this.feedback.reset(); this.submitted.set(false);
+        this.draft.clear(id); this.feedback.reset(); this.submitted.set(false); this.uncertain.set(false);
         if (this.inlineResult()) {
           this.acknowledgedSource = sentSource; this.selection.set({ owner, data: submission }); this.consoleTab.set('result');
           afterNextRender(() => this.document.getElementById('console-tab-result')?.focus(), { injector: this.injector });
@@ -126,7 +129,8 @@ export class SubmissionForm {
         this.error.set(status === 429 ? (Number.isSafeInteger(retry) && retry > 0 && retry <= 3600 ? `Too many active submissions. Try again in ${retry} seconds.` : 'Too many active submissions. Wait a moment, then try again.') : status === 404 ? 'This problem is no longer available for submission.'
           : status === 403 ? 'You cannot submit to this problem.' : status === 400 ? 'Your submission was rejected. Refresh the page and try again.'
           : status === 413 ? 'The submission is too large. Reduce your code and try again.'
-          : this.uncertain() ? 'Submission not confirmed. Check your history before submitting again.' : 'Your session has expired. Sign in to submit.');
+          : status === 409 ? 'This submission request changed. Check your history before submitting again.'
+          : this.uncertain() ? 'Submission not confirmed. Retry to check the same submission, or check your history. After reloading or editing your code, check history before submitting again.' : 'Your session has expired. Sign in to submit.');
         this.focusError();
       },
     });

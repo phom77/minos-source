@@ -1001,6 +1001,41 @@ namespace Minos.Infrastructure.Persistence.Migrations
                     b.ToTable("credentials", "accounts");
                 });
 
+            modelBuilder.Entity("Minos.Infrastructure.Persistence.SubmissionRequestRecord", b =>
+                {
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<Guid>("Key")
+                        .HasColumnType("uuid")
+                        .HasColumnName("request_key");
+
+                    b.Property<string>("Fingerprint")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("fingerprint");
+
+                    b.Property<Guid>("SubmissionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("submission_id");
+
+                    b.HasKey("AccountId", "Key");
+
+                    b.HasIndex("SubmissionId")
+                        .IsUnique();
+
+                    b.HasIndex("SubmissionId", "AccountId");
+
+                    b.ToTable("submission_requests", "evaluation", t =>
+                        {
+                            t.HasCheckConstraint("ck_submission_requests_fingerprint", "fingerprint ~ '^[0-9a-f]{64}$'");
+
+                            t.HasCheckConstraint("ck_submission_requests_key", "request_key <> '00000000-0000-0000-0000-000000000000'::uuid");
+                        });
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<System.Guid>", b =>
                 {
                     b.HasOne("Minos.Infrastructure.Accounts.CredentialUser", null)
@@ -1384,6 +1419,16 @@ namespace Minos.Infrastructure.Persistence.Migrations
                     b.HasOne("Minos.Domain.Accounts.Account", null)
                         .WithOne()
                         .HasForeignKey("Minos.Infrastructure.Accounts.CredentialUser", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Minos.Infrastructure.Persistence.SubmissionRequestRecord", b =>
+                {
+                    b.HasOne("Minos.Domain.Evaluation.Submission", null)
+                        .WithMany()
+                        .HasForeignKey("SubmissionId", "AccountId")
+                        .HasPrincipalKey("Id", "OwnerAccountId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

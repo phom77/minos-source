@@ -3,11 +3,65 @@ on: [push, pull_request]
 permissions:
   contents: read
 jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: web/minos-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.20.0'
+          cache: npm
+          cache-dependency-path: web/minos-web/package-lock.json
+      - name: Locked frontend dependencies
+        run: npm ci
+      - name: Frontend dependency audit
+        run: npm audit --audit-level=high
+      - name: Production frontend build
+        run: npm run build
+      - name: Frontend regression tests
+        run: npm test
+      - name: Prepare browser
+        run: npx playwright install --with-deps chromium
+      - name: Production SPA browser journeys with isolated API fixtures
+        run: npm run test:browser
+      - name: Upload browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-browser-evidence
+          path: |
+            artifacts/contest-browser/
+            artifacts/submission-browser/
+          if-no-files-found: ignore
   foundation:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
+      - name: Stop the disposable runner's preinstalled Docker daemon
+        run: sudo systemctl stop docker.service docker.socket
+      - name: Prepare the verified Docker engine
+        id: docker
+        uses: docker/setup-docker-action@v5
+        with:
+          version: v28.5.2
+          set-host: true
+      - name: Connect the runner to the same engine used by the CLI
+        env:
+          MINOS_CI_DOCKER_SOCKET: ${{ steps.docker.outputs.sock }}
+        run: |
+          socket="${MINOS_CI_DOCKER_SOCKET#unix://}"
+          test -S "$socket"
+          sudo chgrp "$(id -gn)" "$socket"
+          sudo chmod 660 "$socket"
+          sudo ln -sfn "$socket" /var/run/docker.sock
+          docker version
+          test "$(docker version --format '{{.Server.Version}}')" = 28.5.2
+          curl --fail --silent --unix-socket /var/run/docker.sock http://docker/v1.51/info >/dev/null
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'

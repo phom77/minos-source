@@ -1,4 +1,5 @@
 import { DOCUMENT, DatePipe } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
 import { afterNextRender, ChangeDetectionStrategy, Component, DestroyRef, ElementRef, inject, Injector, signal, viewChild } from '@angular/core';
 import { takeUntilDestroyed, toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
@@ -44,6 +45,7 @@ export class ContestSolve {
   retry(): void { this.reload.next(); }
   fieldError(): string | null { return this.feedback.visible('source', this.submitted()) ? sourceError(this.source.value) : null; }
   blur(): void { this.feedback.blur('source', sourceError(this.source.value) !== null); }
+  canRetry(): boolean { return this.draft.hasRequestKey(this.draftKey, this.source.value); }
   submit(): void {
     const data = this.state().data, owner = this.session.account()?.id;
     if (!data || !owner || this.pending()) return;
@@ -51,10 +53,16 @@ export class ContestSolve {
     this.submitted.set(true); this.error.set(null);
     if (sourceError(this.source.value)) { this.focus(); return; }
     this.pending.set(true); this.source.disable({ emitEvent: false });
-    this.api.submit(data.contest.id, data.contestProblemId, this.source.value).pipe(finalize(() => { this.pending.set(false); this.source.enable({ emitEvent: false }); }),
+    this.api.submit(data.contest.id, data.contestProblemId, this.source.value, this.draft.requestKey(key, this.source.value)).pipe(finalize(() => { this.pending.set(false); this.source.enable({ emitEvent: false }); }),
       takeUntilDestroyed(this.destroy)).subscribe({
       next: result => { if (this.session.account()?.id !== owner || this.draftKey !== key) return; this.draft.clear(key); this.submissionId.set(result.id); this.source.markAsPristine(); this.feedback.reset(); this.submitted.set(false); },
-      error: error => { if (this.session.account()?.id !== owner || this.draftKey !== key) return; this.error.set(contestError(error)); this.focus(); this.retry(); },
+      error: error => {
+        if (this.session.account()?.id !== owner || this.draftKey !== key) return;
+        this.error.set(!(error instanceof HttpErrorResponse) || error.status === 0 || error.status >= 500
+          ? 'Submission not confirmed. Retry to check the same submission. After reloading or editing your code, check contest history before submitting again.'
+          : error.status === 409 ? 'This submission request changed. Check contest history before submitting again.' : contestError(error));
+        this.focus(); this.retry();
+      },
     });
   }
   private focus(): void { afterNextRender(() => this.summary()?.nativeElement.focus(), { injector: this.injector }); }

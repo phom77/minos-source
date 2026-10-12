@@ -10,8 +10,8 @@
       <section class="panel" aria-labelledby="contest-code-heading">
         @if (data.contest.isRegistered) {
           <form (submit)="$event.preventDefault(); submit()" (pointerdown)="feedback.prepareSubmit($event)" novalidate [attr.aria-busy]="pending()">
-            <header class="panel-header"><h2 id="contest-code-heading">C++20</h2><button class="button" type="submit" [disabled]="pending() || !data.contest.canSubmit">{{ pending() ? 'Submitting…' : 'Submit to contest' }}</button></header>
-            @if (!data.contest.canSubmit) { <p class="panel-body notice">The contest has ended. You can still copy your code.</p> }
+            <header class="panel-header"><h2 id="contest-code-heading">C++20</h2><button class="button" type="submit" [disabled]="pending() || (!data.contest.canSubmit && !canRetry())">{{ pending() ? 'Submitting…' : canRetry() ? 'Retry submission' : 'Submit to contest' }}</button></header>
+            @if (!data.contest.canSubmit) { <p class="panel-body notice">{{ canRetry() ? 'The contest has ended. Retry to check whether your earlier submission was received.' : 'The contest has ended. You can still copy your code.' }}</p> }
             @if (error() || (submitted() && fieldError())) { <div #summary class="form-errors" role="alert" tabindex="-1">{{ error() ?? fieldError() }}<p><a [routerLink]="['/contests', data.contest.id]">Check contest submission history</a></p></div> }
             <minos-code-editor [control]="source" [error]="fieldError()" (edited)="feedback.edit('source')" (blurred)="blur()" />
             <p id="source-size" class="panel-body muted">C++20 source · maximum 64 KiB</p>

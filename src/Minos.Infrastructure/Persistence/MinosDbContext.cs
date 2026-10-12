@@ -23,6 +23,7 @@ public sealed class MinosDbContext(DbContextOptions<MinosDbContext> options) : I
     public DbSet<PublishedProblemTestCase> PublishedProblemTestCases => Set<PublishedProblemTestCase>();
     public DbSet<Account> Accounts => Set<Account>();
     public DbSet<Submission> Submissions => Set<Submission>();
+    internal DbSet<SubmissionRequestRecord> SubmissionRequests => Set<SubmissionRequestRecord>();
     public DbSet<JudgeJob> JudgeJobs => Set<JudgeJob>();
     public DbSet<JudgingAttempt> JudgingAttempts => Set<JudgingAttempt>();
     public DbSet<SubmissionResult> SubmissionResults => Set<SubmissionResult>();
@@ -49,6 +50,7 @@ public sealed class MinosDbContext(DbContextOptions<MinosDbContext> options) : I
         modelBuilder.ApplyConfiguration(new PublishedProblemSampleConfiguration());
         modelBuilder.ApplyConfiguration(new PublishedProblemTestCaseConfiguration());
         modelBuilder.ApplyConfiguration(new SubmissionConfiguration());
+        modelBuilder.ApplyConfiguration(new SubmissionRequestConfiguration());
         modelBuilder.ApplyConfiguration(new JudgeJobConfiguration());
         modelBuilder.ApplyConfiguration(new JudgingAttemptConfiguration());
         modelBuilder.ApplyConfiguration(new SubmissionResultConfiguration());

@@ -1,6 +1,6 @@
 namespace Minos.Api.Submissions;
 
-public sealed record CreateSubmissionRequest(string? Language, string? Source);
+public sealed record CreateSubmissionRequest(string? Language, string? Source, Guid? RequestKey = null);
 public sealed record SubmissionAttemptResponse(
     Guid Id,
     int Number,

@@ -9,7 +9,7 @@ using Minos.Domain.Evaluation;
 namespace Minos.Application.Contests;
 
 public sealed class ContestUseCases(IContestRepository repository, IProblemRepository problems,
-    AccountUseCases accounts, ICurrentAccount current, TimeProvider clock)
+    AccountUseCases accounts, ICurrentAccount current, TimeProvider clock, ISubmissionRepository submissions)
 {
     public async Task<ContestPage> ListAsync(bool mine, int page, int pageSize, CancellationToken token)
     {
@@ -85,11 +85,18 @@ public sealed class ContestUseCases(IContestRepository repository, IProblemRepos
         var account = await accounts.RequireActiveAsync(token);
         var contest = await VisibleAsync(id, account, token);
         var registration = await repository.FindRegistrationAsync(id, account.Id, token) ?? throw new AccessDeniedException();
+        var identity = SubmissionRequestIdentity.Create(request, contestProblemId, id);
+        // An authorized replay may return accepted work after the contest ends; it never creates new work.
+        if (identity is not null && await submissions.FindRequestAsync(account.Id, identity, token) is { } replay)
+            return replay;
         if (request.Language != SupportedSubmission.Language)
             throw new DomainValidationException(nameof(request.Language), "Only cpp20 is supported.");
         var problem = contest.Problems.SingleOrDefault(p => p.Id == contestProblemId) ?? throw new ResourceNotFoundException();
         var submission = Submission.Create(account.Id, problem.ProblemId, problem.VersionId, SupportedSubmission.Language,
             SupportedSubmission.ToolchainId, request.Source, clock.GetUtcNow());
+        if (identity is not null)
+            return await repository.AdmitOnceAsync(contest, registration, contestProblemId, submission, JudgeJob.Create(submission.Id, submission.CreatedAtUtc), identity, token)
+                ?? throw new AdmissionLimitExceededException();
         var association = ContestSubmission.Create(contest, registration, contestProblemId, submission);
         if (!await repository.AdmitAsync(contest, association, submission, JudgeJob.Create(submission.Id, submission.CreatedAtUtc), token))
             throw new AdmissionLimitExceededException();

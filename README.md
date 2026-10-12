@@ -22,6 +22,8 @@ The repository stays on Windows D:. The local Compose stack runs the trusted Wor
 | [Project design](docs/project-design.md) | Product requirements, MVP boundary, domain ownership, architecture, judging lifecycle, and engineering policies |
 | [Decision register](docs/decisions.md) | Confirmed constraints, proposed choices, alternatives, and questions to resolve |
 | [Implementation roadmap](docs/implementation-plan.md) | Ordered milestones, dependencies, deliverables, validation, and release gates |
+| [Microservice readiness plan](docs/microservice-readiness-plan.md) | Three phases for candidate acceptance, capacity/boundary evidence, and a conditional first extraction |
+| [Phase 1 candidate results](docs/phase1-readiness-results.md) | Submission-request replay, frontend CI/dependency updates, verification evidence and acceptance limits |
 | [Approved visual reference](docs/design/minos-visual-reference.md) | Owner-provided brand/UI images, approved palette, visual patterns, and future frontend design guidance |
 
 ## First milestone

@@ -21,6 +21,7 @@ internal sealed class DomainExceptionHandler(IProblemDetailsService problemDetai
             AccessDeniedException => new ProblemDetails { Status = 403, Title = "Access denied." },
             ResourceNotFoundException => new ProblemDetails { Status = 404, Title = "Resource not found." },
             ConcurrencyConflictException => new ProblemDetails { Status = 409, Title = "The resource changed. Reload and try again." },
+            Minos.Application.Evaluation.SubmissionRequestConflictException => new ProblemDetails { Status = 409, Title = "This request key was already used for a different submission." },
             ArtifactValidationException => new ProblemDetails { Status = 400, Title = "Invalid test package." },
             AdmissionLimitExceededException => new ProblemDetails { Status = 429, Title = "Too many active submissions." },
             ArgumentOutOfRangeException => new ProblemDetails { Status = 400, Title = "Invalid request." },

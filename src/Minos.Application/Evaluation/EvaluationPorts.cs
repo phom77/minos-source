@@ -4,6 +4,8 @@ namespace Minos.Application.Evaluation;
 
 public interface ISubmissionRepository
 {
+    Task<Guid?> FindRequestAsync(Guid ownerAccountId, SubmissionRequestIdentity request, CancellationToken token);
+    Task<Guid?> AdmitOnceAsync(Submission submission, JudgeJob job, int maximumActive, SubmissionRequestIdentity request, CancellationToken token);
     Task<bool> AdmitAsync(Submission submission, JudgeJob job, int maximumActive, CancellationToken token);
     Task<(Submission Submission, IReadOnlyList<JudgingAttempt> Attempts, SubmissionResult? Result)?> FindAsync(Guid id, CancellationToken token);
     Task<(IReadOnlyList<(Submission Submission, SubmissionVerdict? Verdict)> Items, int Total)> ListByOwnerAsync(

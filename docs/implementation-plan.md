@@ -5,6 +5,10 @@ Status: M0–M6 complete; M7 backend complete and verified; development MVP owne
 
 Related documents: [M0 closure](m0-closure.md), [Project design](project-design.md), [Decision register](decisions.md)
 
+The owner requested a [three-phase microservice readiness plan](microservice-readiness-plan.md) on 2026-10-12. It covers candidate acceptance/correctness gaps, measured capacity and boundary design, then an evidence-based extraction decision. This planning request does not authorize M8, brokers, distributed Workers or a change to the five-project architecture.
+
+The owner subsequently authorized the complete Phase 1 implementation. [Phase 1 candidate results](phase1-readiness-results.md) track submission-request idempotency, frontend CI/dependency remediation and actual verification outcomes. Development-MVP acceptance remains explicit.
+
 The owner authorized [three phases of judging improvements](judging-improvement-plan.md) on 2026-10-07, beginning with complete-test results/counts ([ADR 0012](adr/0012-complete-private-test-judging.md)). This is a new correctness requirement that supersedes M6's first-failure execution policy for new submissions; M8 and public/distributed hosting remain separate.
 
 ## Planning rules

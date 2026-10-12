@@ -374,6 +374,9 @@ internal sealed class DockerExecutionBackend : IExecutionBackend, IDisposable
             Labels = new Dictionary<string, string> { ["minos.judge"] = "m6" },
             HostConfig = new
             {
+                // Reap orphaned descendants after the guard kills them. Zombies must not
+                // keep the PID budget full and prevent final trusted evidence collection.
+                Init = true,
                 NetworkMode = "none", CapDrop = new[] { "ALL" }, SecurityOpt = new[] { "no-new-privileges" },
                 ReadonlyRootfs = true, Memory = limits.MemoryBytes, MemorySwap = limits.MemoryBytes,
                 NanoCpus = 1_000_000_000L, PidsLimit = limits.Processes + 2, ShmSize = 1024 * 1024,

@@ -5,7 +5,7 @@
       <div class="code-controls">
         @if (inlineResult()) { <button class="icon-button expand-control" type="button" (click)="expand.emit()" [attr.aria-label]="expanded() ? 'Restore split view' : 'Expand editor'" [attr.aria-pressed]="expanded()"><minos-icon [name]="expanded() ? 'restore' : 'expand'" /></button> }
         @switch (session.state().status) {
-          @case ('authenticated') { <button class="button" type="submit" [disabled]="pending()"><minos-icon name="submit" />{{ pending() ? 'Submitting…' : 'Submit' }}</button> }
+          @case ('authenticated') { <button class="button" type="submit" [disabled]="pending()"><minos-icon name="submit" />{{ pending() ? 'Submitting…' : uncertain() ? 'Retry submission' : 'Submit' }}</button> }
           @case ('guest') { <button class="button" type="button" (click)="signIn()">Sign in to submit</button> }
           @case ('checking') { <button class="button" type="button" disabled>Checking session…</button> }
           @case ('unavailable') { <button class="button button--secondary" type="button" (click)="retrySession()">Reconnect account</button> }

@@ -1,4 +1,5 @@
 using System.Text;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Minos.Domain.Evaluation;
 
@@ -45,8 +46,7 @@ public sealed class Submission
             throw new DomainValidationException(nameof(Language), "Language is required and must be at most 32 characters.");
         if (string.IsNullOrWhiteSpace(toolchainId) || toolchainId.Length > 160)
             throw new DomainValidationException(nameof(ToolchainId), "Toolchain identity is required and must be at most 160 characters.");
-        if (string.IsNullOrWhiteSpace(source) || source.Contains('\0') || Encoding.UTF8.GetByteCount(source) > MaximumSourceBytes)
-            throw new DomainValidationException(nameof(Source), $"Source must contain text, no null characters, and at most {MaximumSourceBytes} UTF-8 bytes.");
+        ValidateSource(source);
         EnsureUtc(createdAtUtc, nameof(CreatedAtUtc));
 
         return new Submission
@@ -70,6 +70,12 @@ public sealed class Submission
             throw InvalidState();
         Status = SubmissionStatus.Judging;
         CurrentAttemptId = attemptId;
+    }
+
+    public static void ValidateSource([NotNull] string? source)
+    {
+        if (string.IsNullOrWhiteSpace(source) || source.Contains('\0') || Encoding.UTF8.GetByteCount(source) > MaximumSourceBytes)
+            throw new DomainValidationException(nameof(Source), $"Source must contain text, no null characters, and at most {MaximumSourceBytes} UTF-8 bytes.");
     }
 
     public void ReturnToPending(Guid attemptId)

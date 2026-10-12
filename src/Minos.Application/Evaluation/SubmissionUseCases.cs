@@ -13,6 +13,9 @@ public sealed class SubmissionUseCases(
     public async Task<SubmissionDetails> CreateAsync(Guid problemId, CreateSubmission request, CancellationToken token)
     {
         var account = await accounts.RequireActiveAsync(token);
+        var identity = SubmissionRequestIdentity.Create(request, problemId);
+        if (identity is not null && await submissions.FindRequestAsync(account.Id, identity, token) is { } replay)
+            return await FindAsync(replay, token);
         if (!string.Equals(request.Language, SupportedSubmission.Language, StringComparison.Ordinal))
             throw new Minos.Domain.DomainValidationException(nameof(request.Language), "Only cpp20 is supported.");
         var version = await problems.FindLatestPublishedAsync(problemId, token) ?? throw new ResourceNotFoundException();
@@ -25,7 +28,13 @@ public sealed class SubmissionUseCases(
             request.Source,
             clock.GetUtcNow());
         var job = JudgeJob.Create(submission.Id, submission.CreatedAtUtc);
-        if (!await submissions.AdmitAsync(submission, job, SupportedSubmission.MaximumActivePerAccount, token))
+        if (identity is not null)
+        {
+            var admitted = await submissions.AdmitOnceAsync(submission, job, SupportedSubmission.MaximumActivePerAccount, identity, token)
+                ?? throw new AdmissionLimitExceededException();
+            if (admitted != submission.Id) return await FindAsync(admitted, token);
+        }
+        else if (!await submissions.AdmitAsync(submission, job, SupportedSubmission.MaximumActivePerAccount, token))
             throw new AdmissionLimitExceededException();
         return Map(submission, [], configuration: Configuration(version));
     }

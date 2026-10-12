@@ -42,7 +42,7 @@ describe('submission composer UX', () => {
     const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
     input('  int main() {}\n'); await submit(); fixture.componentInstance.submit();
     const post = http.expectOne('/api/problems/' + submission.problemId + '/submissions');
-    expect(post.request.body).toEqual({ language: 'cpp20', source: '  int main() {}\n' }); expect(textarea().disabled).toBe(true);
+    expect(post.request.body).toEqual({ language: 'cpp20', source: '  int main() {}\n', requestKey: expect.any(String) }); expect(textarea().disabled).toBe(true);
     post.flush(submission); await fixture.whenStable(); fixture.detectChanges();
     expect(navigate).toHaveBeenCalledWith(['/submissions', submission.id]); expect(textarea().value).toBe('');
     expect(TestBed.inject(SubmissionDraft).read(submission.problemId)).toBe('');
@@ -51,8 +51,28 @@ describe('submission composer UX', () => {
     input('int main() {}'); await submit(); const post = http.expectOne('/api/problems/' + submission.problemId + '/submissions');
     if (status === 0) post.error(new ProgressEvent('error')); else post.flush({ detail: 'secret stack' }, { status, statusText: 'Unavailable' });
     await fixture.whenStable(); fixture.detectChanges(); expect(textarea().value).toBe('int main() {}');
-    expect(fixture.nativeElement.textContent).toContain('Check your history'); expect(fixture.nativeElement.textContent).not.toContain('secret stack');
+    expect(fixture.nativeElement.textContent).toContain('check your history'); expect(fixture.nativeElement.textContent).not.toContain('secret stack');
     expect(fixture.nativeElement.querySelector('.form-errors a')?.getAttribute('href')).toBe('/submissions'); http.expectNone(request => request.method === 'POST');
+  });
+  it('reuses the key after a lost response and creates a new key after acknowledgement or editing', async () => {
+    fixture.componentRef.setInput('inlineResult', true); fixture.detectChanges();
+    input('int main() {}'); await submit();
+    const first = http.expectOne('/api/problems/' + submission.problemId + '/submissions');
+    const key = first.request.body.requestKey;
+    expect(key).toMatch(/^[0-9a-f-]{36}$/);
+    first.error(new ProgressEvent('error')); await fixture.whenStable(); fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('button[type="submit"]').textContent).toContain('Retry submission');
+    await submit(); const retry = http.expectOne('/api/problems/' + submission.problemId + '/submissions');
+    expect(retry.request.body.requestKey).toBe(key);
+    retry.flush(completed); await fixture.whenStable(); fixture.detectChanges();
+    http.expectOne('/api/submissions/' + submission.id).flush(completed); await fixture.whenStable(); fixture.detectChanges();
+    await submit(); const next = http.expectOne('/api/problems/' + submission.problemId + '/submissions');
+    expect(next.request.body.requestKey).not.toBe(key);
+    const nextKey = next.request.body.requestKey;
+    next.error(new ProgressEvent('error')); await fixture.whenStable(); fixture.detectChanges();
+    input('int main(){return 1;}'); await submit(); const edited = http.expectOne('/api/problems/' + submission.problemId + '/submissions');
+    expect(edited.request.body.requestKey).not.toBe(nextKey);
+    edited.flush({}, { status: 429, statusText: 'Busy' }); await fixture.whenStable(); fixture.detectChanges();
   });
   it('uses Retry-After on overload and permits a deliberate retry with the same source', async () => {
     vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);

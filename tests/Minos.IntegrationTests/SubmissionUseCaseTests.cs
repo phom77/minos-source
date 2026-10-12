@@ -93,6 +93,9 @@ public sealed class SubmissionUseCaseTests
         public bool Accept { get; init; } = true;
         public Submission? Submission { get; set; }
         public JudgeJob? Job { get; private set; }
+        public Task<Guid?> FindRequestAsync(Guid ownerAccountId, SubmissionRequestIdentity request, CancellationToken token) => Task.FromResult<Guid?>(null);
+        public async Task<Guid?> AdmitOnceAsync(Submission submission, JudgeJob job, int maximumActive, SubmissionRequestIdentity request, CancellationToken token) =>
+            await AdmitAsync(submission, job, maximumActive, token) ? submission.Id : null;
         public Task<bool> AdmitAsync(Submission submission, JudgeJob job, int maximumActive, CancellationToken token)
         {
             Submission = submission;
