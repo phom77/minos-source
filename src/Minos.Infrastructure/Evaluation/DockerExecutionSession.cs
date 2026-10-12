@@ -45,13 +45,31 @@ internal sealed class DockerExecutionSession : IDisposable
 
     public async Task<(bool Running, int ExitCode, long ProcessId)> InspectAsync(CancellationToken token)
     {
-        using var response = await engine.GetAsync($"exec/{id}/json", token);
-        response.EnsureSuccessStatusCode();
-        using var state = JsonDocument.Parse(await response.Content.ReadAsStringAsync(token));
-        var running = state.RootElement.GetProperty("Running").GetBoolean();
-        // Docker reports a null exit code while the process is still running.
-        return (running, running ? 0 : state.RootElement.GetProperty("ExitCode").GetInt32(),
-            state.RootElement.GetProperty("Pid").GetInt64());
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(token);
+        deadline.CancelAfter(TimeSpan.FromSeconds(3));
+        try
+        {
+            while (true)
+            {
+                using var response = await engine.GetAsync($"exec/{id}/json", deadline.Token);
+                response.EnsureSuccessStatusCode();
+                using var state = JsonDocument.Parse(await response.Content.ReadAsStringAsync(deadline.Token));
+                var running = state.RootElement.GetProperty("Running").GetBoolean();
+                var exit = state.RootElement.GetProperty("ExitCode");
+                // The daemon sends attachment headers before starting exec. Not-running
+                // with a null exit code is transitional, never proof of successful completion.
+                if (!running && exit.ValueKind == JsonValueKind.Null)
+                {
+                    await Task.Delay(25, deadline.Token);
+                    continue;
+                }
+                return (running, running ? 0 : exit.GetInt32(), state.RootElement.GetProperty("Pid").GetInt64());
+            }
+        }
+        catch (OperationCanceledException) when (!token.IsCancellationRequested)
+        {
+            throw new IOException("Docker did not publish bounded exec state evidence.");
+        }
     }
 
     public async Task<(byte[] Stdout, byte[] Stderr)> CaptureAsync(int stdoutLimit, int stderrLimit, Action exceeded)
