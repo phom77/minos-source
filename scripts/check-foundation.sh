@@ -99,8 +99,22 @@ ConnectionStrings__Minos="$MINOS_TEST_MIGRATION_CONNECTION" "$dotnet_command" "$
 docker exec -i --env "PGPASSWORD=$migrator_password" "$container" psql -X --set ON_ERROR_STOP=1 -U minos_migrator -d minos \
     < "$repository/scripts/postgres-runtime-grants.sql" > "$workspace/grants.log" 2>&1
 printf 'fresh_migration_and_repeat=passed\n'
+# Integration tests deliberately create synthetic jobs/artifact failures. Keep those
+# rows out of the subsequent real HTTP/workload/recovery rehearsal's queue.
+# Clone the migrated empty schema before either host starts; database ACLs are explicit.
+docker exec -i --env "PGPASSWORD=$password" "$container" psql -X -v ON_ERROR_STOP=1 -U minos_bootstrap -d postgres \
+    > "$workspace/integration-database.log" 2>&1 <<'SQL'
+CREATE DATABASE minos_tests TEMPLATE minos;
+REVOKE ALL ON DATABASE minos_tests FROM PUBLIC;
+GRANT CONNECT, CREATE ON DATABASE minos_tests TO minos_migrator;
+GRANT CONNECT ON DATABASE minos_tests TO minos_api, minos_worker;
+SQL
 test_filter=()
 if [[ -n "${MINOS_TEST_FILTER:-}" ]]; then test_filter=(--filter "$MINOS_TEST_FILTER"); fi
+ConnectionStrings__Minos="${ConnectionStrings__Minos/Database=minos;/Database=minos_tests;}" \
+MINOS_TEST_MIGRATION_CONNECTION="${MINOS_TEST_MIGRATION_CONNECTION/Database=minos;/Database=minos_tests;}" \
+MINOS_TEST_WORKER_CONNECTION="${MINOS_TEST_WORKER_CONNECTION/Database=minos;/Database=minos_tests;}" \
+MINOS_TEST_BOOTSTRAP_CONNECTION="${MINOS_TEST_BOOTSTRAP_CONNECTION/Database=minos;/Database=minos_tests;}" \
 "$dotnet_command" test "$workspace/source/Minos.sln" "${test_filter[@]}" --artifacts-path "$build_directory" --no-build -c Release --nologo \
     --logger trx --results-directory "$repository/artifacts/tests"
 ConnectionStrings__Minos="$MINOS_TEST_WORKER_CONNECTION" "$dotnet_command" "$worker_dll" --check > "$workspace/worker-check.log" 2>&1
