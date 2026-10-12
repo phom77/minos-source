@@ -8,6 +8,12 @@
 
 M5 established durable admission, version pinning and attempt ownership. M6 must produce contestant results from real sandbox execution without confusing infrastructure failure with an incorrect program. The project owner accepted the checker, verdict, test-order, accounting and trusted-validation recommendations before implementation.
 
+## Phase 1 evidence corrections (2026-10-13)
+
+The owner-authorized reliability readiness work exposed orphan zombies occupying the sandbox PID budget and preventing trusted final telemetry. Docker sandboxes now use the engine's init reaper within the existing PID/memory/isolation bounds; supervisor overhead remains included in cgroup measurements. Contestant UID, stage-only read-only mounts, network/capability restrictions and complete-evidence requirements are unchanged.
+
+Docker attachment headers can precede exec startup. A not-running exec with null exit code is transitional, not successful completion. Inspection waits within the existing three-second transport bound, observes cancellation, and treats persistently missing evidence as infrastructure failure. Deterministic transport regressions and the real outage/recovery/restore pipeline pass. See [Phase 1 evidence](../phase1-readiness-results.md); these corrections do not alter verdict precedence, retries or historical results.
+
 ## Decision
 
 Compile C++20 once using the existing digest-pinned GCC toolchain and fixed `-O2 -pipe` flags. Execute each private test in a fresh bounded Docker container. Domain and Application have no Docker dependencies; `IExecutionBackend` carries payloads, limits and structured evidence. An eventual Isolate adapter can replace Docker without changing submissions, jobs or leases.

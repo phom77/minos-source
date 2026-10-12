@@ -1,7 +1,7 @@
 # Kế hoạch chuẩn bị Minos cho microservice — 3 phase
 
 Ngày: 2026-10-12
-Trạng thái: owner đã yêu cầu triển khai toàn bộ Phase 1 ngày 2026-10-12; đang kiểm chứng candidate. Phase 2–3 vẫn là kế hoạch.
+Trạng thái: Phase 1 đã triển khai và kiểm chứng xong ngày 2026-10-13; [candidate và bằng chứng](phase1-readiness-results.md) sẵn sàng để owner review. Nghiệm thu development MVP vẫn chờ owner; Phase 2–3 vẫn là kế hoạch.
 
 Owner yêu cầu tạo kế hoạch, sau đó yêu cầu triển khai toàn bộ Phase 1. Phạm vi này không xác nhận nghiệm thu M7 và không cấp phép M8, broker, distributed Worker, microservice extraction hoặc public hosting. Các thay đổi vượt ranh giới hiện tại chỉ được thực hiện sau khi có bằng chứng và quyết định phạm vi tương ứng.
 
@@ -50,10 +50,10 @@ Live Google consent chỉ là acceptance item khi cấu hình provider thật; v
 
 ### Exit criteria
 
-- [ ] Candidate revision có CI backend/frontend cần thiết và end-to-end evidence với stack thật.
-- [ ] Retry nộp cùng request không tạo submission/job trùng; admission, quyền truy cập và thời gian contest giữ nguyên.
-- [ ] Dependency findings được xử lý hoặc triage rõ; không tuyên bố audit-clean khi còn advisory.
-- [ ] Owner có đủ bằng chứng để quyết định nghiệm thu development MVP; giới hạn còn lại không bị che thành passed.
+- [x] Candidate revision có CI backend/frontend cần thiết và end-to-end evidence với stack thật.
+- [x] Retry nộp cùng request không tạo submission/job trùng; admission, quyền truy cập và thời gian contest giữ nguyên.
+- [x] Dependency findings được xử lý hoặc triage rõ; không tuyên bố audit-clean khi còn advisory.
+- [x] Owner có đủ bằng chứng để quyết định nghiệm thu development MVP; giới hạn còn lại không bị che thành passed.
 
 Deliverable: báo cáo candidate ngắn, CI links, regression evidence và cập nhật checklist/runbook cần thiết. Nếu owner chưa nghiệm thu, có thể tiếp tục đo/thiết kế độc lập nhưng không ghi MVP accepted hoặc bắt đầu M8.
 

@@ -54,6 +54,6 @@ The 2026-10-07 Docker/M7 merge repair preserves both global admission configurat
 - [x] Private offline backup/restore and migration/release/rollback/recovery procedures implemented.
 - [x] Final full Linux acceptance pipeline passes with workload/recovery/restore evidence recorded.
 - [ ] Owner accepts the development MVP candidate after reviewing the evidence.
-- [ ] GitHub-hosted CI executes for the committed/pushed revision.
+- [x] GitHub-hosted CI executes for the committed/pushed Phase 1 code candidate: [run 38285252130](https://github.com/phom77/Minos/actions/runs/38285252130), including full M7 recovery/backup/restore and restored request-key replay. See [current evidence](../phase1-readiness-results.md); earlier M7 measurements above remain historical.
 
 Live Google consent validation remains the disclosed M3 dependency because no OAuth client exists. Password recovery/verification delivery, public-host topology, encryption/key-rotation strategy and production workload/retention policies remain public-release work. Owner acceptance and a hosted CI run cannot be inferred from local checks. No existing persistent development database or private user artifact root is modified by the acceptance fixture.
