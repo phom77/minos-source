@@ -24,6 +24,8 @@ The repository stays on Windows D:. The local Compose stack runs the trusted Wor
 | [Implementation roadmap](docs/implementation-plan.md) | Ordered milestones, dependencies, deliverables, validation, and release gates |
 | [Microservice readiness plan](docs/microservice-readiness-plan.md) | Three phases for candidate acceptance, capacity/boundary evidence, and a conditional first extraction |
 | [Phase 1 candidate results](docs/phase1-readiness-results.md) | Submission-request replay, frontend CI/dependency updates, verification evidence and acceptance limits |
+| [Phase 2 readiness results](docs/phase2-readiness-results.md) | Repeatable single-host workloads, safe diagnostics, ownership/contract design and extraction recommendation |
+| [Judging extraction candidate](docs/judging-extraction-contract.md) | Data authority, bounded trusted interface, failure matrix and prerequisites; design only |
 | [Approved visual reference](docs/design/minos-visual-reference.md) | Owner-provided brand/UI images, approved palette, visual patterns, and future frontend design guidance |
 
 ## First milestone

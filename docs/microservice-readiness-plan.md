@@ -84,10 +84,10 @@ Extraction contract phải trả lời: delivery trùng; process chết trước
 
 ### Exit criteria
 
-- [ ] Có report tái lập được trên profile mục tiêu; biết nút thắt và phạm vi kết luận.
-- [ ] Metrics/log/alerts đủ chẩn đoán queue stuck, lease loss, cleanup failure và overload.
-- [ ] Ownership, transaction boundaries, artifact security và version/error contract được viết rõ.
-- [ ] Decision brief khuyến nghị một lựa chọn với bằng chứng; broker/outbox/distributed hosting chỉ xuất hiện khi có yêu cầu cụ thể.
+- [x] Có [report tái lập](phase2-readiness-results.md) trên Docker development profile; ghi rõ bottleneck, sample/method limits và failed outlier.
+- [x] Metrics/log/admin snapshot và regression evidence đủ chẩn đoán queue stuck, lease loss, cleanup failure và overload trong scope development.
+- [x] [Ownership/transaction/artifact/version/error contract](judging-extraction-contract.md) được viết rõ; wire transport và envelopes vẫn là candidate, chưa triển khai.
+- [x] Decision brief khuyến nghị giữ hiện tại/tuning single-host với bằng chứng; chưa có nhu cầu đủ để extraction hoặc broker/outbox/distributed hosting.
 
 Deliverable: performance report, ownership/contract specification và go/no-go brief. Không cần thêm project/service để hoàn tất phase này.
 

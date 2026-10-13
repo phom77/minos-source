@@ -9,6 +9,8 @@ The owner requested a [three-phase microservice readiness plan](microservice-rea
 
 The owner subsequently authorized the complete Phase 1 implementation. [Phase 1 candidate results](phase1-readiness-results.md) track submission-request idempotency, frontend CI/dependency remediation and actual verification outcomes. Development-MVP acceptance remains explicit.
 
+The owner authorized Phase 2 on 2026-10-13. [Phase 2 results](phase2-readiness-results.md) record reproducible single-host load, safe diagnostics and a measured recommendation. [Judging ownership/contract](judging-extraction-contract.md) prepares one possible future boundary; no transport, new service, broker, distributed Worker or M8 is authorized by this increment.
+
 The owner authorized [three phases of judging improvements](judging-improvement-plan.md) on 2026-10-07, beginning with complete-test results/counts ([ADR 0012](adr/0012-complete-private-test-judging.md)). This is a new correctness requirement that supersedes M6's first-failure execution policy for new submissions; M8 and public/distributed hosting remain separate.
 
 ## Planning rules
