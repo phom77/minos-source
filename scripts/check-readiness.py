@@ -96,10 +96,8 @@ def main():
     descriptor = os.open(env_file, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
     with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as output:
         output.write("\n".join(values) + "\n")
-    override.write_text("services:\n  init:\n    image: minos-readiness-api:local\n  checks-migrate:\n    image: minos-readiness-api:local\n  checks:\n    image: minos-readiness-checks:local\n", encoding="utf-8")
     compose = ["docker", "compose", "--env-file", str(env_file), "-p", project, "-f", "compose.yaml", "-f", "compose.checks.yaml", "-f", str(override), "--profile", "checks"]
     runner = project + "-measurement"
-    volume = project + "-judge-workspaces"
     metadata = {"schemaVersion": 1, "project": project, "manifest": manifest,
                 "revision": read(["git", "rev-parse", "HEAD"]),
                 "dirtyFiles": read(["git", "diff", "--name-only"]).splitlines(),
@@ -107,6 +105,11 @@ def main():
                 "images": {target: json.loads(read(["docker", "image", "inspect", f"minos-readiness-{target}:local"]))[0]["Id"] for target in ("api", "checks")}}
     # Host evidence contains engine configuration, not credentials; retain only resource/platform fields.
     metadata["host"] = {key: metadata["host"][key] for key in ("NCPU", "MemTotal", "ServerVersion", "KernelVersion", "OperatingSystem", "CgroupVersion")}
+    # Pin the inspected local identities: retagging/building another image during
+    # dependency setup must not silently change the measured binary.
+    override.write_text("services:\n  init:\n    image: " + metadata["images"]["api"] +
+        "\n  checks-migrate:\n    image: " + metadata["images"]["api"] +
+        "\n  checks:\n    image: " + metadata["images"]["checks"] + "\n", encoding="utf-8")
     (evidence / "manifest.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
     exit_code = 1
     try:
@@ -150,6 +153,7 @@ def main():
     (evidence / "summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
     print(f"Readiness report: {evidence / 'summary.json'}")
     print("Targets: " + ("met" if summary["meetsLatencyAndCorrectnessTargets"] else "missed; retain measurements and evaluate the bottleneck"))
+    print("Sampled headroom targets: " + ("met" if summary["meetsSampledHeadroomTargets"] else "missed/unavailable; inspect resource coverage"))
     # A missed experimental latency target is a finding, not a failed correctness test.
 
 
