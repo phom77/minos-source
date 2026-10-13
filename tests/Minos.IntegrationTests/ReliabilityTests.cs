@@ -34,7 +34,8 @@ public sealed class ReliabilityTests
         var query = observer.ServiceProvider.GetRequiredService<IJudgingOperationsQuery>();
         var queued = await query.ReadAsync(now.AddSeconds(130), token);
         Assert.Equal(1, queued.Pending); Assert.Equal(0, queued.Leased);
-        Assert.Equal(130, queued.OldestPendingSeconds);
+        // PostgreSQL stores microsecond precision; the fixture clock has 100-ns ticks.
+        Assert.InRange(queued.OldestPendingSeconds, 129.999999, 130.000001);
         async Task<ClaimedSubmissionWork> Claim(DateTimeOffset at)
         {
             await using var scope = workers.CreateAsyncScope();
