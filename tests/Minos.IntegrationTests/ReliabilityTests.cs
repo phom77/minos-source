@@ -17,6 +17,64 @@ namespace Minos.IntegrationTests;
 public sealed class ReliabilityTests
 {
     [Fact]
+    public async Task Operations_track_stuck_queue_expired_lease_exhaustion_and_a_fresh_recovery_submission()
+    {
+        var token = TestContext.Current.CancellationToken;
+        await using var workers = Workers();
+        await DrainAsync(workers, token);
+        await using var factory = AccountTestHost.Factory();
+        using var client = AccountTestHost.Client(factory);
+        var owner = (await (await AccountTestHost.RegisterAsync(client, AccountTestHost.Email())).Content.ReadFromJsonAsync<AccountResponse>(token))!;
+        var seeded = await SubmissionLifecycleTests.SeedPublishedAsync(factory, owner.Id, token);
+        var now = DateTimeOffset.UtcNow;
+        var submission = Submission.Create(owner.Id, seeded.Problem.Id, seeded.Version.Id, "cpp20", SupportedSubmission.ToolchainId, "int main(){}", now);
+        await using (var admission = factory.Services.CreateAsyncScope())
+            Assert.True(await admission.ServiceProvider.GetRequiredService<ISubmissionRepository>().AdmitAsync(submission, JudgeJob.Create(submission.Id, now), 5, token));
+        await using var observer = factory.Services.CreateAsyncScope();
+        var query = observer.ServiceProvider.GetRequiredService<IJudgingOperationsQuery>();
+        var queued = await query.ReadAsync(now.AddSeconds(130), token);
+        Assert.Equal(1, queued.Pending); Assert.Equal(0, queued.Leased);
+        Assert.Equal(130, queued.OldestPendingSeconds);
+        async Task<ClaimedSubmissionWork> Claim(DateTimeOffset at)
+        {
+            await using var scope = workers.CreateAsyncScope();
+            return (await scope.ServiceProvider.GetRequiredService<IJudgeJobRepository>().ClaimNextAsync("readiness-recovery", at, token))!;
+        }
+        await Claim(now.AddSeconds(130));
+        var expired = await query.ReadAsync(now.AddSeconds(161), token);
+        Assert.Equal(0, expired.Pending); Assert.Equal(1, expired.Leased); Assert.Equal(1, expired.ExpiredLeases);
+        var second = await Claim(now.AddSeconds(162));
+        await using (var failure = workers.CreateAsyncScope())
+            Assert.Equal(AttemptFailureResult.RetryScheduled, await failure.ServiceProvider.GetRequiredService<IJudgeJobRepository>().FailAsync(
+                second.AttemptId, second.LeaseToken, second.WorkerId, InfrastructureFailureKind.ExecutorFailure, now.AddSeconds(162), token));
+        var retrying = await query.ReadAsync(now.AddSeconds(163), token);
+        Assert.Equal(1, retrying.Pending); Assert.Equal(0, retrying.ExpiredLeases);
+        Assert.Equal(queued.FailedAttemptsLastHour + 2, retrying.FailedAttemptsLastHour);
+        var third = await Claim(now.AddSeconds(168));
+        await using (var failure = workers.CreateAsyncScope())
+            Assert.Equal(AttemptFailureResult.SystemFailed, await failure.ServiceProvider.GetRequiredService<IJudgeJobRepository>().FailAsync(
+                third.AttemptId, third.LeaseToken, third.WorkerId, InfrastructureFailureKind.ExecutorFailure, now.AddSeconds(168), token));
+        var failed = await query.ReadAsync(now.AddSeconds(169), token);
+        Assert.Equal(0, failed.Pending); Assert.Equal(0, failed.Leased);
+        Assert.Equal(queued.SystemFailedLastHour + 1, failed.SystemFailedLastHour);
+        Assert.Equal(queued.FailedAttemptsLastHour + 3, failed.FailedAttemptsLastHour);
+        Assert.Equal(queued.ExecutorFailuresLastHour + 2, failed.ExecutorFailuresLastHour);
+        // Recovery validates a new submission; it never rewrites the exhausted one.
+        var fresh = Submission.Create(owner.Id, seeded.Problem.Id, seeded.Version.Id, "cpp20", SupportedSubmission.ToolchainId, "int main(){}", now.AddSeconds(170));
+        await using (var admission = factory.Services.CreateAsyncScope())
+            Assert.True(await admission.ServiceProvider.GetRequiredService<ISubmissionRepository>().AdmitAsync(fresh, JudgeJob.Create(fresh.Id, fresh.CreatedAtUtc), 5, token));
+        var recovered = await Claim(now.AddSeconds(171));
+        var outcome = JudgingOutcome.Create(SubmissionVerdict.Accepted, "", [new(1, TestCaseResultStatus.Passed, 1, 1, 1024, 0)]);
+        await using (var completion = workers.CreateAsyncScope())
+            Assert.Equal(LeaseMutationResult.Accepted, await completion.ServiceProvider.GetRequiredService<IJudgeJobRepository>().CompleteAsync(
+                recovered.AttemptId, recovered.LeaseToken, recovered.WorkerId, outcome, now.AddSeconds(171), token));
+        var final = await query.ReadAsync(now.AddSeconds(172), token);
+        Assert.Equal(0, final.Pending); Assert.Equal(0, final.ExpiredLeases);
+        Assert.Equal(failed.SystemFailedLastHour, final.SystemFailedLastHour);
+        Assert.Equal(queued.CompletedLastHour + 1, final.CompletedLastHour);
+    }
+
+    [Fact]
     public async Task Operations_authorization_applies_to_direct_use_cases_and_disabled_administrators()
     {
         var token = TestContext.Current.CancellationToken;
