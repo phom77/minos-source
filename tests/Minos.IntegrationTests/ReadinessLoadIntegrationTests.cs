@@ -67,11 +67,12 @@ public sealed class ReadinessLoadIntegrationTests
         var modes = count == 100 ? new[] { "accepted" } : new[] { "accepted", "wrong", "runtime", "compile", "cpu", "compile-heavy", "memory", "output", "accepted" };
         var phases = new ConcurrentDictionary<string, ConcurrentQueue<double>>();
         var balances = new ConcurrentDictionary<string, long>(); var peaks = new ConcurrentDictionary<string, long>();
+        var counters = new ConcurrentDictionary<string, long>();
         var unsafeTags = new ConcurrentQueue<string>();
         using var listener = new MeterListener();
         listener.InstrumentPublished = (instrument, l) =>
         {
-            if (instrument.Meter.Name is "Minos.Judging" or "Minos.JudgeWorker") l.EnableMeasurementEvents(instrument);
+            if (instrument.Meter.Name is "Minos.Judging" or "Minos.JudgeWorker" or "Minos.Sandbox") l.EnableMeasurementEvents(instrument);
         };
         listener.SetMeasurementEventCallback<double>((instrument, value, tags, _) =>
         {
@@ -97,6 +98,7 @@ public sealed class ReadinessLoadIntegrationTests
                 var current = balances.AddOrUpdate(key, value, (_, prior) => prior + value);
                 peaks.AddOrUpdate(key, current, (_, prior) => Math.Max(current, prior));
             }
+            else if (instrument is Counter<long>) counters.AddOrUpdate(key, value, (_, prior) => prior + value);
         });
         listener.Start();
         var admission = new List<double>();
@@ -162,6 +164,9 @@ public sealed class ReadinessLoadIntegrationTests
         finally { await worker.StopAsync(CancellationToken.None); }
         workload.Stop();
         Assert.Empty(unsafeTags); Assert.All(balances.Values, balance => Assert.Equal(0, balance));
+        Assert.Equal(admitted.Count, counters.GetValueOrDefault("minos.worker.claims"));
+        foreach (var name in new[] { "minos.worker.lost_leases", "minos.worker.iteration_failures", "minos.sandbox.cleanup_failures" })
+            Assert.Equal(0, counters.GetValueOrDefault(name));
         Assert.InRange(peaks["minos.judging.active_sandboxes"], 1, slots);
         Assert.InRange(peaks["minos.judging.reserved_memory"], 1, budget.MemoryMegabytes * 1024L * 1024);
         Assert.All(admitted, item => Assert.Contains(logs.Messages, line => line.Contains(item.Id.ToString()) && line.Contains("Processed submission job")));
@@ -186,7 +191,7 @@ public sealed class ReadinessLoadIntegrationTests
             throughputJobsPerSecond = admitted.Count / workload.Elapsed.TotalSeconds,
             queueSeconds = Distribution(queue), completionSeconds = Distribution(completion.Values),
             admissionMilliseconds = Distribution(admission), apiMilliseconds = Distribution(api),
-            phases = phases.OrderBy(p => p.Key).ToDictionary(p => p.Key, p => Distribution(p.Value)), peaks,
+            phases = phases.OrderBy(p => p.Key).ToDictionary(p => p.Key, p => Distribution(p.Value)), peaks, counters,
             systemFailed = 0, retries = 0, accountRejections = rejected, fifoClaims = true, results,
             scope = "real PostgreSQL + in-process HTTP + actual single-host Worker/Docker; fixed labels; no external network/TLS; cached images"
         }));
