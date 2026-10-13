@@ -48,7 +48,7 @@
     "queue": "persisted CreatedAtUtc to first StartedAtUtc; UTC clock",
     "completion": "monotonic admission-response to observed terminal owner read, 100-ms polling",
     "api": "in-process ASP.NET HTTP owner reads plus catalog requests during Worker activity; excludes TLS/network",
-    "resourceSampling": "Docker stats every 2 seconds, only fixture project and owned-volume sandboxes; sampled peaks may miss short stages",
+    "resourceSampling": "bounded Engine one-shot stats every 2 seconds, only fixture project and owned-volume sandboxes; sampled peaks may miss short stages",
     "disk": "fixture workspace volume df and du; excludes PostgreSQL/private-artifact storage and Docker image layers",
     "warmth": "images cached, fresh fixture database/volume; each case initializes a fresh executor; first case JIT-cold, following cases process-warm",
     "limits": "CPU fixture uses bounded arithmetic work; compilation separate 512MiB; memory/output fixtures deliberately fail every test"

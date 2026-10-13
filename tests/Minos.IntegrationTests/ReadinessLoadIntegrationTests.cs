@@ -150,6 +150,9 @@ public sealed class ReadinessLoadIntegrationTests
                     queue.Add((result.Attempts[0].StartedAtUtc - result.CreatedAtUtc).TotalSeconds);
                     var passed = item.Mode == "wrong" ? count - (count + 1) / 3 : item.Mode is "accepted" or "cpu" or "compile-heavy" ? count : 0;
                     var executed = item.Mode == "compile" ? 0 : count;
+                    if (result.Result!.Verdict != Verdict(item.Mode))
+                        TestContext.Current.TestOutputHelper!.WriteLine("READINESS_FAILURE_JSON=" + JsonSerializer.Serialize(new
+                        { scenario = item.Mode, result.Id, result.Attempts, result.Result }));
                     Assert.Equal(new SubmissionTestSummaryResponse(count, executed, passed, executed - passed), result.Result!.TestSummary);
                     Assert.Equal(Verdict(item.Mode), result.Result.Verdict);
                     Assert.Single(result.Attempts);

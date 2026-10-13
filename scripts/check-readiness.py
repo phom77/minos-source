@@ -6,11 +6,9 @@ import json
 import math
 import os
 from pathlib import Path
-import re
 import secrets
 import subprocess
-import threading
-import time
+import sys
 
 
 REPO = Path(__file__).resolve().parent.parent
@@ -24,17 +22,21 @@ def read(args):
     return command(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=20).stdout.strip()
 
 
-def bytes_value(value):
-    number, unit = re.fullmatch(r"([\d.]+)\s*([A-Za-z]*)", value.strip()).groups()
-    units = {"B": 1, "kB": 1000, "MB": 1000**2, "GB": 1000**3, "KiB": 1024, "MiB": 1024**2, "GiB": 1024**3}
-    return int(float(number) * units[unit])
-
-
-def transient_output(args):
-    # Docker can emit valid partial JSON/stats and a nonzero exit when an ephemeral
-    # sandbox disappears. Keep stable-container observations, never invent its peak.
-    return subprocess.run(args, text=True, cwd=REPO, stdout=subprocess.PIPE,
-                          stderr=subprocess.PIPE, timeout=20).stdout.strip()
+def inside_fixture():
+    if os.name != "posix" or os.geteuid() == 0 or os.environ.get("MINOS_TEST_SANDBOX") != "1":
+        raise SystemExit("Requires the non-root disposable checks fixture.")
+    with Path("/results/resources-stream.jsonl").open("w", encoding="utf-8") as resources:
+        sampler = subprocess.Popen([sys.executable, str(REPO / "scripts/collect-readiness-resources.py")], stdout=resources)
+        try:
+            result = subprocess.run(["dotnet", "test", "tests/Minos.IntegrationTests", "--no-build", "-c", "Release", "--artifacts-path", "/build",
+                "--filter", "FullyQualifiedName~ReadinessLoadIntegrationTests|FullyQualifiedName~JudgingObservabilityIntegrationTests",
+                "--logger", "trx;LogFilePrefix=readiness", "--logger", "console;verbosity=detailed", "--results-directory", "/results"])
+        finally:
+            sampler.terminate()
+            try: sampler.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                sampler.kill(); sampler.wait()
+    raise SystemExit(result.returncode)
 
 
 def summarize(records, manifest):
@@ -70,7 +72,9 @@ def summarize(records, manifest):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--skip-build", action="store_true", help="Use prebuilt minos-readiness-{api,checks}:local images.")
+    parser.add_argument("--inside-fixture", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
+    if args.inside_fixture: inside_fixture()
     manifest = json.loads((REPO / "scripts/fixtures/readiness-workload.json").read_text(encoding="utf-8"))
     for label in ("com.docker.compose.service=worker", "minos.judge=m6"):
         if read(["docker", "ps", "-q", "--filter", "label=" + label]):
@@ -104,61 +108,27 @@ def main():
     # Host evidence contains engine configuration, not credentials; retain only resource/platform fields.
     metadata["host"] = {key: metadata["host"][key] for key in ("NCPU", "MemTotal", "ServerVersion", "KernelVersion", "OperatingSystem", "CgroupVersion")}
     (evidence / "manifest.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
-    stopped = threading.Event(); samples = []; sample_errors = []
-
-    def sample():
-        while not stopped.is_set():
-            try:
-                ids = read(["docker", "ps", "-q", "--filter", "label=com.docker.compose.project=" + project]).splitlines()
-                # The run container also has this label. Sibling sandboxes are included only for our exact volume.
-                candidates = read(["docker", "ps", "-q", "--filter", "label=minos.judge=m6"]).splitlines()
-                if candidates:
-                    for container in json.loads(transient_output(["docker", "inspect", *candidates]) or "[]"):
-                        if any(mount.get("Name") == volume for mount in container["Mounts"]):
-                            ids.append(container["Id"])
-                if ids:
-                    stats = [json.loads(line) for line in transient_output(["docker", "stats", "--no-stream", "--format", "{{json .}}", *ids]).splitlines()]
-                    if not stats:
-                        sample_errors.append("NoContainerStats")
-                        stopped.wait(2)
-                        continue
-                    row = {"atUtc": dt.datetime.now(dt.timezone.utc).isoformat(), "containers": len(stats),
-                           "cpuPercentOneCoreUnits": sum(float(s["CPUPerc"].rstrip("%")) for s in stats),
-                           "memoryBytes": sum(bytes_value(s["MemUsage"].split("/")[0]) for s in stats)}
-                    if runner in read(["docker", "ps", "--format", "{{.Names}}", "--filter", "name=" + runner]).splitlines():
-                        memory = read(["docker", "exec", runner, "cat", "/proc/meminfo"])
-                        available = re.search(r"^MemAvailable:\s+(\d+) kB", memory, re.MULTILINE)
-                        total = re.search(r"^MemTotal:\s+(\d+) kB", memory, re.MULTILINE)
-                        if available and total:
-                            row["hostMemoryAvailableFraction"] = int(available[1]) / int(total[1])
-                        disk = transient_output(["docker", "exec", runner, "sh", "-c", "df -B1 /tmp/minos-judge-execution | tail -1; du -sb /tmp/minos-judge-execution"]).splitlines()
-                        columns = disk[0].split()
-                        row.update(workspaceFilesystemBytes=int(columns[1]), workspaceFilesystemFreeBytes=int(columns[3]), workspaceBytes=int(disk[1].split()[0]))
-                    samples.append(row)
-            except (subprocess.CalledProcessError, subprocess.TimeoutExpired, ValueError, KeyError) as error:
-                # A short-lived sandbox may disappear during inspection; explicitly report sampling gaps.
-                sample_errors.append(type(error).__name__)
-            stopped.wait(2)
-
-    thread = threading.Thread(target=sample, daemon=True)
     exit_code = 1
     try:
         # Only the checks dependencies start: no development API, Worker, database or published port.
         # `run` waits for each declared healthy/completed dependency. `up --wait` would
         # incorrectly require the one-shot grants/init services to remain running.
-        thread.start()
         with (evidence / "tests.log").open("w", encoding="utf-8") as log:
             result = subprocess.run(compose + ["run", "--rm", "--name", runner,
-                "--volume", str(evidence) + ":/results", "--env", "MINOS_TEST_READINESS=1", "checks",
-                "--filter", "FullyQualifiedName~ReadinessLoadIntegrationTests|FullyQualifiedName~JudgingObservabilityIntegrationTests",
-                "--logger", "trx;LogFilePrefix=readiness", "--logger", "console;verbosity=detailed", "--results-directory", "/results"],
+                "--volume", str(evidence) + ":/results", "--env", "MINOS_TEST_READINESS=1",
+                "--env", "MINOS_READINESS_PROJECT=" + project, "--entrypoint", "python3", "checks",
+                "/src/scripts/check-readiness.py", "--inside-fixture"],
                 cwd=REPO, text=True, stdout=log, stderr=subprocess.STDOUT)
         exit_code = result.returncode
     finally:
-        stopped.set()
-        if thread.is_alive(): thread.join(timeout=15)
-        command(compose + ["down", "--volumes", "--remove-orphans"], stdout=subprocess.DEVNULL)
-        env_file.unlink(missing_ok=True)
+        try:
+            command(compose + ["down", "--volumes", "--remove-orphans"], stdout=subprocess.DEVNULL)
+        finally:
+            env_file.unlink(missing_ok=True)
+        stream = evidence / "resources-stream.jsonl"
+        resource_rows = [json.loads(line) for line in stream.read_text(encoding="utf-8").splitlines()] if stream.exists() else []
+        samples = [r for r in resource_rows if r["kind"] == "sample"]
+        sample_errors = [r for r in resource_rows if r["kind"] == "gap"]
         (evidence / "resources.json").write_text(json.dumps({"samples": samples, "samplingGaps": sample_errors}, indent=2), encoding="utf-8")
     if exit_code:
         raise SystemExit(f"Correctness check failed; inspect {evidence / 'tests.log'} (fixture cleaned).")
@@ -166,7 +136,7 @@ def main():
     checks = summarize(records, manifest)
     summary = {"schemaVersion": 1, "comparisons": checks, "measurements": records,
                "resourceSamples": len(samples), "samplingGaps": len(sample_errors),
-               "sampledPeakCpuPercentOneCoreUnits": max((s["cpuPercentOneCoreUnits"] for s in samples), default=None),
+               "sampledPeakCpuPercentOneCoreUnits": max((s["cpuPercentOneCoreUnits"] for s in samples if s["cpuPercentOneCoreUnits"] is not None), default=None),
                "sampledPeakMemoryBytes": max((s["memoryBytes"] for s in samples), default=None),
                "sampledPeakWorkspaceBytes": max((s.get("workspaceBytes", 0) for s in samples), default=None),
                "minimumSampledHostMemoryAvailableFraction": min((s["hostMemoryAvailableFraction"] for s in samples if "hostMemoryAvailableFraction" in s), default=None),
