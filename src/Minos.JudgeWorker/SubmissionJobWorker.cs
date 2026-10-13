@@ -82,7 +82,8 @@ internal sealed class SubmissionJobWorker(
         catch (Exception error)
         {
             IterationFailures.Add(1);
-            logger.LogError("Submission processing failed with {ErrorType}", error.GetType().Name);
+            logger.LogError("Submission processing failed with {ErrorType}; job {JobId}, submission {SubmissionId}, attempt {AttemptId}",
+                error.GetType().Name, work.JobId, work.SubmissionId, work.AttemptId);
         }
         finally { ActiveJobs.Add(-1); JobDuration.Record(timer.Elapsed.TotalSeconds); }
     }

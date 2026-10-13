@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Minos.Application.Evaluation;
 using Minos.Domain.Evaluation;
+using Minos.Infrastructure.Evaluation;
 
 namespace Minos.Infrastructure.Persistence;
 
@@ -18,6 +19,7 @@ internal sealed class JudgeJobRepository(MinosDbContext database) : IJudgeJobRep
         DateTimeOffset nowUtc,
         CancellationToken token)
     {
+        using var measurement = JudgingMetrics.Measure("persistence", "claim");
         while (true)
         {
             await using var transaction = await database.Database.BeginTransactionAsync(token);
@@ -83,6 +85,7 @@ internal sealed class JudgeJobRepository(MinosDbContext database) : IJudgeJobRep
         DateTimeOffset nowUtc,
         CancellationToken token)
     {
+        using var measurement = JudgingMetrics.Measure("persistence", "renew");
         await using var transaction = await database.Database.BeginTransactionAsync(token);
         var job = await LockForAttemptAsync(attemptId, token);
         if (job is null || !job.Renew(attemptId, leaseToken, workerId, nowUtc))
@@ -105,6 +108,7 @@ internal sealed class JudgeJobRepository(MinosDbContext database) : IJudgeJobRep
         DateTimeOffset nowUtc,
         CancellationToken token)
     {
+        using var measurement = JudgingMetrics.Measure("persistence", "complete");
         await using var transaction = await database.Database.BeginTransactionAsync(token);
         var job = await LockForAttemptAsync(attemptId, token);
         if (job is null)
@@ -147,6 +151,7 @@ internal sealed class JudgeJobRepository(MinosDbContext database) : IJudgeJobRep
         DateTimeOffset nowUtc,
         CancellationToken token)
     {
+        using var measurement = JudgingMetrics.Measure("persistence", "fail");
         await using var transaction = await database.Database.BeginTransactionAsync(token);
         var job = await LockForAttemptAsync(attemptId, token);
         if (job is null || !job.OwnsActiveLease(attemptId, leaseToken, workerId) || job.LeaseExpiresAtUtc <= nowUtc)

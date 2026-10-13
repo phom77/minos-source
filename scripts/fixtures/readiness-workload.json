@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "profile": "docker-desktop-development",
+  "definedAtUtc": "2026-10-13T00:00:00Z",
+  "purpose": "Reproducible development comparison; not public capacity or SLA",
+  "mixed": {
+    "jobs": 9,
+    "owners": 2,
+    "testsPerJob": 3,
+    "activeJobs": [1, 2, 4],
+    "scenarios": ["accepted", "wrong", "runtime", "compile", "cpu", "compile-heavy", "memory", "output", "accepted"],
+    "transports": "alternating practice and registered live contest; one shared admission pool",
+    "targets": {
+      "queueP95Seconds": 120,
+      "completionP95Seconds": 180,
+      "apiP95Milliseconds": 300,
+      "admissionP95Milliseconds": 500,
+      "systemFailed": 0,
+      "retries": 0,
+      "expectedAccountRejections": 1
+    }
+  },
+  "many-short-tests": {
+    "jobs": 1,
+    "owners": 1,
+    "testsPerJob": 100,
+    "activeJobs": [4],
+    "scenarios": ["accepted"],
+    "targets": {
+      "queueP95Seconds": 5,
+      "completionP95Seconds": 180,
+      "apiP95Milliseconds": 300,
+      "admissionP95Milliseconds": 500,
+      "systemFailed": 0,
+      "retries": 0,
+      "expectedAccountRejections": 0
+    }
+  },
+  "headroom": {
+    "minimumManagementLogicalCpus": 1,
+    "maximumReservedStageMiB": 2048,
+    "minimumControllerReserveMiB": 320,
+    "minimumDockerMemoryHeadroomFraction": 0.25,
+    "minimumWorkspaceDiskFreeFraction": 0.20
+  },
+  "method": {
+    "percentile": "nearest rank ceil(N*p), no interpolation; report N",
+    "queue": "persisted CreatedAtUtc to first StartedAtUtc; UTC clock",
+    "completion": "monotonic admission-response to observed terminal owner read, 100-ms polling",
+    "api": "in-process ASP.NET HTTP owner reads plus catalog requests during Worker activity; excludes TLS/network",
+    "resourceSampling": "Docker stats every 2 seconds, only fixture project and owned-volume sandboxes; sampled peaks may miss short stages",
+    "disk": "fixture workspace volume df and du; excludes PostgreSQL/private-artifact storage and Docker image layers",
+    "warmth": "images cached, fresh fixture database/volume; each case initializes a fresh executor; first case JIT-cold, following cases process-warm",
+    "limits": "CPU fixture uses bounded arithmetic work; compilation separate 512MiB; memory/output fixtures deliberately fail every test"
+  }
+}

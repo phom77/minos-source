@@ -4,6 +4,7 @@ using Minos.Application.Contests;
 using Minos.Application.Evaluation;
 using Minos.Domain.Contests;
 using Minos.Domain.Evaluation;
+using Minos.Infrastructure.Evaluation;
 using Npgsql;
 
 namespace Minos.Infrastructure.Persistence;
@@ -58,6 +59,7 @@ internal sealed class ContestRepository(MinosDbContext database, SubmissionCapac
     private async Task<Guid?> AdmitCoreAsync(Contest contest, Func<ContestSubmission> association, Submission submission, JudgeJob job,
         SubmissionRequestIdentity? request, CancellationToken token)
     {
+        using var measurement = JudgingMetrics.Measure("persistence", "contest-admission");
         await using var transaction = await database.Database.BeginTransactionAsync(token);
         // Same lock as practice admission: a contest is never a separate capacity pool.
         await database.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(21754185638891831)", token);

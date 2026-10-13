@@ -55,9 +55,11 @@ internal static class ContestEndpoints
                 p.Samples.Select(s => new ProblemSampleResponse(s.Input ?? "", s.Output ?? "")).ToArray()));
         }).RequireAuthorization();
         group.MapPost("/{id:guid}/problems/{problemId:guid}/submissions", async (Guid id, Guid problemId,
-            ContestSubmissionRequest request, ContestUseCases cases, CancellationToken ct) =>
+            ContestSubmissionRequest request, ContestUseCases cases, HttpContext context, ILoggerFactory logging, CancellationToken ct) =>
         {
             var submission = await cases.SubmitAsync(id, problemId, new(request.Language, request.Source, request.RequestKey), ct);
+            logging.CreateLogger("Minos.SubmissionAdmission").LogInformation(
+                "Submission request resolved to {SubmissionId}; TraceId {TraceId}; kind contest", submission, context.TraceIdentifier);
             return Results.Created($"/api/submissions/{submission}", new CreatedContestSubmissionResponse(submission));
         }).RequireAuthorization().WithMetadata(new RequestSizeLimitAttribute(Minos.Domain.Evaluation.Submission.MaximumSourceBytes * 6L + 4096));
         group.MapGet("/{id:guid}/submissions/mine", async (Guid id, int? page, int? pageSize, ContestUseCases cases, CancellationToken ct) =>

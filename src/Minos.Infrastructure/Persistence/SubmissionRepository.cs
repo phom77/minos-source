@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Minos.Application.Evaluation;
 using Minos.Domain.Evaluation;
+using Minos.Infrastructure.Evaluation;
 
 namespace Minos.Infrastructure.Persistence;
 
@@ -22,6 +23,7 @@ internal sealed class SubmissionRepository(MinosDbContext database, SubmissionCa
     private async Task<Guid?> AdmitCoreAsync(Submission submission, JudgeJob job, int maximumActive,
         SubmissionRequestIdentity? request, CancellationToken token)
     {
+        using var measurement = JudgingMetrics.Measure("persistence", "practice-admission");
         await using var transaction = await database.Database.BeginTransactionAsync(token);
         // All API instances serialize the short capacity check with admission's commit.
         await database.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(21754185638891831)", token);

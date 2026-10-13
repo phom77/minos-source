@@ -49,7 +49,7 @@ internal sealed class OfficialSubmissionExecutor(
             if (token.IsCancellationRequested) token.ThrowIfCancellationRequested();
             if (!OfficialJudgingPolicy.HasCompleteEvidence(compilation))
             {
-                LogIncomplete("Compile", compilation);
+                LogIncomplete(work, "Compile", compilation);
                 return SubmissionExecutionResult.InfrastructureFailed();
             }
 
@@ -93,7 +93,7 @@ internal sealed class OfficialSubmissionExecutor(
                 if (token.IsCancellationRequested) token.ThrowIfCancellationRequested();
                 if (!OfficialJudgingPolicy.HasCompleteEvidence(execution))
                 {
-                    LogIncomplete("Run", execution);
+                    LogIncomplete(work, "Run", execution);
                     return SubmissionExecutionResult.InfrastructureFailed();
                 }
 
@@ -124,13 +124,14 @@ internal sealed class OfficialSubmissionExecutor(
         }
         catch (Exception error)
         {
-            logger.LogWarning("Official judging failed with infrastructure error {ErrorType}", error.GetType().Name);
+            logger.LogWarning("Official judging failed with infrastructure error {ErrorType}; job {JobId}, submission {SubmissionId}, attempt {AttemptId}",
+                error.GetType().Name, work.JobId, work.SubmissionId, work.AttemptId);
             return SubmissionExecutionResult.InfrastructureFailed();
         }
     }
 
-    private void LogIncomplete(string stage, ExecutionEvidence evidence) => logger.LogWarning(
-        "{Stage} evidence was incomplete: failure {Failure}, snapshot {Snapshot}, cleanup {Cleanup}, cancelled {Cancelled}, exit {ExitCode}, wall {WallLimit}, cpu {CpuLimit}, memory {MemoryLimit}, output {OutputLimit}",
+    private void LogIncomplete(ClaimedSubmissionWork work, string stage, ExecutionEvidence evidence) => logger.LogWarning(
+        "{Stage} evidence was incomplete: failure {Failure}, snapshot {Snapshot}, cleanup {Cleanup}, cancelled {Cancelled}, exit {ExitCode}, wall {WallLimit}, cpu {CpuLimit}, memory {MemoryLimit}, output {OutputLimit}; job {JobId}, submission {SubmissionId}, attempt {AttemptId}",
         stage,
         evidence.InfrastructureFailure,
         evidence.ResourceSnapshotComplete,
@@ -140,7 +141,7 @@ internal sealed class OfficialSubmissionExecutor(
         evidence.WallTimeout,
         evidence.CpuLimit,
         evidence.MemoryFailure,
-        evidence.OutputLimit);
+        evidence.OutputLimit, work.JobId, work.SubmissionId, work.AttemptId);
 
     private static JudgingTestOutcome NotExecuted(int order) =>
         new(order, TestCaseResultStatus.NotExecuted, null, null, null, null);

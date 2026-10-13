@@ -20,9 +20,13 @@ internal static class SubmissionEndpoints
         Guid problemId,
         CreateSubmissionRequest request,
         SubmissionUseCases useCases,
+        HttpContext context,
+        ILoggerFactory logging,
         CancellationToken token)
     {
         var submission = await useCases.CreateAsync(problemId, new(request.Language, request.Source, request.RequestKey), token);
+        logging.CreateLogger("Minos.SubmissionAdmission").LogInformation(
+            "Submission request resolved to {SubmissionId}; TraceId {TraceId}; kind practice", submission.Id, context.TraceIdentifier);
         return Results.Created($"/api/submissions/{submission.Id}", Map(submission));
     }
 
