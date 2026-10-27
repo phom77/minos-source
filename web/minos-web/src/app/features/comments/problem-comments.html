@@ -1,0 +1,73 @@
+<section class="comments" aria-labelledby="comments-heading" [attr.aria-busy]="loading()">
+  <h2 id="comments-heading" tabindex="-1"><button id="discussion-toggle" class="discussion-toggle" type="button" [attr.aria-expanded]="expanded()" aria-controls="discussion-content" (click)="toggleDiscussion()"><minos-icon name="discussion" /><span>Discussion</span><minos-icon name="chevron" class="disclosure-icon" [class.is-open]="expanded()" /></button></h2>
+  <div id="discussion-content" [hidden]="!expanded()">
+  @if (activated()) {
+  @if (session.account()) {
+    <minos-comment-editor editorId="new-comment" [initial]="rootInitial()" [pending]="pending()" [blocked]="loading()" (save)="post($event)" />
+  } @else { <p><button class="button button--secondary" type="button" (click)="auth.open()">Sign in to comment</button></p> }
+  @if (tipsVisible()) {
+    <aside class="discussion-tips" aria-labelledby="discussion-tips-heading">
+      <div><minos-icon name="lightbulb" /><strong id="discussion-tips-heading">Discussion tips</strong><button class="icon-button" type="button" aria-label="Dismiss discussion tips" (click)="tipsVisible.set(false)"><minos-icon name="close" /></button></div>
+      <p>Ask about the problem or share a useful tip. Mark solution details as spoilers.</p>
+    </aside>
+  }
+  <div class="list-toolbar"><span>Newest first</span><button class="icon-button" type="button" aria-label="Refresh comments" title="Refresh comments" (click)="refresh()" [disabled]="loading() || pending()"><minos-icon name="reset" /></button></div>
+  <p class="comment-notice" role="status">{{ notice() }}</p>
+  @if (writeError()) { <div id="comments-write-error" class="form-errors" role="alert" tabindex="-1">{{ writeError() }} <button class="button button--secondary" type="button" (click)="refresh()">Refresh comments</button></div> }
+  @if (loadError()) { <p role="alert">{{ loadError() }} <button class="button button--secondary" type="button" (click)="load(roots().length > 0)">Try again</button></p> }
+  @if (loading() && !roots().length) { <p role="status">Loading comments…</p> }
+  @for (root of roots(); track root.id) {
+    <div class="comment-thread">
+      <ng-container *ngTemplateOutlet="item; context: { $implicit: root }" />
+        <div class="replies" [id]="'replies-' + root.id" [hidden]="!openThreads().has(root.id)" [attr.aria-label]="'Replies to ' + root.authorName">
+        @if (threads().get(root.id); as thread) {
+          @for (reply of thread.items; track reply.id) { <ng-container *ngTemplateOutlet="item; context: { $implicit: reply }" /> }
+          @if (thread.loading) { <p role="status">Loading replies…</p> }
+          @if (thread.error) { <p role="alert">{{ thread.error }} <button class="reply-toggle" type="button" (click)="loadReplies(root.id, thread.items.length > 0)">Retry replies</button></p> }
+          @if (thread.nextCursor && !thread.loading && !thread.error) { <button class="reply-toggle" type="button" (click)="loadReplies(root.id, true)">More replies</button> }
+        }
+        </div>
+      @if (replying() === root.id) {
+        @for (revision of [composerRevision()]; track revision) {
+          <div class="reply-editor"><minos-comment-editor [editorId]="'reply-' + root.id" [label]="'Reply to ' + root.authorName" action="Post reply"
+            [initial]="emptyInput" [pending]="pending()" [blocked]="loading() || (threads().get(root.id)?.loading ?? false)" [cancellable]="true" [autofocus]="true" (save)="post($event, root.id)" (cancel)="cancelInteraction('comment-reply-' + root.id)" /></div>
+        }
+      }
+    </div>
+  } @empty { @if (!loading() && !loadError()) { <p class="muted">No comments yet.</p> } }
+  @if (nextCursor() && !loadError()) { <button class="button button--secondary" type="button" (click)="load(true)" [disabled]="loading() || pending()">{{ loading() ? 'Loading…' : 'More comments' }}</button> }
+  }
+  </div>
+</section>
+
+<ng-template #item let-comment>
+  <article class="comment" [id]="'comment-' + comment.id" tabindex="-1" [attr.aria-label]="comment.authorName + ' comment'">
+    <header><span class="comment-avatar" aria-hidden="true">{{ initial(comment.authorName) }}</span><div><strong>{{ comment.authorName }}</strong><div class="comment-meta"><time [attr.datetime]="comment.createdAtUtc">{{ comment.createdAtUtc | date:'mediumDate' }}</time>
+      @if (comment.state === 'Visible' && comment.revision > 1) { <span>Edited</span> }</div></div></header>
+    <div class="comment-content">
+    @if (editing()?.id === comment.id) {
+      <minos-comment-editor [editorId]="'edit-' + comment.id" label="Edit comment" action="Save changes" [initial]="editInitial()" [pending]="pending()" [blocked]="loading()"
+        [cancellable]="true" [autofocus]="true" (save)="saveEdit($event)" (cancel)="cancelInteraction('comment-edit-' + comment.id)" />
+    } @else {
+      @if (comment.state === 'Deleted') { <p class="muted">Comment deleted.</p> }
+      @else if (comment.state === 'Hidden') { <p class="muted">Comment hidden by a moderator.</p> }
+      @else if (comment.isSpoiler && !revealed().has(comment.id)) { <button class="spoiler-reveal" type="button" (click)="reveal(comment.id)">Show spoiler</button> }
+      @else { <minos-comment-body [body]="comment.body || ''" /> }
+      <div class="comment-actions">
+        @if (!comment.parentCommentId && comment.replyCount > 0) { <button class="reply-toggle" type="button" [attr.aria-expanded]="openThreads().has(comment.id)" [attr.aria-controls]="'replies-' + comment.id" (click)="toggleReplies(comment)" [disabled]="pending()"><minos-icon name="discussion" />{{ openThreads().has(comment.id) ? 'Hide' : 'Show' }} replies ({{ comment.replyCount }})</button> }
+        @if (!comment.parentCommentId && comment.state === 'Visible') { <button [id]="'comment-reply-' + comment.id" type="button" (click)="startReply(comment)" [disabled]="pending()"><minos-icon name="reply" />Reply</button> }
+        @if (comment.canEdit && session.account()) { <button [id]="'comment-edit-' + comment.id" type="button" (click)="startEdit(comment)" [disabled]="pending()">Edit</button> }
+        @if (comment.canDelete && session.account()) { <button type="button" (click)="startRemove(comment, 'delete')" [disabled]="pending()">Delete</button> }
+        @if (comment.canHide && session.account()) { <button type="button" (click)="startRemove(comment, 'hide')" [disabled]="pending()">Hide</button> }
+      </div>
+      @if (confirm()?.value?.id === comment.id) {
+        <div class="comment-confirm" role="group" [attr.aria-label]="confirm()?.action === 'hide' ? 'Hide comment confirmation' : 'Delete comment confirmation'">
+          <p>{{ confirm()?.action === 'hide' ? 'Hide this comment? Its content will be removed for everyone.' : 'Delete this comment? This cannot be undone.' }} Replies will remain.</p>
+          <button [id]="'comment-confirm-' + comment.id" class="button button--danger" type="button" (click)="remove()" [disabled]="pending()">{{ confirm()?.action === 'hide' ? 'Confirm hide' : 'Confirm delete' }}</button>
+          <button class="button button--secondary" type="button" (click)="cancelInteraction('comment-' + comment.id)" [disabled]="pending()">Cancel</button>
+        </div>
+      }
+    }
+    </div>
+  </article>
+</ng-template>

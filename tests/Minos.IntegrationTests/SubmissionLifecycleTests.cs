@@ -21,6 +21,59 @@ namespace Minos.IntegrationTests;
 public sealed class SubmissionLifecycleTests
 {
     [Fact]
+    public async Task Problem_history_filters_before_count_and_pagination_across_versions_and_excludes_other_accounts()
+    {
+        var token = TestContext.Current.CancellationToken;
+        await using var factory = AccountTestHost.Factory();
+        using var owner = AccountTestHost.Client(factory);
+        using var other = AccountTestHost.Client(factory);
+        using var guest = AccountTestHost.Client(factory);
+        var ownerRegistration = await AccountTestHost.RegisterAsync(owner, AccountTestHost.Email());
+        var ownerAccount = (await ownerRegistration.Content.ReadFromJsonAsync<AccountResponse>(token))!;
+        var otherRegistration = await AccountTestHost.RegisterAsync(other, AccountTestHost.Email());
+        var otherAccount = (await otherRegistration.Content.ReadFromJsonAsync<AccountResponse>(token))!;
+        var first = await SeedPublishedAsync(factory, ownerAccount.Id, token);
+        var unrelated = await SeedPublishedAsync(factory, ownerAccount.Id, token);
+        Guid latestSubmission;
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var repository = scope.ServiceProvider.GetRequiredService<IProblemRepository>();
+            var problem = (await repository.FindForAuthoringAsync(first.Problem.Id, token))!;
+            problem.EditContent("Updated", "Updated statement", DateTimeOffset.UtcNow);
+            var secondVersion = problem.Publish(ownerAccount.Id, new(true, true, true), DateTimeOffset.UtcNow);
+            await repository.PublishAsync(problem, secondVersion, token);
+            var now = DateTimeOffset.UtcNow;
+            var latest = Submission.Create(ownerAccount.Id, first.Problem.Id, secondVersion.Id,
+                SupportedSubmission.Language, SupportedSubmission.ToolchainId, "// latest private source", now);
+            latestSubmission = latest.Id;
+            var database = scope.ServiceProvider.GetRequiredService<MinosDbContext>();
+            database.Submissions.AddRange(latest,
+                Submission.Create(ownerAccount.Id, first.Problem.Id, first.Version.Id, SupportedSubmission.Language, SupportedSubmission.ToolchainId, "// old private source", now.AddSeconds(-1)),
+                Submission.Create(ownerAccount.Id, unrelated.Problem.Id, unrelated.Version.Id, SupportedSubmission.Language, SupportedSubmission.ToolchainId, "// unrelated private source", now.AddSeconds(1)),
+                Submission.Create(otherAccount.Id, first.Problem.Id, first.Version.Id, SupportedSubmission.Language, SupportedSubmission.ToolchainId, "// another account private source", now.AddSeconds(2)));
+            await database.SaveChangesAsync(token);
+        }
+        var url = $"/api/me/submissions?problemId={first.Problem.Id}&pageSize=1&page=1";
+        var response = await owner.GetAsync(url, token);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.True(response.Headers.CacheControl?.NoStore);
+        Assert.DoesNotContain("\"source\"", await response.Content.ReadAsStringAsync(token), StringComparison.OrdinalIgnoreCase);
+        var page = (await response.Content.ReadFromJsonAsync<SubmissionPageResponse>(token))!;
+        Assert.Equal(2, page.Total);
+        Assert.Equal(latestSubmission, Assert.Single(page.Items).Id);
+        var second = (await owner.GetFromJsonAsync<SubmissionPageResponse>(url.Replace("page=1", "page=2"), token))!;
+        Assert.Equal(2, second.Total);
+        Assert.Equal(first.Version.Id, Assert.Single(second.Items).ProblemVersionId);
+        var othersPage = (await other.GetFromJsonAsync<SubmissionPageResponse>(url, token))!;
+        Assert.Equal(1, othersPage.Total);
+        Assert.NotEqual(latestSubmission, Assert.Single(othersPage.Items).Id);
+        Assert.Equal(0, (await owner.GetFromJsonAsync<SubmissionPageResponse>($"/api/me/submissions?problemId={Guid.NewGuid()}&page=1&pageSize=20", token))!.Total);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await guest.GetAsync(url, token)).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await owner.GetAsync($"/api/me/submissions?problemId={Guid.Empty}&page=1&pageSize=20", token)).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await owner.GetAsync("/api/me/submissions?problemId=invalid&page=1&pageSize=20", token)).StatusCode);
+    }
+
+    [Fact]
     public async Task Owner_can_retrieve_pinned_submission_after_restart_but_other_account_cannot_read_it()
     {
         var token = TestContext.Current.CancellationToken;
@@ -296,7 +349,26 @@ public sealed class SubmissionLifecycleTests
             var account = Account.Create("M4 Owner", DateTimeOffset.UtcNow);
             var problem = PublishedProblem(account.Id);
             database.Accounts.Add(account);
-            database.Problems.Add(problem.Problem);
+            await database.SaveChangesAsync(token);
+            // The historical schema has no generated public number yet.
+            var root = problem.Problem;
+            await database.Database.ExecuteSqlInterpolatedAsync($"""
+                INSERT INTO problems.problems(id,owner_account_id,title,statement,time_limit_ms,memory_limit_mb,checker,
+                    latest_published_version,is_archived,revision,created_at_utc,updated_at_utc)
+                VALUES ({root.Id},{account.Id},{root.Title},{root.Statement},{root.TimeLimitMilliseconds},
+                    {root.MemoryLimitMegabytes},{(int)root.Checker},{root.LatestPublishedVersion},
+                    {false},{root.Revision},{root.CreatedAtUtc},{root.UpdatedAtUtc})
+                """, token);
+            foreach (var sample in root.Samples)
+            {
+                database.Set<ProblemSample>().Add(sample);
+                database.Entry(sample).Property("problem_id").CurrentValue = root.Id;
+            }
+            foreach (var test in root.TestCases)
+            {
+                database.ProblemTestCases.Add(test);
+                database.Entry(test).Property("problem_id").CurrentValue = root.Id;
+            }
             database.PublishedProblemVersions.Add(problem.Version);
             await database.SaveChangesAsync(token);
 
@@ -324,6 +396,7 @@ public sealed class SubmissionLifecycleTests
 
             await database.Database.MigrateAsync(token);
             database.ChangeTracker.Clear();
+            Assert.True((await database.Problems.SingleAsync(value => value.Id == root.Id, token)).PublicNumber > 0);
             Assert.Equal("M5 problem", (await database.PublishedProblemVersions
                 .SingleAsync(version => version.Id == problem.Version.Id, token)).Title);
             Assert.Equal(1, await database.Submissions.CountAsync(token));

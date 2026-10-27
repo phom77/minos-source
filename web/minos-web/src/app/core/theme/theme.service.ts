@@ -50,7 +50,7 @@ export class ThemeService {
     this.value.set(theme);
     this.document.documentElement.dataset['theme'] = theme;
     this.document.documentElement.style.colorScheme = theme;
-    this.document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'dark' ? '#11271b' : '#f7f8ef');
+    this.document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'dark' ? '#1d1d1d' : '#fafafa');
     this.document.querySelector('link[rel="icon"]')?.setAttribute('href', theme === 'dark' ? 'brand/light-minos.png' : 'brand/dark-minos.png');
   }
 }

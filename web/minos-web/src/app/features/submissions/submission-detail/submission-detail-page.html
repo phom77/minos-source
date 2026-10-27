@@ -4,7 +4,6 @@
     @if (current.status === 'ready') {
       <header class="page-heading">
         <div><h1>{{ current.label?.title ?? 'Submission' }}</h1><p class="metadata"><time [attr.datetime]="current.data.createdAtUtc">{{ current.data.createdAtUtc | date:'medium' }}</time> · C++20
-          @if (current.label?.versionNumber; as version) { <span> · Version {{ version }}</span> }
         </p></div>
         <div class="actions">
           <a class="button button--secondary" [routerLink]="['/problems/versions', current.data.problemVersionId]">View submitted problem</a>
@@ -12,12 +11,13 @@
         </div>
       </header>
       <minos-submission-result [submission]="current.data" [interrupted]="current.interrupted" (refresh)="refresh()" />
+      <minos-submission-performance [submission]="current.data" />
       <section class="panel" aria-labelledby="source-heading">
         <header class="panel-header"><h2 id="source-heading">Submitted code</h2><div class="actions">
           <button class="button button--secondary" type="button" (click)="copy(current.data.source)">Copy code</button>
         </div></header>
         <span class="copy-notice" role="status">{{ copied() }}</span>
-        <pre class="submitted-source" tabindex="0" aria-label="Submitted C++20 source code"><code>{{ current.data.source }}</code></pre>
+        <pre class="submitted-source cpp-code" tabindex="0" aria-label="Submitted C++20 source code"><code [innerHTML]="current.data.source | cppHighlight"></code></pre>
       </section>
     } @else {
       <h1>Submission</h1>

@@ -26,6 +26,8 @@ textarea {
   font: inherit;
 }
 
+input::placeholder, textarea::placeholder { color: var(--color-text-muted); opacity: 1; }
+
 a {
   color: var(--color-action);
   text-underline-offset: 0.2em;
@@ -57,8 +59,8 @@ code, pre { font-family: var(--font-mono); }
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
-  background: var(--color-action);
-  color: var(--color-on-action);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
   font-size: var(--text-label);
   font-weight: 600;
   line-height: 1.5;
@@ -66,7 +68,7 @@ code, pre { font-family: var(--font-mono); }
   text-decoration: none;
   transition: background-color var(--motion-feedback), border-color var(--motion-feedback);
 }
-.button:hover:not(:disabled) { background: var(--color-action-hover); }
+.button:hover:not(:disabled) { background: var(--color-primary-hover); }
 .button:active:not(:disabled) { filter: brightness(0.9); }
 .button:disabled { cursor: not-allowed; opacity: 0.55; }
 .button--secondary { border-color: var(--color-control-border); background: transparent; color: var(--color-text); }
@@ -100,12 +102,14 @@ code, pre { font-family: var(--font-mono); }
 .form-field input[aria-invalid='true'] { border-color: var(--color-danger); }
 .form-field input:disabled { cursor: wait; opacity: 0.65; }
 .form-field minos-field-feedback { margin-top: calc(-1 * var(--space-2)); }
-.password-control { display: flex; min-width: 0; gap: var(--space-2); }
-.password-toggle { display: inline-flex; flex: 0 0 2.875rem; min-width: 2.875rem; min-height: 2.875rem;
-  padding: var(--space-2); border: 1px solid var(--color-control-border); align-items: center; justify-content: center;
-  border-radius: var(--radius-small); background: var(--color-surface-subtle); color: var(--color-text);
+.password-control { position: relative; min-width: 0; }
+.form-field .password-control input { padding-inline-end: 3.25rem; }
+.password-toggle { position: absolute; inset-block: 1px; inset-inline-end: 1px; display: inline-flex; width: 2.75rem;
+  padding: var(--space-2); border: 0; align-items: center; justify-content: center;
+  border-radius: var(--radius-small); background: transparent; color: var(--color-text-muted);
   transition: background-color var(--motion-feedback), border-color var(--motion-feedback); }
-.password-toggle:hover:not(:disabled) { border-color: var(--color-text); background: var(--color-selected); }
+.password-toggle:hover:not(:disabled) { color: var(--color-text); background: var(--color-selected); }
+.password-toggle:focus-visible { outline-offset: -4px; }
 .password-toggle:disabled { opacity: 0.55; cursor: wait; }
 .form-errors { padding: var(--space-4); border: 1px solid var(--color-danger); border-radius: var(--radius-small);
   background: var(--color-danger-surface); color: var(--color-danger); }

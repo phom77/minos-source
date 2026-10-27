@@ -13,6 +13,7 @@ export interface SubmissionTest {
   readonly cpuTimeMilliseconds: number | null; readonly wallTimeMilliseconds: number | null; readonly memoryPeakBytes: number | null;
 }
 export interface SubmissionResult {
+  readonly comparisonEligible?: boolean;
   readonly attemptId: string; readonly verdict: Verdict | null; readonly compilerDiagnostics: string;
   readonly maximumCpuTimeMilliseconds: number | null; readonly maximumWallTimeMilliseconds: number | null;
   readonly maximumMemoryBytes: number | null; readonly completedAtUtc: string; readonly tests: readonly SubmissionTest[];
@@ -66,7 +67,7 @@ export function isSubmission(v: unknown): v is Submission {
   const c = v['configuration'];
   if (c !== null && (!record(c) || !positive(c['timeLimitMilliseconds']) || !positive(c['memoryLimitMegabytes']) || c['checker'] !== 'Exact' || !positive(c['testCount']))) return false;
   const r = v['result'];
-  return r === null || (record(r) && id(r['attemptId']) && verdict(r['verdict']) && typeof r['compilerDiagnostics'] === 'string' && sourceBytes(r['compilerDiagnostics']) <= 32_768 &&
+  return r === null || (record(r) && (r['comparisonEligible'] === undefined || typeof r['comparisonEligible'] === 'boolean') && id(r['attemptId']) && verdict(r['verdict']) && typeof r['compilerDiagnostics'] === 'string' && sourceBytes(r['compilerDiagnostics']) <= 32_768 &&
     measurement(r['maximumCpuTimeMilliseconds']) && measurement(r['maximumWallTimeMilliseconds']) && measurement(r['maximumMemoryBytes']) && date(r['completedAtUtc']) &&
     Array.isArray(r['tests']) && r['tests'].every(t => record(t) && positive(t['order']) &&
       ['NotExecuted', 'Passed', 'WrongAnswer', 'RuntimeError', 'TimeLimitExceeded', 'MemoryLimitExceeded', 'OutputLimitExceeded'].includes(String(t['status'])) &&

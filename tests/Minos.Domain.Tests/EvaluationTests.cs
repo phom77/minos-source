@@ -6,6 +6,23 @@ namespace Minos.Domain.Tests;
 
 public sealed class EvaluationTests
 {
+    [Fact]
+    public void Result_preserves_validated_measurement_identity_with_the_accepted_attempt()
+    {
+        var profile = new string('a', 64);
+        var submission = CreateSubmission();
+        var attempt = Guid.NewGuid();
+        submission.StartAttempt(attempt);
+        var outcome = JudgingOutcome.Create(SubmissionVerdict.Accepted, "", [new(1, TestCaseResultStatus.Passed, 5, 8, 4096, 0)], profile);
+        var result = submission.Complete(attempt, outcome, Now);
+        Assert.Equal(profile, result.MeasurementProfileId);
+        Assert.Equal(attempt, result.AttemptId);
+        Assert.Equal(5, result.MaximumCpuTimeMilliseconds);
+        Assert.Null(AcceptedOutcome().MeasurementProfileId);
+        foreach (var invalid in new[] { "", new string('A', 64), new string('a', 63), new string('a', 65), new string('z', 64) })
+            Assert.Throws<DomainValidationException>(() => JudgingOutcome.Create(SubmissionVerdict.Accepted, "", outcome.TestCases, invalid));
+    }
+
     private static readonly DateTimeOffset Now = new(2026, 9, 25, 0, 0, 0, TimeSpan.Zero);
 
     [Fact]

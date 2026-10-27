@@ -40,7 +40,7 @@ public sealed class DatabaseOperationalCheck(MinosDbContext database)
                     SELECT c.oid, c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
                     WHERE n.nspname = 'problems' AND c.relname IN (
                         'problems','problem_samples','problem_test_cases','published_problem_versions',
-                        'published_problem_samples','published_problem_test_cases')
+                        'published_problem_samples','published_problem_test_cases','problem_classifications','topics','problem_topics','problem_comments')
                 ), contest_tables AS (
                     SELECT c.oid, c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
                     WHERE n.nspname = 'contests' AND c.relname IN ('contests','contest_problems','registrations','submissions')
@@ -50,13 +50,15 @@ public sealed class DatabaseOperationalCheck(MinosDbContext database)
                         'submissions','judge_jobs','judging_attempts','submission_results','test_case_results','submission_requests')
                 )
                 SELECT NOT has_database_privilege(current_database(), 'CREATE,TEMP')
+                    AND has_sequence_privilege('problems.problem_public_number_seq', 'USAGE') = @is_api
+                    AND NOT has_sequence_privilege('problems.problem_public_number_seq', 'SELECT,UPDATE')
                     AND NOT EXISTS (SELECT 1 FROM pg_namespace WHERE nspname NOT LIKE 'pg_temp_%'
                         AND nspname NOT LIKE 'pg_toast_temp_%' AND has_schema_privilege(oid, 'CREATE'))
-                    AND (SELECT count(*) = 6 AND bool_and(
+                    AND (SELECT count(*) = 10 AND bool_and(
                         has_table_privilege(oid, 'SELECT') = (@is_api OR relname IN ('problems','published_problem_versions','published_problem_test_cases'))
-                        AND has_table_privilege(oid, 'INSERT') = @is_api
-                        AND has_table_privilege(oid, 'UPDATE') = (@is_api AND relname IN ('problems','problem_samples','problem_test_cases'))
-                        AND has_table_privilege(oid, 'DELETE') = (@is_api AND relname IN ('problem_samples','problem_test_cases'))
+                        AND has_table_privilege(oid, 'INSERT') = (@is_api AND relname <> 'topics')
+                        AND has_table_privilege(oid, 'UPDATE') = (@is_api AND relname IN ('problems','problem_samples','problem_test_cases','problem_classifications','problem_topics','problem_comments'))
+                        AND has_table_privilege(oid, 'DELETE') = (@is_api AND relname IN ('problem_samples','problem_test_cases','problem_topics'))
                         AND NOT has_table_privilege(oid, 'TRUNCATE,REFERENCES,TRIGGER')
                     ) FROM problem_tables)
                     AND has_schema_privilege('contests', 'USAGE') = @is_api

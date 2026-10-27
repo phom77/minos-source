@@ -16,7 +16,7 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql
       - ./docker/postgres-init.sh:/docker-entrypoint-initdb.d/10-minos-roles.sh:ro
-      - ./scripts/postgres-bootstrap.sql:/minos/postgres-bootstrap.sql:ro
+      - ./scripts/database/bootstrap.sql:/minos/postgres-bootstrap.sql:ro
     healthcheck:
       test: [CMD-SHELL, 'pg_isready -U minos_bootstrap -d minos && test "$$(cat /proc/1/comm)" = postgres']
       interval: 3s
@@ -57,7 +57,7 @@ services:
       MINOS_MIGRATOR_PASSWORD: ${MINOS_MIGRATOR_PASSWORD:?Missing migrator password}
     volumes:
       - ./docker/apply-grants.sh:/minos/apply-grants.sh:ro
-      - ./scripts/postgres-runtime-grants.sql:/minos/postgres-runtime-grants.sql:ro
+      - ./scripts/database/runtime-grants.sql:/minos/postgres-runtime-grants.sql:ro
     depends_on:
       migrate:
         condition: service_completed_successfully

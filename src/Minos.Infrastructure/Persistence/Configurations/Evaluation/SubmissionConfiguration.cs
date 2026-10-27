@@ -41,6 +41,10 @@ internal sealed class SubmissionConfiguration : IEntityTypeConfiguration<Submiss
         submission.Property(x => x.CompletedAtUtc).HasColumnName("completed_at_utc");
         submission.HasIndex(x => new { x.OwnerAccountId, x.CreatedAtUtc });
         submission.HasIndex(x => new { x.OwnerAccountId, x.Status });
+        submission.HasIndex(x => new { x.OwnerAccountId, x.ProblemId });
+        submission.HasIndex(x => x.ProblemVersionId);
+        submission.HasIndex(x => new { x.ProblemVersionId, x.Language, x.ToolchainId, x.OwnerAccountId })
+            .HasDatabaseName("ix_submissions_performance_cohort").HasFilter("status = 2");
     }
 }
 
@@ -51,6 +55,7 @@ internal sealed class SubmissionResultConfiguration : IEntityTypeConfiguration<S
         result.ToTable("submission_results", "evaluation", table =>
         {
             table.HasCheckConstraint("ck_submission_results_verdict", "verdict IS NULL OR verdict BETWEEN 0 AND 6");
+            table.HasCheckConstraint("ck_submission_results_measurement_profile", "measurement_profile_id IS NULL OR measurement_profile_id ~ '^[0-9a-f]{64}$'");
             table.HasCheckConstraint("ck_submission_results_diagnostics", $"octet_length(compiler_diagnostics) <= {JudgingOutcome.MaximumCompilerDiagnosticsBytes}");
             table.HasCheckConstraint("ck_submission_results_summary", "(verdict IS NULL AND maximum_cpu_time_ms IS NULL AND maximum_wall_time_ms IS NULL AND maximum_memory_bytes IS NULL AND compiler_diagnostics = '') OR (verdict = 2 AND maximum_cpu_time_ms IS NULL AND maximum_wall_time_ms IS NULL AND maximum_memory_bytes IS NULL) OR (verdict IS NOT NULL AND verdict <> 2 AND maximum_cpu_time_ms IS NOT NULL AND maximum_cpu_time_ms >= 0 AND maximum_wall_time_ms IS NOT NULL AND maximum_wall_time_ms >= 0 AND maximum_memory_bytes IS NOT NULL AND maximum_memory_bytes >= 0 AND compiler_diagnostics = '')");
         });
@@ -66,6 +71,7 @@ internal sealed class SubmissionResultConfiguration : IEntityTypeConfiguration<S
         result.Property(x => x.MaximumCpuTimeMilliseconds).HasColumnName("maximum_cpu_time_ms");
         result.Property(x => x.MaximumWallTimeMilliseconds).HasColumnName("maximum_wall_time_ms");
         result.Property(x => x.MaximumMemoryBytes).HasColumnName("maximum_memory_bytes");
+        result.Property(x => x.MeasurementProfileId).HasColumnName("measurement_profile_id").HasMaxLength(64);
         result.Property(x => x.CompletedAtUtc).HasColumnName("completed_at_utc").IsRequired();
         result.HasMany(x => x.TestCaseResults).WithOne()
             .HasForeignKey(x => new { x.SubmissionId, x.AttemptId })

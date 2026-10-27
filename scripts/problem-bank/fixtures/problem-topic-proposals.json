@@ -1,0 +1,55 @@
+{
+  "formatVersion": 1,
+  "problems": [
+    {
+      "sourceId": "cf-1267-b",
+      "tags": ["strings", "two pointers"],
+      "confidence": "high",
+      "rationale": "The string has up to 300,000 colors. The reference advances two pointers inward over matching outer runs, checks merged-run lengths for elimination, and counts insertion positions in the central run.",
+      "evidence": [
+        {"path": "candidates/cf-1267-b/statement.txt", "sha256": "ff0022e226c8b0b0c3be5a7c8c7e2998da87d692cdbcbcc3605e6c5236951bc4"},
+        {"path": "candidates/cf-1267-b/reference-01.cpp", "sha256": "788336096425e22185ab2fd89044f4d21fc09fd31c06c8097653b2eed26299f8"}
+      ]
+    },
+    {
+      "sourceId": "cf-690-a1",
+      "tags": ["games", "math"],
+      "confidence": "high",
+      "rationale": "Rational players vote based on survival and payoff. The voting game reduces to ceil(N/2), which the reference computes directly for N up to one billion.",
+      "evidence": [
+        {"path": "candidates/cf-690-a1/statement.txt", "sha256": "7efc8871d2eb464372facccaa09812aa331dffc0fb6b49c16b85ea2a445c8a48"},
+        {"path": "candidates/cf-690-a1/reference-01.cpp", "sha256": "10bac380e5ca7923c95214dc1c103e07050fb22988a0969d1db36c24d8301ec3"}
+      ]
+    },
+    {
+      "sourceId": "cf-690-f1",
+      "tags": ["trees", "combinatorics"],
+      "confidence": "high",
+      "rationale": "Each length-two path is determined by its middle vertex and an unordered pair of neighbors. The reference counts these pairs while reading edges, equivalent to summing degree(v) choose 2.",
+      "evidence": [
+        {"path": "candidates/cf-690-f1/statement.txt", "sha256": "b8147cd85402f4a5adacf1baa47fa3cba106dee279b6066fa78a02913dc9a452"},
+        {"path": "candidates/cf-690-f1/reference-01.cpp", "sha256": "788bb0f475308349c519e75830d9f8c533e55f738f49663d8ec8e9cb5f9c483e"}
+      ]
+    },
+    {
+      "sourceId": "cf-409-c",
+      "tags": ["implementation", "math"],
+      "confidence": "high",
+      "rationale": "The recipe requires ingredient quantities 1, 1, 2, 7 and 4. The reference takes the minimum available quantity divided by its required amount using integer division. The Latin puzzle framing and special source marker remain separate.",
+      "evidence": [
+        {"path": "candidates/cf-409-c/statement.txt", "sha256": "df522a47f711938bf8092f1a993529e0367032e6af2e33b8046c2c9377b4ea7f"},
+        {"path": "candidates/cf-409-c/reference-01.cpp", "sha256": "5edf490480200b203e1e267271b9978c859f85db4ebd3a5f6b2197bc0cf8a9e3"}
+      ]
+    },
+    {
+      "sourceId": "cf-656-f",
+      "tags": ["implementation", "math"],
+      "confidence": "medium",
+      "rationale": "The reference processes six digits and outputs one plus their sum after replacing zeros with nines. The local statement omits the puzzle explanation and leaves validity undefined, so these topics describe the reference algorithm rather than establish the full intended concept.",
+      "evidence": [
+        {"path": "candidates/cf-656-f/statement.txt", "sha256": "5bb37be02177cef302506201ab540cf6206afac8ac8546e8df1e67b6ed404ee4"},
+        {"path": "candidates/cf-656-f/reference-01.cpp", "sha256": "52f1e5931bde9905127383f2e36ebf9a127dae87ea3201875e397935fe103a5f"}
+      ]
+    }
+  ]
+}

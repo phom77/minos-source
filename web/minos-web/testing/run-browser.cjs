@@ -21,7 +21,7 @@ const server = http.createServer(async (req, res) => {
   await fs.access(path.join(root, 'index.html'));
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   try {
-    for (const script of ['contest-browser.cjs', 'submission-browser.cjs']) {
+    for (const script of (process.argv.length > 2 ? process.argv.slice(2) : ['contest-browser.cjs', 'submission-browser.cjs', 'ui-refinement-browser.cjs', 'library-browser.cjs', 'problem-workspace-browser.cjs', 'performance-browser.cjs', 'comments-browser.cjs', 'theme-browser.cjs'])) {
       await new Promise((resolve, reject) => {
         const child = spawn(process.execPath, [path.join(__dirname, script)], { stdio: 'inherit', env: { ...process.env,
           MINOS_BROWSER_BASE_URL: `http://127.0.0.1:${server.address().port}` } });

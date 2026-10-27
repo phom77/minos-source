@@ -1,4 +1,4 @@
-// Invoked by check-docker-http.py with temporary fixture identities; credentials stay out of arguments/artifacts.
+// Invoked by scripts/checks/http-smoke.py with temporary fixture identities; credentials stay out of arguments/artifacts.
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');

@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 # Startup writes its PID only after database, storage, Docker and recovery checks pass.
-# Do not run --check here: a second host must fail the M7 exclusive lock.
+# Do not run --check here: a second host must fail the exclusive host lock.
 pid="$(cat /tmp/minos-judge-execution/.worker-ready 2>/dev/null)"
 case "$pid" in ''|*[!0-9]*) exit 1 ;; esac
 kill -0 "$pid"

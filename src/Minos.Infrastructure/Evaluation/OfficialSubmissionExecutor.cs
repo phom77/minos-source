@@ -13,7 +13,8 @@ internal sealed class OfficialSubmissionExecutor(
     MinosDbContext database,
     IProblemArtifactStore artifacts,
     IExecutionBackend backend,
-    ILogger<OfficialSubmissionExecutor> logger) : ISubmissionExecutor
+    ILogger<OfficialSubmissionExecutor> logger,
+    ExecutionMeasurementProfile? measurementProfile = null) : ISubmissionExecutor
 {
     private const long Megabyte = 1024 * 1024;
     private static readonly ExecutionLimits CompilationLimits = new(
@@ -116,7 +117,7 @@ internal sealed class OfficialSubmissionExecutor(
             return SubmissionExecutionResult.Completed(JudgingOutcome.Create(
                 finalVerdict ?? SubmissionVerdict.Accepted,
                 "",
-                outcomes));
+                outcomes, measurementProfile is null ? null : await measurementProfile.ReadAsync(token)));
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {

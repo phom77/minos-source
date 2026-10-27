@@ -18,9 +18,13 @@ internal sealed class ProblemConfiguration : IEntityTypeConfiguration<Problem>
             table.HasCheckConstraint("ck_problems_checker", "checker = 0");
             table.HasCheckConstraint("ck_problems_version", "latest_published_version >= 0");
             table.HasCheckConstraint("ck_problems_revision", "revision >= 0");
+            table.HasCheckConstraint("ck_problems_public_number", "public_number > 0");
         });
         problem.HasKey(x => x.Id);
         problem.Property(x => x.Id).HasColumnName("id").ValueGeneratedNever();
+        problem.Property(x => x.PublicNumber).HasColumnName("public_number")
+            .HasDefaultValueSql("nextval('problems.problem_public_number_seq')").ValueGeneratedOnAdd();
+        problem.HasIndex(x => x.PublicNumber).IsUnique();
         problem.Property(x => x.OwnerAccountId).HasColumnName("owner_account_id").IsRequired();
         problem.HasOne<Account>().WithMany().HasForeignKey(x => x.OwnerAccountId).OnDelete(DeleteBehavior.Restrict);
         problem.Property(x => x.Title).HasColumnName("title").HasMaxLength(Problem.MaximumTitleLength).IsRequired();

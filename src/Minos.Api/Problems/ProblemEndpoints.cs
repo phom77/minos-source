@@ -10,6 +10,7 @@ internal static class ProblemEndpoints
 
     public static void MapProblemEndpoints(this WebApplication app)
     {
+        app.MapProblemClassificationEndpoints();
         var authoring = app.MapGroup("/api/authoring/problems").RequireAuthorization();
         authoring.MapPost("/", CreateAsync).WithMetadata(new RequestSizeLimitAttribute(JsonBodyLimit));
         authoring.MapGet("/{id:guid}/draft", FindDraftAsync);
@@ -91,17 +92,36 @@ internal static class ProblemEndpoints
     private static async Task<IResult> ListAsync(
         int page,
         int pageSize,
+        string? q,
+        string? difficulty,
+        string? topic,
+        string? status,
+        string? sort,
+        string? match,
+        bool? difficultyIsNot,
+        bool? topicIsNot,
+        bool? statusIsNot,
+        HttpResponse response,
         ProblemCatalogUseCases useCases,
         CancellationToken token)
     {
+        response.Headers.CacheControl = "private, no-store";
         if (page == 0) page = 1;
         if (pageSize == 0) pageSize = 20;
-        var result = await useCases.ListAsync(page, pageSize, token);
+        var result = await useCases.ListAsync(new(page, pageSize, q, ParseFilter<ProblemDifficultyFilter>(difficulty),
+            topic, ParseFilter<ProblemSolveStatus>(status), ParseFilter<ProblemCatalogSort>(sort) ?? ProblemCatalogSort.Number,
+            ParseFilter<ProblemFilterMatch>(match) ?? ProblemFilterMatch.All, difficultyIsNot ?? false, topicIsNot ?? false, statusIsNot ?? false), token);
         return Results.Ok(new PublishedProblemPageResponse(
             result.Items.Select(item => new PublishedProblemSummaryResponse(
-                item.ProblemId, item.VersionId, item.VersionNumber, item.Title, item.PublishedAtUtc)).ToArray(),
-            result.Page, result.PageSize, result.Total));
+                item.ProblemId, item.VersionId, item.VersionNumber, item.Title, item.PublishedAtUtc,
+                item.Classification is null ? null : ProblemClassificationEndpoints.Map(item.Classification), item.PublicNumber, item.SolveStatus?.ToString())).ToArray(),
+            result.Page, result.PageSize, result.Total,
+            result.Progress is null ? null : new(result.Progress.Solved, result.Progress.Attempted, result.Progress.Total)));
     }
+
+    private static T? ParseFilter<T>(string? value) where T : struct, Enum => value is null ? null :
+        Enum.GetNames<T>().Any(name => string.Equals(name, value, StringComparison.OrdinalIgnoreCase)) && Enum.TryParse<T>(value, true, out var parsed)
+            ? parsed : throw new BadHttpRequestException("Invalid library filter.");
 
     private static async Task<IResult> FindLatestAsync(Guid id, ProblemCatalogUseCases useCases, CancellationToken token) =>
         Results.Ok(Map(await useCases.FindLatestAsync(id, token)));

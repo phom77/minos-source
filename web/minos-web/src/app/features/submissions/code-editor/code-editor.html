@@ -1,7 +1,13 @@
 <div class="editor-surface" [class.editor-surface--invalid]="error()">
   <div class="line-gutter" aria-hidden="true"><pre [style.transform]="'translateY(' + gutterOffset() + 'px)'">{{ lineNumbers() }}</pre></div>
+  <div class="code-input" [class.code-input--composing]="composing()">
+  <div class="highlight-viewport" aria-hidden="true" [style.width.px]="viewport()?.width" [style.height.px]="viewport()?.height">
+    <pre class="syntax-layer cpp-code" [style.transform]="highlightOffset()"><code [innerHTML]="text() | cppHighlight"></code></pre>
+  </div>
   <label class="visually-hidden" for="submission-source">C++20 source code</label>
   <textarea #editor id="submission-source" [formControl]="control()" (input)="edit()" (blur)="blurred.emit()" (scroll)="scroll()" (click)="position()" (keyup)="position()" (select)="position()"
+    (compositionstart)="composing.set(true)" (compositionend)="composing.set(false)"
     [attr.aria-invalid]="error() ? 'true' : null" [attr.aria-describedby]="error() ? 'source-error source-size' : 'source-size'"
     spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" wrap="off"></textarea>
+  </div>
 </div>

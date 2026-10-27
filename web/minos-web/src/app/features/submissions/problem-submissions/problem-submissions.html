@@ -1,0 +1,66 @@
+@if (session.state().status === 'guest') {
+  <minos-state-panel [headingLevel]="2" heading="Sign in to view your submissions"><button type="button" class="button" (click)="signIn()">Sign in</button></minos-state-panel>
+} @else if (session.state().status === 'unavailable') {
+  <minos-state-panel [headingLevel]="2" kind="error" heading="Account unavailable"><button type="button" class="button" (click)="reconnect()">Reconnect</button></minos-state-panel>
+} @else if (selectedId() !== null) {
+  <button type="button" class="back-to-list" (click)="backToList()">← All submissions for this problem</button>
+  <h2 id="problem-submission-heading" tabindex="-1">{{ problemTitle() }}</h2>
+  @if (detail(); as current) {
+    @if (current.status === 'ready') {
+      <p class="metadata"><time [attr.datetime]="current.data.createdAtUtc">{{ current.data.createdAtUtc | date:'medium' }}</time> · C++20</p>
+      <minos-submission-result [submission]="current.data" [compact]="true" headingId="problem-submission-result-heading" [interrupted]="current.interrupted" (refresh)="refreshDetail()" />
+      <minos-submission-performance [submission]="current.data" />
+      <section class="source-view" aria-labelledby="problem-submitted-code-heading">
+        <header><h3 id="problem-submitted-code-heading">Submitted code</h3><button type="button" class="button button--secondary" (click)="copy(current.data.source)">Copy code</button></header>
+        <p class="copy-notice" role="status">{{ copied() }}</p>
+        <pre class="cpp-code" tabindex="0" aria-label="Submitted C++20 source code"><code [innerHTML]="current.data.source | cppHighlight"></code></pre>
+      </section>
+    } @else {
+      @switch (current.status) {
+        @case ('loading') { <minos-state-panel [headingLevel]="3" kind="loading" heading="Loading submission…" /> }
+        @case ('invalid') { <minos-state-panel [headingLevel]="3" kind="error" heading="Invalid submission link" /> }
+        @case ('missing') { <minos-state-panel [headingLevel]="3" heading="Submission not found for this problem" /> }
+        @case ('guest') { <minos-state-panel [headingLevel]="3" heading="Sign in to view your submissions"><button type="button" class="button" (click)="signIn()">Sign in</button></minos-state-panel> }
+        @case ('denied') { <minos-state-panel [headingLevel]="3" kind="error" heading="This submission is private" /> }
+        @default { <minos-state-panel [headingLevel]="3" kind="error" heading="Could not load submission"><button type="button" class="button button--secondary" (click)="refreshDetail()">Try again</button></minos-state-panel> }
+      }
+    }
+  }
+} @else {
+  <header class="history-heading"><h2 id="problem-submissions-heading" tabindex="-1">{{ problemTitle() }}</h2><button type="button" class="button button--secondary" (click)="refreshHistory()">Refresh</button></header>
+  @if (history(); as current) {
+    @if (current.status === 'ready') {
+      @if (current.interrupted) { <p class="notice" role="alert">Updates paused. Refresh to reconnect.</p> }
+      <p class="metadata">{{ current.data.total }} {{ current.data.total === 1 ? 'submission' : 'submissions' }}</p>
+      @if (current.data.items.length) {
+        <ol class="submission-list" aria-label="Your submissions for this problem">
+          @for (item of current.data.items; track item.id) {
+            <li><button type="button" class="submission-select" (click)="select(item.id)">
+              <minos-status-badge [tone]="outcomeTone(item.status, item.verdict)">{{ outcomeLabel(item.status, item.verdict) }}</minos-status-badge>
+              <span class="submission-meta"><time [attr.datetime]="item.createdAtUtc">{{ item.createdAtUtc | date:'medium' }}</time><span>C++20</span></span><span class="row-arrow" aria-hidden="true">→</span>
+            </button></li>
+          }
+        </ol>
+      } @else {
+        <minos-state-panel [headingLevel]="3" [heading]="current.data.total ? 'No submissions on this page' : 'No submissions for this problem yet'">
+          @if (current.data.page > 1) { <button type="button" class="button button--secondary" (click)="changePage(1)">First page</button> }
+        </minos-state-panel>
+      }
+      @if (pages(current.data) > 1 || current.data.page > 1) {
+        <nav class="pagination" aria-label="Problem submission pages">
+          <button type="button" class="button button--secondary" [disabled]="current.data.page <= 1" (click)="changePage(current.data.page - 1)">Previous</button>
+          <span>Page {{ current.data.page }} of {{ pages(current.data) }}</span>
+          <button type="button" class="button button--secondary" [disabled]="current.data.page >= pages(current.data)" (click)="changePage(current.data.page + 1)">Next</button>
+        </nav>
+      }
+    } @else {
+      @switch (current.status) {
+        @case ('loading') { <minos-state-panel [headingLevel]="3" kind="loading" heading="Loading submissions…" /> }
+        @case ('invalid') { <minos-state-panel [headingLevel]="3" kind="error" heading="Invalid submission page"><button type="button" class="button button--secondary" (click)="changePage(1)">First page</button></minos-state-panel> }
+        @case ('guest') { <minos-state-panel [headingLevel]="3" heading="Sign in to view your submissions"><button type="button" class="button" (click)="signIn()">Sign in</button></minos-state-panel> }
+        @case ('denied') { <minos-state-panel [headingLevel]="3" kind="error" heading="Submissions are unavailable for this account" /> }
+        @default { <minos-state-panel [headingLevel]="3" kind="error" heading="Could not load submissions"><button type="button" class="button button--secondary" (click)="refreshHistory()">Try again</button></minos-state-panel> }
+      }
+    }
+  }
+}

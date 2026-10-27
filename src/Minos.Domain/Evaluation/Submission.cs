@@ -139,6 +139,7 @@ public sealed class SubmissionResult
     public long? MaximumCpuTimeMilliseconds { get; private set; }
     public long? MaximumWallTimeMilliseconds { get; private set; }
     public long? MaximumMemoryBytes { get; private set; }
+    public string? MeasurementProfileId { get; private set; }
     public DateTimeOffset CompletedAtUtc { get; private set; }
     public IReadOnlyList<TestCaseResult> TestCaseResults => testCaseResults.AsReadOnly();
 
@@ -158,6 +159,7 @@ public sealed class SubmissionResult
             MaximumCpuTimeMilliseconds = executed.Length == 0 ? null : executed.Max(test => test.CpuTimeMilliseconds),
             MaximumWallTimeMilliseconds = executed.Length == 0 ? null : executed.Max(test => test.WallTimeMilliseconds),
             MaximumMemoryBytes = executed.Length == 0 ? null : executed.Max(test => test.MemoryPeakBytes),
+            MeasurementProfileId = outcome.MeasurementProfileId,
             CompletedAtUtc = completedAtUtc
         };
         result.testCaseResults.AddRange(outcome.TestCases.Select(test => TestCaseResult.Create(submissionId, attemptId, test)));

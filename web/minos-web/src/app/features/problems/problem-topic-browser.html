@@ -1,0 +1,11 @@
+    <div class="topic-browser">
+      <div class="topic-rail" [class.expanded]="expandedTopics()" id="library-topics" role="group" aria-label="Browse topics">
+        <button class="all-topics" type="button" [class.selected]="!selectedTopic()" [attr.aria-pressed]="!selectedTopic()" (click)="topicSelected.emit(null)"><minos-icon name="library" />All topics</button>
+        @for (topic of topics(); track topic.slug) {
+          <button class="quick-topic" type="button" [attr.aria-label]="'Filter by ' + topic.displayName" [attr.aria-description]="topic.problemCount + ' problems'" [attr.aria-pressed]="selectedTopic() === topic.slug && !excluded()" (click)="topicSelected.emit(topic.slug)">
+            <span>{{ topic.displayName }}</span><span class="topic-count">{{ topic.problemCount }}</span>
+          </button>
+        }
+      </div>
+      @if (topics().length) { <button class="expand-topics" type="button" aria-controls="library-topics" [attr.aria-expanded]="expandedTopics()" (click)="expandedTopics.set(!expandedTopics())">{{ expandedTopics() ? 'Collapse' : 'Expand' }}<minos-icon name="chevron" /></button> }
+    </div>

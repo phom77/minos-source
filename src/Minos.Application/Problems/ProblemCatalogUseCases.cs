@@ -1,13 +1,19 @@
+using Minos.Application.Accounts;
+
 namespace Minos.Application.Problems;
 
-public sealed class ProblemCatalogUseCases(IProblemRepository repository)
+public sealed class ProblemCatalogUseCases(IProblemRepository repository, ICurrentAccount current, AccountUseCases accounts)
 {
-    public async Task<PublishedProblemPage> ListAsync(int page, int pageSize, CancellationToken token)
+    public Task<IReadOnlyList<ProblemTopicCountSummary>> ListTopicCountsAsync(CancellationToken token) => repository.ListTopicCountsAsync(token);
+    public Task<PublishedProblemPage> ListAsync(int page, int pageSize, CancellationToken token) => ListAsync(new(page, pageSize), token);
+
+    public async Task<PublishedProblemPage> ListAsync(ProblemCatalogQuery request, CancellationToken token)
     {
-        if (page < 1) throw new ArgumentOutOfRangeException(nameof(page));
-        if (pageSize is < 1 or > 100) throw new ArgumentOutOfRangeException(nameof(pageSize));
-        var (items, total) = await repository.ListPublishedAsync(checked((page - 1) * pageSize), pageSize, token);
-        return new(items, page, pageSize, total);
+        request = request.Validate();
+        Guid? owner = null;
+        if (current.AccountId is not null || request.Status is not null) owner = (await accounts.RequireActiveAsync(token)).Id;
+        var result = await repository.ListPublishedAsync(request, owner, token);
+        return new(result.Items, request.Page, request.PageSize, result.Total) { Progress = result.Progress };
     }
 
     public async Task<PublishedProblemDetails> FindLatestAsync(Guid problemId, CancellationToken token)

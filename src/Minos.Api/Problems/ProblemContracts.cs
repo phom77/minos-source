@@ -31,7 +31,10 @@ public sealed record PublishedProblemSummaryResponse(
     Guid VersionId,
     int VersionNumber,
     string Title,
-    DateTimeOffset PublishedAtUtc);
+    DateTimeOffset PublishedAtUtc,
+    ProblemClassificationResponse? Classification = null,
+    int PublicNumber = 0,
+    string? SolveStatus = null);
 public sealed record PublishedProblemResponse(
     Guid ProblemId,
     Guid VersionId,
@@ -48,4 +51,6 @@ public sealed record PublishedProblemPageResponse(
     IReadOnlyList<PublishedProblemSummaryResponse> Items,
     int Page,
     int PageSize,
-    int Total);
+    int Total,
+    ProblemProgressResponse? Progress = null);
+public sealed record ProblemProgressResponse(int Solved, int Attempted, int Total);

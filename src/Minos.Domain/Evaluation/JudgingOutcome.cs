@@ -43,23 +43,30 @@ public sealed class JudgingOutcome
     private JudgingOutcome(
         SubmissionVerdict verdict,
         string compilerDiagnostics,
-        IReadOnlyList<JudgingTestOutcome> testCases)
+        IReadOnlyList<JudgingTestOutcome> testCases,
+        string? measurementProfileId)
     {
         Verdict = verdict;
         CompilerDiagnostics = compilerDiagnostics;
         TestCases = testCases;
+        MeasurementProfileId = measurementProfileId;
     }
 
     public SubmissionVerdict Verdict { get; }
     public string CompilerDiagnostics { get; }
     public IReadOnlyList<JudgingTestOutcome> TestCases { get; }
+    public string? MeasurementProfileId { get; }
 
     public static JudgingOutcome Create(
         SubmissionVerdict verdict,
         string? compilerDiagnostics,
-        IReadOnlyList<JudgingTestOutcome> testCases)
+        IReadOnlyList<JudgingTestOutcome> testCases,
+        string? measurementProfileId = null)
     {
         ArgumentNullException.ThrowIfNull(testCases);
+        if (measurementProfileId is not null && (measurementProfileId.Length != 64 ||
+            measurementProfileId.Any(character => character is not (>= '0' and <= '9') and not (>= 'a' and <= 'f'))))
+            throw new DomainValidationException(nameof(MeasurementProfileId), "Measurement profile must be a lowercase SHA-256 identity.");
         compilerDiagnostics ??= "";
         if (compilerDiagnostics.Contains('\0') || Encoding.UTF8.GetByteCount(compilerDiagnostics) > MaximumCompilerDiagnosticsBytes)
             throw new DomainValidationException(nameof(CompilerDiagnostics), "Compiler diagnostics are invalid or exceed their byte limit.");
@@ -88,7 +95,7 @@ public sealed class JudgingOutcome
         {
             if (testCases.Any(test => test.Status != TestCaseResultStatus.NotExecuted))
                 throw new DomainValidationException(nameof(TestCases), "Compilation failure cannot contain executed tests.");
-            return new(verdict, compilerDiagnostics, Array.AsReadOnly(testCases.ToArray()));
+            return new(verdict, compilerDiagnostics, Array.AsReadOnly(testCases.ToArray()), measurementProfileId);
         }
 
         if (compilerDiagnostics.Length != 0)
@@ -98,7 +105,7 @@ public sealed class JudgingOutcome
         {
             if (testCases.Any(test => test.Status != TestCaseResultStatus.Passed))
                 throw new DomainValidationException(nameof(TestCases), "Accepted requires every private test to pass.");
-            return new(verdict, "", Array.AsReadOnly(testCases.ToArray()));
+            return new(verdict, "", Array.AsReadOnly(testCases.ToArray()), measurementProfileId);
         }
 
         if (testCases.Any(test => test.Status == TestCaseResultStatus.NotExecuted))
@@ -106,7 +113,7 @@ public sealed class JudgingOutcome
         var firstFailure = testCases.FirstOrDefault(test => test.Status != TestCaseResultStatus.Passed);
         if (firstFailure is null || firstFailure.Status != VerdictStatus(verdict))
             throw new DomainValidationException(nameof(TestCases), "The verdict must match the first failed test.");
-        return new(verdict, "", Array.AsReadOnly(testCases.ToArray()));
+        return new(verdict, "", Array.AsReadOnly(testCases.ToArray()), measurementProfileId);
     }
 
     private static TestCaseResultStatus VerdictStatus(SubmissionVerdict verdict) => verdict switch

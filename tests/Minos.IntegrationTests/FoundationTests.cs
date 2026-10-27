@@ -90,7 +90,8 @@ public sealed class FoundationTests
         public Task<Problem?> FindForAuthoringAsync(Guid id, CancellationToken token) => throw new IOException("sensitive-sentinel");
         public Task SaveAsync(Problem problem, CancellationToken token) => throw new IOException("sensitive-sentinel");
         public Task PublishAsync(Problem problem, PublishedProblemVersion version, CancellationToken token) => throw new IOException("sensitive-sentinel");
-        public Task<(IReadOnlyList<PublishedProblemSummary> Items, int Total)> ListPublishedAsync(int offset, int limit, CancellationToken token) => throw new IOException("sensitive-sentinel");
+        public Task<IReadOnlyList<ProblemTopicCountSummary>> ListTopicCountsAsync(CancellationToken token) => Task.FromResult<IReadOnlyList<ProblemTopicCountSummary>>([]);
+        public Task<ProblemCatalogResult> ListPublishedAsync(ProblemCatalogQuery query, Guid? accountId, CancellationToken token) => throw new IOException("sensitive-sentinel");
         public Task<PublishedProblemVersion?> FindLatestPublishedAsync(Guid problemId, CancellationToken token) => throw new IOException("sensitive-sentinel");
         public Task<PublishedProblemVersion?> FindPublishedVersionAsync(Guid versionId, CancellationToken token) => throw new IOException("sensitive-sentinel");
         public Task<IReadOnlySet<string>> ReferencedArtifactKeysAsync(CancellationToken token) =>

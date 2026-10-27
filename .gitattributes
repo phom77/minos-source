@@ -1,4 +1,11 @@
 * text=auto
+.gitignore text eol=lf
+.dockerignore text eol=lf
+*.md text eol=lf
+*.py text eol=lf
+*.cjs text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
 *.sh text eol=lf
 Dockerfile text eol=lf
 *.Dockerfile text eol=lf

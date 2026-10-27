@@ -46,6 +46,15 @@ describe('submission API boundaries', () => {
     const error = vi.fn(); TestBed.inject(SubmissionsApi).detail(submission.id).subscribe({ error });
     http.expectOne('/api/submissions/' + submission.id).flush({ ...submission, id: submission.problemId }); expect(error).toHaveBeenCalled();
   });
+  it('requests problem-scoped history and rejects rows belonging to another problem', () => {
+    const result = vi.fn(), error = vi.fn(), api = TestBed.inject(SubmissionsApi);
+    api.list(1, 20, submission.problemId).subscribe(result);
+    http.expectOne('/api/me/submissions?page=1&pageSize=20&problemId=' + submission.problemId).flush(history());
+    expect(result).toHaveBeenCalled();
+    api.list(1, 20, submission.problemId).subscribe({ error });
+    http.expectOne('/api/me/submissions?page=1&pageSize=20&problemId=' + submission.problemId).flush({ ...history(), items: [{ ...history().items[0], problemId: submission.id }] });
+    expect(error).toHaveBeenCalled();
+  });
   it.each([{ total: -1 }, { page: 2 }, { items: [{ ...history().items[0], verdict: 'Invented' }] }])('rejects malformed history %j', patch => {
     const error = vi.fn(); TestBed.inject(SubmissionsApi).list(1, 20).subscribe({ error });
     http.expectOne('/api/me/submissions?page=1&pageSize=20').flush({ ...history(), ...patch }); expect(error).toHaveBeenCalled();

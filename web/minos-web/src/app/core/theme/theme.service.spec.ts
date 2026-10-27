@@ -67,10 +67,10 @@ describe('ThemeService', () => {
     try {
       const theme = TestBed.inject(ThemeService);
       expect(icon.getAttribute('href')).toBe('brand/dark-minos.png');
-      expect(meta.content).toBe('#f7f8ef');
+      expect(meta.content).toBe('#fafafa');
       theme.toggle();
       expect(icon.getAttribute('href')).toBe('brand/light-minos.png');
-      expect(meta.content).toBe('#11271b');
+      expect(meta.content).toBe('#1d1d1d');
     } finally { icon.remove(); meta.remove(); }
   });
 

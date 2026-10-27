@@ -1,5 +1,7 @@
 @import './styles/tokens.css';
 @import './styles/base.css';
+@import './styles/code-syntax.css';
+@import 'katex/dist/katex.min.css';
 
 html.auth-open { overflow: hidden; }
 html.confirmation-open { overflow: hidden; scrollbar-gutter: stable; }

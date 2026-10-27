@@ -9,7 +9,7 @@ namespace Minos.IntegrationTests;
 public sealed class PostgresPrivilegeTests
 {
     internal static string Connection(string variable) => Environment.GetEnvironmentVariable(variable)
-        ?? throw new InvalidOperationException($"Run scripts/check-foundation.sh; {variable} is required.");
+        ?? throw new InvalidOperationException($"Run scripts/checks/backend.sh; {variable} is required.");
 
     [Theory]
     [InlineData("ConnectionStrings__Minos", DatabaseActor.Api)]
@@ -26,6 +26,15 @@ public sealed class PostgresPrivilegeTests
     }
 
     [Theory]
+    [InlineData("MINOS_TEST_WORKER_CONNECTION", "SELECT * FROM problems.problem_comments")]
+    [InlineData("MINOS_TEST_WORKER_CONNECTION", "UPDATE problems.problem_comments SET body = 'Changed'")]
+    [InlineData("ConnectionStrings__Minos", "DELETE FROM problems.problem_comments")]
+    [InlineData("MINOS_TEST_WORKER_CONNECTION", "SELECT * FROM problems.problem_classifications")]
+    [InlineData("MINOS_TEST_WORKER_CONNECTION", "SELECT * FROM problems.topics")]
+    [InlineData("MINOS_TEST_WORKER_CONNECTION", "SELECT * FROM problems.problem_topics")]
+    [InlineData("MINOS_TEST_WORKER_CONNECTION", "UPDATE problems.problem_classifications SET difficulty = 1")]
+    [InlineData("ConnectionStrings__Minos", "DELETE FROM problems.problem_classifications")]
+    [InlineData("ConnectionStrings__Minos", "UPDATE problems.topics SET display_name = 'Changed'")]
     [InlineData("MINOS_TEST_WORKER_CONNECTION", "SELECT * FROM contests.registrations")]
     [InlineData("MINOS_TEST_WORKER_CONNECTION", "SELECT * FROM contests.submissions")]
     [InlineData("ConnectionStrings__Minos", "DELETE FROM contests.registrations")]

@@ -26,7 +26,12 @@ public sealed record ProblemDraftDetails(
     DateTimeOffset UpdatedAtUtc,
     IReadOnlyList<ProblemSampleContent> Samples,
     IReadOnlyList<ProblemTestCaseDetails> TestCases);
-public sealed record PublishedProblemSummary(Guid ProblemId, Guid VersionId, int VersionNumber, string Title, DateTimeOffset PublishedAtUtc);
+public sealed record PublishedProblemSummary(Guid ProblemId, Guid VersionId, int VersionNumber, string Title, DateTimeOffset PublishedAtUtc)
+{
+    public ProblemClassificationSummary? Classification { get; init; }
+    public int PublicNumber { get; init; }
+    public ProblemSolveStatus? SolveStatus { get; init; }
+}
 public sealed record PublishedProblemDetails(
     Guid ProblemId,
     Guid VersionId,
@@ -39,4 +44,7 @@ public sealed record PublishedProblemDetails(
     int PrivateTestCount,
     DateTimeOffset PublishedAtUtc,
     IReadOnlyList<ProblemSampleContent> Samples);
-public sealed record PublishedProblemPage(IReadOnlyList<PublishedProblemSummary> Items, int Page, int PageSize, int Total);
+public sealed record PublishedProblemPage(IReadOnlyList<PublishedProblemSummary> Items, int Page, int PageSize, int Total)
+{
+    public ProblemProgressSummary? Progress { get; init; }
+}

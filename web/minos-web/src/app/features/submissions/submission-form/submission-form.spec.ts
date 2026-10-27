@@ -107,7 +107,7 @@ describe('submission composer UX', () => {
     http.expectOne('/api/submissions/' + submission.id).flush(completed);
     await fixture.whenStable(); fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('#console-result').textContent).toContain('Accepted');
-    expect(fixture.nativeElement.querySelector('.console-header a').getAttribute('href')).toBe('/submissions/' + submission.id);
+    expect(fixture.nativeElement.querySelector('.console-header a').getAttribute('href')).toBe('/problems/' + submission.problemId + '?tab=submissions&submission=' + submission.id);
     const reload = new Event('beforeunload', { cancelable: true }); window.dispatchEvent(reload); expect(reload.defaultPrevented).toBe(false);
     input(submission.source + '\n// edited'); const editedReload = new Event('beforeunload', { cancelable: true }); window.dispatchEvent(editedReload); expect(editedReload.defaultPrevented).toBe(true);
   });
@@ -152,5 +152,31 @@ describe('submission composer UX', () => {
     expect(numbers[0]).toBe('11'); expect(numbers.length).toBeLessThanOrEqual(12);
     textarea().setSelectionRange(10, 10); textarea().dispatchEvent(new Event('select')); fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('.editor-status').textContent).toContain('Ln 2, Col 1');
+  });
+  it('switches public cases with keyboard navigation, preserves exact whitespace and resets on a new problem', async () => {
+    fixture.componentRef.setInput('inlineResult', true);
+    fixture.componentRef.setInput('samples', [{ input: '  1 2\n', output: '3\n' }, { input: '4 5\n', output: '9\n' }]);
+    fixture.detectChanges(); input('int main() {}');
+    const first = fixture.nativeElement.querySelector('#example-tab-0') as HTMLButtonElement;
+    first.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true })); fixture.detectChanges();
+    expect(document.activeElement?.id).toBe('example-tab-1');
+    expect(fixture.nativeElement.querySelector('#example-panel-0').hidden).toBe(true);
+    expect(fixture.nativeElement.querySelector('#example-panel-1 pre').textContent).toBe('4 5\n');
+    expect(textarea().value).toBe('int main() {}');
+    fixture.componentRef.setInput('problemId', '11111111-1111-4111-8111-111111111111');
+    fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('#example-tab-0').getAttribute('aria-selected')).toBe('true');
+    expect(fixture.nativeElement.querySelector('#example-panel-0 pre').textContent).toBe('  1 2\n');
+    http.expectNone(request => request.url.startsWith('/api/submissions'));
+  });
+  it('summarizes real inline results without rendering test rows or resource measurements', async () => {
+    fixture.componentRef.setInput('inlineResult', true); fixture.detectChanges(); input(submission.source); await submit();
+    http.expectOne('/api/problems/' + submission.problemId + '/submissions').flush(submission);
+    await fixture.whenStable(); fixture.detectChanges();
+    http.expectOne('/api/submissions/' + submission.id).flush(completed);
+    await fixture.whenStable(); fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.test-summary').textContent).toContain('2 / 2 tests passed');
+    expect(fixture.nativeElement.querySelector('.test-evidence, .metrics, #console-result table')).toBeNull();
+    expect(fixture.nativeElement.querySelector('#console-result').textContent).not.toMatch(/CPU|wall time|memory|MiB|Limits:|\d+ ms/i);
   });
 });

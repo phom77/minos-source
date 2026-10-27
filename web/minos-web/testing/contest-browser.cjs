@@ -7,6 +7,7 @@ const cid = '11111111-1111-4111-8111-111111111111', pid = '22222222-2222-4222-82
 const vid = '33333333-3333-4333-8333-333333333333', sid = '44444444-4444-4444-8444-444444444444';
 const now = new Date().toISOString();
 const problem = { problemId: pid, versionId: vid, versionNumber: 1, title: 'Tổng hai số — Sum of two numbers', statement: 'Read two integers and print their sum.',
+  publicNumber: 42, classification: { difficulty: 'Easy', topics: [{ slug: 'math', displayName: 'Math' }], needsReassessment: false }, solveStatus: 'NotAttempted',
   timeLimitMilliseconds: 1000, memoryLimitMegabytes: 64, checker: 'Exact', privateTestCount: 1, publishedAtUtc: now, samples: [{ input: '1 2\n', output: '3\n' }] };
 let role = 'Setter', joined = false, phase = 'Draft', created = false, submitted = false;
 const submissionKeys = [];
@@ -26,6 +27,8 @@ const details = () => ({ ...contest, state: phase, canManage: role === 'Setter',
   });
   await page.route('**/api/**', async route => {
     const req = route.request(), url = new URL(req.url()), pathname = url.pathname;
+    if (pathname.endsWith('/comments') && req.method() === 'GET') return route.fulfill({ json: { items: [], nextCursor: null } });
+    if (pathname === '/api/problems/topics') return route.fulfill({ json: [{ slug: 'math', displayName: 'Math', problemCount: 1 }] });
     if (pathname === '/api/problems') return route.fulfill({ json: { items: [problem], page: 1, pageSize: 20, total: 1 } });
     if (pathname === '/api/contests' && req.method() === 'POST') {
       const body = req.postDataJSON(); assert.deepEqual(body.versionIds, [vid]); assert.ok(body.startsAtUtc.endsWith('Z'));

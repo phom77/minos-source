@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Minos.Application.Problems;
+using Minos.Application.Comments;
 using Minos.Application.Contests;
 using Minos.Infrastructure.Persistence;
 using Minos.Infrastructure.Hosting;
@@ -45,8 +46,14 @@ public static class DependencyInjection
             throw new InvalidOperationException("Runtime slots cannot exceed the configured Isolate box count.");
         services.AddDbContext<MinosDbContext>(options => options.UseNpgsql(connectionString));
         services.AddScoped<IProblemRepository, ProblemRepository>();
+        services.AddScoped<IProblemCommentRepository, ProblemCommentRepository>();
+        services.AddScoped<IProblemClassificationRepository, ProblemClassificationRepository>();
         services.AddScoped<IContestRepository, ContestRepository>();
         services.AddScoped<ISubmissionRepository, SubmissionRepository>();
+        services.AddScoped<ISubmissionPerformanceQuery, SubmissionPerformanceQuery>();
+        services.AddScoped<SubmissionPerformanceUseCases>();
+        services.AddSingleton(provider => new ExecutionMeasurementProfile(executionRunner, executionBudget, isolateBoxCount,
+            provider.GetRequiredService<Microsoft.Extensions.Logging.ILogger<ExecutionMeasurementProfile>>()));
         services.AddScoped<IJudgeJobRepository, JudgeJobRepository>();
         services.AddScoped<PostgresJudgeJobDelivery>();
         services.AddScoped<IJudgeJobDelivery>(provider => executionBudget is null ? provider.GetRequiredService<PostgresJudgeJobDelivery>() :
@@ -100,9 +107,11 @@ public static class DependencyInjection
         services.AddScoped<AccountAdministrationUseCases>();
         services.AddScoped<TrustedAccountProvisioningUseCases>();
         services.AddScoped<ProblemAccess>();
+        services.AddScoped<ProblemCommentUseCases>();
         services.AddScoped<ContestUseCases>();
         services.AddScoped<ProblemAuthoringUseCases>();
         services.AddScoped<ProblemCatalogUseCases>();
+        services.AddScoped<ProblemClassificationUseCases>();
         services.AddScoped<ProblemArtifactMaintenanceUseCases>();
         services.AddScoped<SubmissionUseCases>();
         services.AddScoped<JudgingOperationsUseCases>();

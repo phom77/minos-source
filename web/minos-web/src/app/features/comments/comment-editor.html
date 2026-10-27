@@ -1,0 +1,17 @@
+<form (submit)="$event.preventDefault(); submit()" (pointerdown)="feedback.prepareSubmit($event)" novalidate [attr.aria-busy]="pending() || blocked()">
+  @if (error() || fieldError()) { <div #summary [id]="editorId() + '-error'" class="form-errors" role="alert" tabindex="-1">{{ error() || fieldError() }}</div> }
+  <label [for]="editorId()" [class.visually-hidden]="!cancellable()">{{ label() }}</label>
+  <textarea #textarea [id]="editorId()" [formControl]="body" rows="4" [readOnly]="pending() || blocked()" (input)="feedback.edit('body')" (blur)="blur()"
+    [attr.aria-invalid]="fieldError() ? 'true' : null" [attr.aria-describedby]="editorId() + '-help' + (fieldError() ? ' ' + editorId() + '-error' : '')" placeholder="Type a comment…"></textarea>
+  <p [id]="editorId() + '-help'" class="visually-hidden">Markdown supported. Use the tools below to insert a code block or link.</p>
+  <div class="editor-actions">
+    <div class="editor-tools" role="group" aria-label="Comment formatting">
+      <button type="button" aria-label="Insert code block" title="Insert code block" (click)="insert('code')" [disabled]="pending() || blocked()"><minos-icon name="code" /></button>
+      <button type="button" aria-label="Insert link" title="Insert link" (click)="insert('link')" [disabled]="pending() || blocked()"><minos-icon name="link" /></button>
+    </div>
+    <label class="spoiler-label"><input type="checkbox" [formControl]="spoiler" [attr.disabled]="pending() || blocked() ? '' : null" />Contains spoilers</label>
+    <div class="submit-actions">@if (cancellable()) { <button class="button button--secondary" type="button" (click)="cancel.emit()" [disabled]="pending()">Cancel</button> }
+      <button class="button" type="submit" [disabled]="pending() || blocked()">{{ pending() ? 'Saving…' : action() }}</button>
+    </div>
+  </div>
+</form>

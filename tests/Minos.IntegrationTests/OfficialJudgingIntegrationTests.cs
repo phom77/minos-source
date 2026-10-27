@@ -252,6 +252,7 @@ public sealed class OfficialJudgingIntegrationTests
     }
 
     [Theory]
+    [InlineData("accepted", 3, 3, 0, "Accepted")]
     [InlineData("mixed", 3, 1, 2, "RuntimeError")]
     [InlineData("compile", 3, 0, 0, "CompilationError")]
     [InlineData("hundred", 100, 37, 63, "WrongAnswer")]
@@ -265,6 +266,8 @@ public sealed class OfficialJudgingIntegrationTests
         var expected = new[] { "3\n", "42\n", "3\n" };
         ExecutionEvidence[] evidence = scenario switch
         {
+            "accepted" => new[] { Complete(artifact: [1]) }.Concat(expected.Select(output =>
+                Complete(stdout: System.Text.Encoding.UTF8.GetBytes(output)))).ToArray(),
             "compile" => [Complete() with { ExitCode = 1, Stderr = "main.cpp: error"u8.ToArray() }],
             "mixed" => [Complete(artifact: [1]), Complete() with { ExitCode = 9 },
                 Complete(stdout: "42\n"u8.ToArray()), Complete(stdout: "wrong\n"u8.ToArray())],
@@ -307,6 +310,14 @@ public sealed class OfficialJudgingIntegrationTests
         var response = (await client.GetFromJsonAsync<SubmissionResponse>($"/api/submissions/{id}", token))!;
         Assert.Equal("Completed", response.Status);
         Assert.Equal(verdict, response.Result!.Verdict);
+        Assert.Equal(scenario == "accepted" && OperatingSystem.IsLinux(), response.Result.ComparisonEligible);
+        if (response.Result.ComparisonEligible)
+        {
+            var performance = (await client.GetFromJsonAsync<SubmissionPerformanceResponse>($"/api/submissions/{id}/performance", token))!;
+            Assert.Equal("InsufficientSamples", performance.Status);
+            Assert.Equal(response.Result.MaximumCpuTimeMilliseconds, performance.Runtime!.Value);
+            Assert.Equal(response.Result.MaximumMemoryBytes, performance.Memory!.Value);
+        }
         Assert.Equal(new SubmissionTestSummaryResponse(testCount, passed + failed, passed, failed), response.Result.TestSummary);
         Assert.Equal(testCount, response.Result.Tests.Count);
         Assert.Equal(testCount, response.Configuration!.TestCount);

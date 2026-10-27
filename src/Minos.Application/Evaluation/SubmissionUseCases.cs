@@ -49,15 +49,16 @@ public sealed class SubmissionUseCases(
         return Map(found.Submission, found.Attempts, found.Result, Configuration(version));
     }
 
-    public async Task<SubmissionPage> ListMineAsync(int page, int pageSize, CancellationToken token)
+    public async Task<SubmissionPage> ListMineAsync(int page, int pageSize, CancellationToken token, Guid? problemId = null)
     {
         if (page < 1) throw new ArgumentOutOfRangeException(nameof(page));
         if (pageSize is < 1 or > 100) throw new ArgumentOutOfRangeException(nameof(pageSize));
+        if (problemId == Guid.Empty) throw new ArgumentOutOfRangeException(nameof(problemId));
         var offset = (long)(page - 1) * pageSize;
         if (offset > int.MaxValue) throw new ArgumentOutOfRangeException(nameof(page));
         var account = await accounts.RequireActiveAsync(token);
         var (items, total) = await submissions.ListByOwnerAsync(
-            account.Id, (int)offset, pageSize, token);
+            account.Id, (int)offset, pageSize, token, problemId);
         return new(items.Select(item => MapSummary(item.Submission, item.Verdict)).ToArray(), page, pageSize, total);
     }
 
@@ -96,7 +97,8 @@ public sealed class SubmissionUseCases(
                     test.Status,
                     test.CpuTimeMilliseconds,
                     test.WallTimeMilliseconds,
-                    test.MemoryPeakBytes)).ToArray(), SummarizeTests(result)), configuration);
+                    test.MemoryPeakBytes)).ToArray(), SummarizeTests(result),
+                result.Verdict == SubmissionVerdict.Accepted && result.MeasurementProfileId is not null), configuration);
 
     private static SubmissionTestSummary? SummarizeTests(SubmissionResult result)
     {

@@ -17,7 +17,7 @@
       <div #summary class="form-errors" role="alert" tabindex="-1" aria-label="Submission error">
         @if (error()) { <p>{{ error() }}</p> }
         @if (fieldError(); as message) { <a [href]="fieldLink()" (click)="focusSource($event)">{{ message }}</a> }
-        @if (uncertain()) { <a routerLink="/submissions">Check submission history</a> }
+        @if (uncertain()) { <a [routerLink]="inlineResult() ? ['/problems', problemId()] : ['/submissions']" [queryParams]="inlineResult() ? { tab: 'submissions', submission: null } : {}" queryParamsHandling="merge">Check submission history</a> }
       </div>
     }
     <minos-code-editor #editor [control]="source" [error]="fieldError()" (edited)="edit()" (blurred)="blur()" />
@@ -31,16 +31,27 @@
           <button id="console-tab-examples" type="button" role="tab" aria-controls="console-examples" [attr.aria-selected]="consoleTab() === 'examples'" [tabIndex]="consoleTab() === 'examples' ? 0 : -1" (click)="selectConsole('examples')">Examples</button>
           <button id="console-tab-result" type="button" role="tab" aria-controls="console-result" [attr.aria-selected]="consoleTab() === 'result'" [tabIndex]="consoleTab() === 'result' ? 0 : -1" (click)="selectConsole('result')">Result</button>
         </div>
-        @if (result().data; as data) { <a [routerLink]="['/submissions', data.id]">View details<minos-icon name="arrow" /></a> }
+        @if (result().data; as data) { <a [routerLink]="['/problems', problemId()]" [queryParams]="{ tab: 'submissions', submission: data.id }" queryParamsHandling="merge" (click)="viewDetails.emit()">View details<minos-icon name="arrow" /></a> }
       </header>
       <div id="console-examples" role="tabpanel" aria-labelledby="console-tab-examples" [hidden]="consoleTab() !== 'examples'" tabindex="0" class="console-body">
+        @if (samples().length) {
+          <div class="example-tabs" role="tablist" aria-label="Public examples" (keydown)="exampleKey($event)">
+            @for (sample of samples(); track $index) {
+              <button type="button" role="tab" [id]="'example-tab-' + $index" [attr.aria-controls]="'example-panel-' + $index"
+                [attr.aria-selected]="exampleIndex() === $index" [tabIndex]="exampleIndex() === $index ? 0 : -1"
+                (click)="exampleIndex.set($index)">Case {{ $index + 1 }}</button>
+            }
+          </div>
+        }
         @for (sample of samples(); track $index) {
-          <div class="console-example"><h3>Example {{ $index + 1 }}</h3><div class="example-values"><div><h4>Input</h4><pre><code>{{ sample.input }}</code></pre></div><div><h4>Expected output</h4><pre><code>{{ sample.output }}</code></pre></div></div></div>
+          <div class="console-example" role="tabpanel" [id]="'example-panel-' + $index" [attr.aria-labelledby]="'example-tab-' + $index" [hidden]="exampleIndex() !== $index" tabindex="0">
+            <div class="example-values"><div><h4>Input</h4><pre><code>{{ sample.input }}</code></pre></div><div><h4>Expected output</h4><pre><code>{{ sample.output }}</code></pre></div></div>
+          </div>
         } @empty { <p class="console-empty">No public examples.</p> }
       </div>
       <div id="console-result" role="tabpanel" aria-labelledby="console-tab-result" [hidden]="consoleTab() !== 'result'" tabindex="0" class="console-body">
         @if (result(); as current) {
-          @if (current.data; as data) { <minos-submission-result [submission]="data" [interrupted]="current.interrupted" (refresh)="refreshResult()" /> }
+          @if (current.data; as data) { <minos-submission-result [submission]="data" [compact]="true" [interrupted]="current.interrupted" (refresh)="refreshResult()" /> }
           @else { <p class="console-empty" [attr.role]="current.message ? 'alert' : null">{{ current.message ?? 'Submit your code to see the result.' }}</p> }
         }
       </div>

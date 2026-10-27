@@ -27,6 +27,8 @@ export class SubmissionForm {
   readonly samples = input<PublishedProblem['samples']>([]);
   readonly expanded = input(false);
   readonly expand = output<void>();
+  readonly admitted = output<void>();
+  readonly viewDetails = output<void>();
   readonly session = inject(SessionService);
   private readonly api = inject(SubmissionsApi);
   private readonly draft = inject(SubmissionDraft);
@@ -44,6 +46,7 @@ export class SubmissionForm {
   readonly uncertain = signal(false);
   readonly bytes = signal(0);
   readonly consoleTab = signal<'examples' | 'result'>('examples');
+  readonly exampleIndex = signal(0);
   private readonly selection = signal<{ readonly owner: string; readonly data: Submission } | null>(null);
   readonly result = toSignal(combineLatest([toObservable(this.selection), toObservable(computed(() => this.session.account()?.id ?? this.session.state().status))]).pipe(
     switchMap(([selected, identity]) => {
@@ -71,7 +74,7 @@ export class SubmissionForm {
       this.owner = owner; this.problem = id;
       this.source.reset(this.draft.read(id) || guestSource); this.bytes.set(sourceBytes(this.source.value));
       this.feedback.reset(); this.submitted.set(false); this.error.set(null); this.uncertain.set(false);
-      this.selection.set(null); this.consoleTab.set('examples'); this.acknowledgedSource = '';
+      this.selection.set(null); this.consoleTab.set('examples'); this.exampleIndex.set(0); this.acknowledgedSource = '';
       if (this.router.parseUrl(this.router.url).fragment === 'code-heading' && !this.auth.mode()) {
         afterNextRender(() => this.document.getElementById('submission-source')?.focus(), { injector: this.injector });
       }
@@ -99,6 +102,14 @@ export class SubmissionForm {
     const tab = event.key === 'Home' ? 'examples' : event.key === 'End' ? 'result' : this.consoleTab() === 'examples' ? 'result' : 'examples';
     this.consoleTab.set(tab); this.document.getElementById('console-tab-' + tab)?.focus();
   }
+  exampleKey(event: KeyboardEvent): void {
+    const count = this.samples().length;
+    if (!count || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault();
+    const index = event.key === 'Home' ? 0 : event.key === 'End' ? count - 1
+      : (this.exampleIndex() + (event.key === 'ArrowLeft' ? -1 : 1) + count) % count;
+    this.exampleIndex.set(index); this.document.getElementById('example-tab-' + index)?.focus();
+  }
   refreshResult(): void {
     const selected = this.selection(), data = this.result().data;
     if (selected) this.selection.set({ ...selected, data: data ?? selected.data });
@@ -116,6 +127,7 @@ export class SubmissionForm {
       next: submission => {
         if (this.session.account()?.id !== owner) return;
         this.draft.clear(id); this.feedback.reset(); this.submitted.set(false); this.uncertain.set(false);
+        this.admitted.emit();
         if (this.inlineResult()) {
           this.acknowledgedSource = sentSource; this.selection.set({ owner, data: submission }); this.consoleTab.set('result');
           afterNextRender(() => this.document.getElementById('console-tab-result')?.focus(), { injector: this.injector });

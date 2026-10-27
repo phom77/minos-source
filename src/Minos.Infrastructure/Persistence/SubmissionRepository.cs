@@ -71,9 +71,11 @@ internal sealed class SubmissionRepository(MinosDbContext database, SubmissionCa
         Guid ownerAccountId,
         int offset,
         int limit,
-        CancellationToken token)
+        CancellationToken token,
+        Guid? problemId = null)
     {
         var query = database.Submissions.AsNoTracking().Where(submission => submission.OwnerAccountId == ownerAccountId);
+        if (problemId is not null) query = query.Where(submission => submission.ProblemId == problemId);
         var total = await query.CountAsync(token);
         var items = await query
             .GroupJoin(database.SubmissionResults.AsNoTracking(), submission => submission.Id, result => result.SubmissionId,

@@ -18,6 +18,7 @@ public sealed class Problem
     private Problem() { }
 
     public Guid Id { get; private set; }
+    public int PublicNumber { get; private set; }
     public Guid OwnerAccountId { get; private set; }
     public string Title { get; private set; } = "";
     public string Statement { get; private set; } = "";

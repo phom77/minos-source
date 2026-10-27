@@ -22,6 +22,8 @@ namespace Minos.Infrastructure.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.HasSequence<int>("problem_public_number_seq", "problems");
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<System.Guid>", b =>
                 {
                     b.Property<int>("Id")
@@ -122,6 +124,75 @@ namespace Minos.Infrastructure.Persistence.Migrations
                             t.HasCheckConstraint("ck_accounts_id", "id <> '00000000-0000-0000-0000-000000000000'::uuid");
 
                             t.HasCheckConstraint("ck_accounts_role", "role BETWEEN 0 AND 2");
+                        });
+                });
+
+            modelBuilder.Entity("Minos.Domain.Comments.ProblemComment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AuthorAccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("author_account_id");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)")
+                        .HasColumnName("body");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<bool>("IsSpoiler")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_spoiler");
+
+                    b.Property<Guid?>("ParentCommentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("parent_comment_id");
+
+                    b.Property<Guid>("ProblemId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("problem_id");
+
+                    b.Property<Guid>("PublishedVersionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("published_version_id");
+
+                    b.Property<long>("Revision")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint")
+                        .HasColumnName("revision");
+
+                    b.Property<int>("State")
+                        .HasColumnType("integer")
+                        .HasColumnName("state");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at_utc");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AuthorAccountId");
+
+                    b.HasIndex("ParentCommentId", "ProblemId");
+
+                    b.HasIndex("PublishedVersionId", "ProblemId");
+
+                    b.HasIndex("ProblemId", "ParentCommentId", "CreatedAtUtc", "Id");
+
+                    b.ToTable("problem_comments", "problems", t =>
+                        {
+                            t.HasCheckConstraint("ck_problem_comments_body", "(state = 0 AND (length(body) + length(regexp_replace(body, U&'[^\\+010000-\\+10FFFF]', '', 'g'))) BETWEEN 1 AND 4000\n    AND body = btrim(body, E' \\t\\n\\r\\f\\v\\u0085\\u00a0\\u1680\\u2000\\u2001\\u2002\\u2003\\u2004\\u2005\\u2006\\u2007\\u2008\\u2009\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000')\n    AND length(btrim(body, E' \\t\\n\\r\\f\\v\\u0085\\u00a0\\u1680\\u2000\\u2001\\u2002\\u2003\\u2004\\u2005\\u2006\\u2007\\u2008\\u2009\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000')) > 0\n    AND body !~ '[\\x01-\\x08\\x0B\\x0C\\x0E-\\x1F\\x7F-\\x9F]')\nOR (state IN (1,2) AND body = '' AND NOT is_spoiler)");
+
+                            t.HasCheckConstraint("ck_problem_comments_parent", "parent_comment_id IS NULL OR parent_comment_id <> id");
+
+                            t.HasCheckConstraint("ck_problem_comments_revision", "revision > 0 AND updated_at_utc >= created_at_utc");
                         });
                 });
 
@@ -493,7 +564,13 @@ namespace Minos.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("OwnerAccountId", "CreatedAtUtc");
 
+                    b.HasIndex("OwnerAccountId", "ProblemId");
+
                     b.HasIndex("OwnerAccountId", "Status");
+
+                    b.HasIndex("ProblemVersionId", "Language", "ToolchainId", "OwnerAccountId")
+                        .HasDatabaseName("ix_submissions_performance_cohort")
+                        .HasFilter("status = 2");
 
                     b.ToTable("submissions", "evaluation", t =>
                         {
@@ -542,6 +619,11 @@ namespace Minos.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("maximum_wall_time_ms");
 
+                    b.Property<string>("MeasurementProfileId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("measurement_profile_id");
+
                     b.Property<int?>("Verdict")
                         .HasColumnType("integer")
                         .HasColumnName("verdict");
@@ -554,6 +636,8 @@ namespace Minos.Infrastructure.Persistence.Migrations
                     b.ToTable("submission_results", "evaluation", t =>
                         {
                             t.HasCheckConstraint("ck_submission_results_diagnostics", "octet_length(compiler_diagnostics) <= 32768");
+
+                            t.HasCheckConstraint("ck_submission_results_measurement_profile", "measurement_profile_id IS NULL OR measurement_profile_id ~ '^[0-9a-f]{64}$'");
 
                             t.HasCheckConstraint("ck_submission_results_summary", "(verdict IS NULL AND maximum_cpu_time_ms IS NULL AND maximum_wall_time_ms IS NULL AND maximum_memory_bytes IS NULL AND compiler_diagnostics = '') OR (verdict = 2 AND maximum_cpu_time_ms IS NULL AND maximum_wall_time_ms IS NULL AND maximum_memory_bytes IS NULL) OR (verdict IS NOT NULL AND verdict <> 2 AND maximum_cpu_time_ms IS NOT NULL AND maximum_cpu_time_ms >= 0 AND maximum_wall_time_ms IS NOT NULL AND maximum_wall_time_ms >= 0 AND maximum_memory_bytes IS NOT NULL AND maximum_memory_bytes >= 0 AND compiler_diagnostics = '')");
 
@@ -666,6 +750,12 @@ namespace Minos.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("owner_account_id");
 
+                    b.Property<int>("PublicNumber")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("public_number")
+                        .HasDefaultValueSql("nextval('problems.problem_public_number_seq')");
+
                     b.Property<long>("Revision")
                         .IsConcurrencyToken()
                         .HasColumnType("bigint")
@@ -695,11 +785,16 @@ namespace Minos.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("OwnerAccountId");
 
+                    b.HasIndex("PublicNumber")
+                        .IsUnique();
+
                     b.ToTable("problems", "problems", t =>
                         {
                             t.HasCheckConstraint("ck_problems_checker", "checker = 0");
 
                             t.HasCheckConstraint("ck_problems_memory_limit", "memory_limit_mb IS NULL OR memory_limit_mb BETWEEN 16 AND 1024");
+
+                            t.HasCheckConstraint("ck_problems_public_number", "public_number > 0");
 
                             t.HasCheckConstraint("ck_problems_revision", "revision >= 0");
 
@@ -710,6 +805,85 @@ namespace Minos.Infrastructure.Persistence.Migrations
                             t.HasCheckConstraint("ck_problems_title", "(length(title) + length(regexp_replace(title, U&'[^\\+010000-\\+10FFFF]', '', 'g'))) BETWEEN 1 AND 120 AND length(btrim(title, E' \\t\\n\\r\\f\\v\\u0085\\u00a0\\u1680\\u2000\\u2001\\u2002\\u2003\\u2004\\u2005\\u2006\\u2007\\u2008\\u2009\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000')) > 0 AND title = btrim(title, E' \\t\\n\\r\\f\\v\\u0085\\u00a0\\u1680\\u2000\\u2001\\u2002\\u2003\\u2004\\u2005\\u2006\\u2007\\u2008\\u2009\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000')");
 
                             t.HasCheckConstraint("ck_problems_version", "latest_published_version >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("Minos.Domain.Problems.ProblemClassification", b =>
+                {
+                    b.Property<Guid>("ProblemId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("problem_id");
+
+                    b.Property<Guid>("BasisVersionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("basis_version_id");
+
+                    b.Property<string>("DatasetRevision")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("dataset_revision");
+
+                    b.Property<int?>("Difficulty")
+                        .HasColumnType("integer")
+                        .HasColumnName("difficulty");
+
+                    b.Property<int>("DifficultyOrigin")
+                        .HasColumnType("integer")
+                        .HasColumnName("difficulty_origin");
+
+                    b.Property<string>("ManifestSha256")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("manifest_sha256");
+
+                    b.Property<string>("PolicySha256")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("policy_sha256");
+
+                    b.Property<string>("PolicyVersion")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("policy_version");
+
+                    b.Property<long>("Revision")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint")
+                        .HasColumnName("revision");
+
+                    b.Property<string>("SourceProblemKey")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("source_problem_key");
+
+                    b.Property<int?>("SourceRating")
+                        .HasColumnType("integer")
+                        .HasColumnName("source_rating");
+
+                    b.PrimitiveCollection<string[]>("SourceTags")
+                        .IsRequired()
+                        .HasColumnType("text[]")
+                        .HasColumnName("source_tags");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at_utc");
+
+                    b.HasKey("ProblemId");
+
+                    b.HasIndex("BasisVersionId", "ProblemId");
+
+                    b.ToTable("problem_classifications", "problems", t =>
+                        {
+                            t.HasCheckConstraint("ck_problem_classifications_difficulty", "difficulty IS NULL OR difficulty BETWEEN 1 AND 3");
+
+                            t.HasCheckConstraint("ck_problem_classifications_origin", "difficulty_origin IN (0,1) AND (difficulty_origin <> 1 OR (difficulty IS NOT NULL AND source_rating IS NOT NULL))");
+
+                            t.HasCheckConstraint("ck_problem_classifications_revision", "revision > 0");
+
+                            t.HasCheckConstraint("ck_problem_classifications_source", "(source_problem_key IS NULL AND source_rating IS NULL AND dataset_revision IS NULL\n    AND manifest_sha256 IS NULL AND policy_version IS NULL AND policy_sha256 IS NULL AND cardinality(source_tags) = 0)\nOR (source_problem_key IS NOT NULL AND source_problem_key ~ '^cf-[1-9][0-9]{0,8}-[a-z]{1,2}[0-9]?$'\n    AND (source_rating IS NULL OR source_rating BETWEEN 1 AND 10000)\n    AND dataset_revision IS NOT NULL AND dataset_revision ~ '^[0-9a-f]{40}$'\n    AND manifest_sha256 IS NOT NULL AND manifest_sha256 ~ '^[0-9a-f]{64}$'\n    AND policy_version IS NOT NULL AND length(btrim(policy_version)) > 0\n    AND policy_sha256 IS NOT NULL AND policy_sha256 ~ '^[0-9a-f]{64}$')");
+
+                            t.HasCheckConstraint("ck_problem_classifications_source_tags", "cardinality(source_tags) <= 32 AND array_position(source_tags, NULL) IS NULL AND octet_length(array_to_string(source_tags, '')) <= 8192");
                         });
                 });
 
@@ -780,6 +954,187 @@ namespace Minos.Infrastructure.Persistence.Migrations
                             t.HasCheckConstraint("ck_problem_test_cases_order", " \"order\" > 0 ");
 
                             t.HasCheckConstraint("ck_problem_test_cases_output_artifact", "output_artifact_key ~ '^tests/[0-9a-f]{32}/output[.]bin$' AND output_sha256 ~ '^[0-9a-f]{64}$' AND output_size_bytes BETWEEN 0 AND 8388608");
+                        });
+                });
+
+            modelBuilder.Entity("Minos.Domain.Problems.ProblemTopic", b =>
+                {
+                    b.Property<string>("Slug")
+                        .HasMaxLength(48)
+                        .HasColumnType("character varying(48)")
+                        .HasColumnName("slug");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("display_name");
+
+                    b.HasKey("Slug");
+
+                    b.ToTable("topics", "problems", t =>
+                        {
+                            t.HasCheckConstraint("ck_topics_name", "length(btrim(display_name)) > 0 AND display_name = btrim(display_name)");
+
+                            t.HasCheckConstraint("ck_topics_slug", "slug ~ '^[a-z]+(-[a-z]+)*$'");
+                        });
+
+                    b.HasData(
+                        new
+                        {
+                            Slug = "binary-search",
+                            DisplayName = "Binary Search"
+                        },
+                        new
+                        {
+                            Slug = "bitmasks",
+                            DisplayName = "Bitmasks"
+                        },
+                        new
+                        {
+                            Slug = "brute-force",
+                            DisplayName = "Brute Force"
+                        },
+                        new
+                        {
+                            Slug = "combinatorics",
+                            DisplayName = "Combinatorics"
+                        },
+                        new
+                        {
+                            Slug = "constructive-algorithms",
+                            DisplayName = "Constructive Algorithms"
+                        },
+                        new
+                        {
+                            Slug = "data-structures",
+                            DisplayName = "Data Structures"
+                        },
+                        new
+                        {
+                            Slug = "divide-and-conquer",
+                            DisplayName = "Divide and Conquer"
+                        },
+                        new
+                        {
+                            Slug = "dynamic-programming",
+                            DisplayName = "Dynamic Programming"
+                        },
+                        new
+                        {
+                            Slug = "game-theory",
+                            DisplayName = "Game Theory"
+                        },
+                        new
+                        {
+                            Slug = "geometry",
+                            DisplayName = "Geometry"
+                        },
+                        new
+                        {
+                            Slug = "graph-matching",
+                            DisplayName = "Graph Matching"
+                        },
+                        new
+                        {
+                            Slug = "graph-traversal",
+                            DisplayName = "Graph Traversal"
+                        },
+                        new
+                        {
+                            Slug = "graphs",
+                            DisplayName = "Graphs"
+                        },
+                        new
+                        {
+                            Slug = "greedy",
+                            DisplayName = "Greedy"
+                        },
+                        new
+                        {
+                            Slug = "implementation",
+                            DisplayName = "Implementation"
+                        },
+                        new
+                        {
+                            Slug = "math",
+                            DisplayName = "Math"
+                        },
+                        new
+                        {
+                            Slug = "matrices",
+                            DisplayName = "Matrices"
+                        },
+                        new
+                        {
+                            Slug = "number-theory",
+                            DisplayName = "Number Theory"
+                        },
+                        new
+                        {
+                            Slug = "shortest-paths",
+                            DisplayName = "Shortest Paths"
+                        },
+                        new
+                        {
+                            Slug = "sorting",
+                            DisplayName = "Sorting"
+                        },
+                        new
+                        {
+                            Slug = "strings",
+                            DisplayName = "Strings"
+                        },
+                        new
+                        {
+                            Slug = "ternary-search",
+                            DisplayName = "Ternary Search"
+                        },
+                        new
+                        {
+                            Slug = "trees",
+                            DisplayName = "Trees"
+                        },
+                        new
+                        {
+                            Slug = "two-pointers",
+                            DisplayName = "Two Pointers"
+                        });
+                });
+
+            modelBuilder.Entity("Minos.Domain.Problems.ProblemTopicAssignment", b =>
+                {
+                    b.Property<Guid>("ProblemId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("problem_id");
+
+                    b.Property<string>("TopicSlug")
+                        .HasMaxLength(48)
+                        .HasColumnType("character varying(48)")
+                        .HasColumnName("topic_slug");
+
+                    b.Property<int?>("Confidence")
+                        .HasColumnType("integer")
+                        .HasColumnName("confidence");
+
+                    b.Property<int>("Origin")
+                        .HasColumnType("integer")
+                        .HasColumnName("origin");
+
+                    b.Property<string>("Rationale")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("rationale");
+
+                    b.HasKey("ProblemId", "TopicSlug");
+
+                    b.HasIndex("TopicSlug", "ProblemId");
+
+                    b.ToTable("problem_topics", "problems", t =>
+                        {
+                            t.HasCheckConstraint("ck_problem_topics_inference", "(confidence IS NULL OR confidence BETWEEN 0 AND 2)\nAND ((origin = 1 AND confidence IS NOT NULL AND rationale IS NOT NULL AND length(btrim(rationale)) > 0)\n    OR (origin <> 1 AND confidence IS NULL))");
+
+                            t.HasCheckConstraint("ck_problem_topics_origin", "origin BETWEEN 0 AND 2");
                         });
                 });
 
@@ -1063,6 +1418,34 @@ namespace Minos.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Minos.Domain.Comments.ProblemComment", b =>
+                {
+                    b.HasOne("Minos.Domain.Accounts.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AuthorAccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Minos.Domain.Problems.Problem", null)
+                        .WithMany()
+                        .HasForeignKey("ProblemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Minos.Domain.Comments.ProblemComment", null)
+                        .WithMany()
+                        .HasForeignKey("ParentCommentId", "ProblemId")
+                        .HasPrincipalKey("Id", "ProblemId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Minos.Domain.Problems.PublishedProblemVersion", null)
+                        .WithMany()
+                        .HasForeignKey("PublishedVersionId", "ProblemId")
+                        .HasPrincipalKey("Id", "ProblemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Minos.Domain.Contests.Contest", b =>
                 {
                     b.HasOne("Minos.Domain.Accounts.Account", null)
@@ -1235,6 +1618,22 @@ namespace Minos.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Minos.Domain.Problems.ProblemClassification", b =>
+                {
+                    b.HasOne("Minos.Domain.Problems.Problem", null)
+                        .WithOne()
+                        .HasForeignKey("Minos.Domain.Problems.ProblemClassification", "ProblemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Minos.Domain.Problems.PublishedProblemVersion", null)
+                        .WithMany()
+                        .HasForeignKey("BasisVersionId", "ProblemId")
+                        .HasPrincipalKey("Id", "ProblemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Minos.Domain.Problems.ProblemSample", b =>
                 {
                     b.HasOne("Minos.Domain.Problems.Problem", null)
@@ -1314,6 +1713,21 @@ namespace Minos.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("OutputArtifact")
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Minos.Domain.Problems.ProblemTopicAssignment", b =>
+                {
+                    b.HasOne("Minos.Domain.Problems.ProblemClassification", null)
+                        .WithMany("Topics")
+                        .HasForeignKey("ProblemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Minos.Domain.Problems.ProblemTopic", null)
+                        .WithMany()
+                        .HasForeignKey("TopicSlug")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
 
@@ -1448,6 +1862,11 @@ namespace Minos.Infrastructure.Persistence.Migrations
                     b.Navigation("Samples");
 
                     b.Navigation("TestCases");
+                });
+
+            modelBuilder.Entity("Minos.Domain.Problems.ProblemClassification", b =>
+                {
+                    b.Navigation("Topics");
                 });
 
             modelBuilder.Entity("Minos.Domain.Problems.PublishedProblemVersion", b =>

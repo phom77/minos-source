@@ -1,0 +1,41 @@
+@if (measurements(); as measured) {
+  <section class="performance-panel" aria-label="Submission performance">
+    <div class="metric-tabs" role="tablist" aria-label="Performance metric" (keydown)="metricKey($event)">
+      <button type="button" role="tab" data-metric="runtime" [id]="tabId('runtime')" [attr.aria-controls]="panelId()" [attr.aria-selected]="metric() === 'runtime'" [tabIndex]="metric() === 'runtime' ? 0 : -1" (click)="metric.set('runtime')">
+        <span class="metric-label">Runtime</span><span class="metric-value">{{ measured.runtime | number:'1.0-0' }} <small>ms</small></span>
+        @if (percentage('runtime'); as beats) { <span class="metric-beats">Beats {{ beats | number:'1.2-2' }}%</span> }
+        @else if (percentage('runtime') === 0) { <span class="metric-beats">Beats 0.00%</span> }
+      </button>
+      <button type="button" role="tab" data-metric="memory" [id]="tabId('memory')" [attr.aria-controls]="panelId()" [attr.aria-selected]="metric() === 'memory'" [tabIndex]="metric() === 'memory' ? 0 : -1" (click)="metric.set('memory')">
+        <span class="metric-label">Memory</span><span class="metric-value">{{ measured.memory / 1048576 | number:'1.2-2' }} <small>MiB</small></span>
+        @if (percentage('memory'); as beats) { <span class="metric-beats">Beats {{ beats | number:'1.2-2' }}%</span> }
+        @else if (percentage('memory') === 0) { <span class="metric-beats">Beats 0.00%</span> }
+      </button>
+    </div>
+    <div [id]="panelId()" role="tabpanel" [attr.aria-labelledby]="tabId(metric())" tabindex="0">
+    @if (chart(); as data) {
+      <figure class="distribution" [attr.aria-label]="metric() === 'runtime' ? 'Runtime distribution' : 'Memory distribution'">
+        <div class="chart-top"><span>{{ maximumCount() * 100 / comparison()!.sampleCount | number:'1.0-1' }}%</span><span>Accounts</span></div>
+        <div class="chart-plot" role="img" [attr.aria-label]="'Distribution for ' + comparison()!.sampleCount + ' other accounts. Your value: ' + label(data.value) + '. Beats ' + data.beatsPercentage + ' percent; ' + data.equalCount + ' equal.'">
+          @for (bucket of data.buckets; track bucket.index) {
+            <div class="chart-column"><span class="chart-bar" [style.height.%]="bucket.count * 100 / maximumCount()" [title]="bucketLabel(bucket, data)"></span></div>
+          }
+          <span class="your-marker" [style.left.%]="marker()" aria-hidden="true"></span>
+        </div>
+        <div class="chart-axis"><span>0</span><span>{{ label(data.rangeMaximum / 2) }}</span><span>{{ label(data.rangeMaximum) }}</span></div>
+        <figcaption><span class="marker-key" aria-hidden="true"></span>Your submission · {{ comparison()!.sampleCount }} other accounts · {{ data.equalCount }} equal</figcaption>
+      </figure>
+    } @else if (loading()) { <p class="comparison-note" role="status">Loading comparison…</p> }
+    @else if (failed()) { <p class="comparison-note" role="status">Comparison unavailable. <button type="button" class="text-action" (click)="refresh()">Try again</button></p> }
+    @else if (submission().result?.verdict === 'Accepted') {
+      <p class="comparison-note">@if (comparison()?.status === 'InsufficientSamples') {
+        Not enough comparable results: {{ comparison()!.sampleCount }} / {{ comparison()!.minimumSampleCount }} other accounts.
+      } @else { Comparison is unavailable for this historical measurement. }</p>
+    }
+    </div>
+    <details class="measurement-info"><summary>How comparison works</summary>
+      <p>Runtime is the largest CPU time of a test; memory is the largest test memory peak. Compilation and queue time are excluded.</p>
+      <p>Compare with the latest Accepted submission from each other account under the same problem version, toolchain and measurement environment. Beats counts strictly larger values; equal values do not count as beaten. At least 20 other accounts are required. Comparisons update as new results arrive.</p>
+    </details>
+  </section>
+}

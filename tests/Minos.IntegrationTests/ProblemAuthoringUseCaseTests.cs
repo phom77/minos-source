@@ -146,8 +146,9 @@ public sealed class ProblemAuthoringUseCaseTests
             Published.Add(version);
             return Task.CompletedTask;
         }
-        public Task<(IReadOnlyList<PublishedProblemSummary> Items, int Total)> ListPublishedAsync(int offset, int limit, CancellationToken token) =>
-            Task.FromResult(((IReadOnlyList<PublishedProblemSummary>)Array.Empty<PublishedProblemSummary>(), 0));
+        public Task<IReadOnlyList<ProblemTopicCountSummary>> ListTopicCountsAsync(CancellationToken token) => Task.FromResult<IReadOnlyList<ProblemTopicCountSummary>>([]);
+        public Task<ProblemCatalogResult> ListPublishedAsync(ProblemCatalogQuery query, Guid? accountId, CancellationToken token) =>
+            Task.FromResult(new ProblemCatalogResult([], 0, null));
         public Task<PublishedProblemVersion?> FindLatestPublishedAsync(Guid problemId, CancellationToken token) => Task.FromResult<PublishedProblemVersion?>(null);
         public Task<PublishedProblemVersion?> FindPublishedVersionAsync(Guid versionId, CancellationToken token) => Task.FromResult<PublishedProblemVersion?>(null);
         public Task<IReadOnlySet<string>> ReferencedArtifactKeysAsync(CancellationToken token) =>

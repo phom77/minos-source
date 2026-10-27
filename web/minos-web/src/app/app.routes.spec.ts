@@ -26,6 +26,7 @@ describe('application routes', () => {
     for (const request of http.match(request => request.url === '/api/problems')) {
       if (!request.cancelled) request.flush({ items: [], page: Number(request.request.params.get('page')), pageSize: Number(request.request.params.get('pageSize')), total: 0 });
     }
+    http.match('/api/problems/topics').forEach(request => { if (!request.cancelled) request.flush([]); });
     http.verify();
   });
 
@@ -103,7 +104,7 @@ describe('application routes', () => {
     const harness = await RouterTestingHarness.create('/problems');
     const links = harness.routeNativeElement?.querySelectorAll('.desktop-navigation a');
     expect(Array.from(links ?? []).map((link) => link.getAttribute('href'))).toEqual(['/problems', '/contests', '/submissions']);
-    expect(harness.routeNativeElement?.querySelector('input[type="search"]')).toBeNull();
+    expect(harness.routeNativeElement?.querySelector('.search-form input[type="search"]')).not.toBeNull();
     expect(harness.routeNativeElement?.querySelector('.sidebar, .workspace-footer, .practice-notes')).toBeNull();
   });
 
@@ -129,20 +130,18 @@ describe('application routes', () => {
     }
   });
 
-  it('keeps the practice landscape decorative behind the authentication popup', async () => {
+  it('preserves the compact problem toolbar behind the authentication popup', async () => {
     const harness = await RouterTestingHarness.create('/problems');
-    const checkLandscape = () => {
-      const landscape = harness.routeNativeElement!.querySelector('minos-forest-landscape')!;
-      expect(landscape.getAttribute('aria-hidden')).toBe('true');
-      expect(landscape.querySelector('svg')?.getAttribute('focusable')).toBe('false');
-      expect(landscape.querySelectorAll('.forest path').length).toBeGreaterThan(20);
-      expect(landscape.querySelectorAll('a, button, [tabindex]')).toHaveLength(0);
+    const checkToolbar = () => {
+      expect(harness.routeNativeElement!.querySelector('.library-toolbar input[type="search"]')).not.toBeNull();
+      expect(harness.routeNativeElement!.querySelector('button[aria-label="Filter problems"]')).not.toBeNull();
+      expect(harness.routeNativeElement!.querySelector('.practice-banner')).toBeNull();
     };
-    checkLandscape();
+    checkToolbar();
     TestBed.inject(SessionService).signedOut();
     await harness.navigateByUrl('/account/login');
     await renderAuth(harness);
-    checkLandscape();
+    checkToolbar();
   });
 
   it('opens and dismisses the drawer, and closes it when navigating to another page', async () => {

@@ -2,22 +2,29 @@
   @if (state(); as current) {
     @if (current.status === 'ready') {
       <div class="solve-layout" [class.solve-layout--expanded]="editorExpanded()">
-        <section class="description-pane" aria-labelledby="description-heading">
-          <header class="pane-tabs"><span class="pane-title" id="description-heading"><minos-icon name="problems" />Description</span>
-            @if (!immutable && session.account()) { <a routerLink="/submissions"><minos-icon name="library" />Submissions</a> }
+        <section class="description-pane" aria-label="Problem workspace">
+          <header class="pane-tabs">
+            @if (immutable) { <span class="pane-title" id="description-heading"><minos-icon name="problems" />Description</span> }
+            @else {
+              <div class="workspace-tabs" role="tablist" aria-label="Problem workspace" (keydown)="workspaceKey($event)">
+                <a id="problem-tab-description" role="tab" aria-controls="problem-description-panel" [attr.aria-selected]="workspaceTab() === 'description'" [tabIndex]="workspaceTab() === 'description' ? 0 : -1"
+                  [routerLink]="[]" [queryParams]="{ tab: null, submission: null, submissionPage: null }" queryParamsHandling="merge"><minos-icon name="problems" />Description</a>
+                <a id="problem-tab-submissions" role="tab" aria-controls="problem-submissions-panel" [attr.aria-selected]="workspaceTab() === 'submissions'" [tabIndex]="workspaceTab() === 'submissions' ? 0 : -1"
+                  [routerLink]="[]" [queryParams]="{ tab: 'submissions', submission: null }" queryParamsHandling="merge"><minos-icon name="library" />Submissions</a>
+              </div>
+            }
             @if (!immutable) { <a class="code-jump" href="#submission-source" (click)="focusCode($event)">Code<minos-icon name="arrow" /></a> }
           </header>
-          <div class="description-content" role="region" aria-label="Problem description" tabindex="0">
-            <a class="back-link" routerLink="/problems"><minos-icon name="arrow" />Problem library</a>
+          <div class="description-content" id="problem-description-panel" [hidden]="!immutable && workspaceTab() !== 'description'" [attr.role]="immutable ? 'region' : 'tabpanel'" [attr.aria-labelledby]="immutable ? null : 'problem-tab-description'" aria-label="Problem description" tabindex="0">
+            <a class="back-link" [routerLink]="libraryReturn()"><minos-icon name="arrow" />Problem library</a>
             <header class="problem-heading">
               <h1>{{ current.data.title }}</h1>
-              <div class="version-navigation">
-                @if (immutable) { <span>Version {{ current.data.versionNumber }}</span><a class="button" [routerLink]="['/problems', current.data.problemId]">Solve latest version</a> }
-                @else { <a class="edition-link" [routerLink]="['/problems/versions', current.data.versionId]">Version {{ current.data.versionNumber }}</a> }
+              <div class="problem-limits">
+                @if (immutable) { <a class="button" [routerLink]="['/problems', current.data.problemId]">Solve problem</a> }
                 <span>{{ current.data.timeLimitMilliseconds }} ms</span><span>{{ current.data.memoryLimitMegabytes }} MB</span>
               </div>
             </header>
-            <section aria-labelledby="statement-heading"><h2 id="statement-heading" class="visually-hidden">Problem statement</h2><div class="statement">{{ current.data.statement }}</div></section>
+            <section class="statement" aria-label="Problem statement"><minos-problem-statement [statement]="current.data.statement" /></section>
             <section class="samples" aria-labelledby="samples-heading">
               <h2 id="samples-heading" class="visually-hidden">Samples</h2>
               @for (sample of current.data.samples; track $index) {
@@ -28,14 +35,19 @@
                     <div><h4 [id]="'output-' + $index">Expected output</h4><pre tabindex="0" role="region" [attr.aria-labelledby]="'sample-' + $index + ' output-' + $index"><code>{{ sample.output }}</code></pre></div>
                   </div>
                 </section>
-              } @empty { <p>No samples were supplied with this published version.</p> }
+              } @empty { <p>No public examples.</p> }
               <p class="checker-note">Output must match exactly, including whitespace and line endings.</p>
             </section>
-            @if (immutable) { <p class="version-note">This published version stays unchanged when the problem is edited.</p> }
+            <minos-problem-comments [problemId]="current.data.problemId" [publishedVersionId]="current.data.versionId" />
           </div>
+          @if (!immutable) {
+            <div class="submissions-content" id="problem-submissions-panel" role="tabpanel" aria-labelledby="problem-tab-submissions" [hidden]="workspaceTab() !== 'submissions'" tabindex="0">
+              @if (workspaceTab() === 'submissions') { <minos-problem-submissions [problemId]="current.data.problemId" [problemTitle]="current.data.title" [revision]="admissionRevision()" /> }
+            </div>
+          }
         </section>
         @if (!immutable) {
-          <aside class="editing-pane" aria-label="Code and submission result"><minos-submission-form [problemId]="current.data.problemId" [samples]="current.data.samples" [inlineResult]="true" [expanded]="editorExpanded()" (expand)="expandEditor()" /></aside>
+          <aside class="editing-pane" aria-label="Code and submission result"><minos-submission-form [problemId]="current.data.problemId" [samples]="current.data.samples" [inlineResult]="true" [expanded]="editorExpanded()" (expand)="expandEditor()" (admitted)="recordedSubmission()" (viewDetails)="editorExpanded.set(false)" /></aside>
         }
       </div>
     } @else {
@@ -45,7 +57,7 @@
           @switch (current.status) {
             @case ('loading') { <minos-state-panel [headingLevel]="2" kind="loading" heading="Loading the problem…" /> }
             @case ('invalid') { <minos-state-panel [headingLevel]="2" kind="error" heading="This problem link is invalid."><a class="button" routerLink="/problems">Open library</a></minos-state-panel> }
-            @case ('missing') { <minos-state-panel [headingLevel]="2" heading="This published problem is not available."><a class="button" routerLink="/problems">Open library</a></minos-state-panel> }
+            @case ('missing') { <minos-state-panel [headingLevel]="2" heading="This problem is not available."><a class="button" routerLink="/problems">Open library</a></minos-state-panel> }
             @case ('error') { <minos-state-panel [headingLevel]="2" kind="error" heading="The problem could not be reached."><button class="button" type="button" (click)="retry()">Try again</button></minos-state-panel> }
           }
         </section>

@@ -14,7 +14,7 @@
               <li><a [routerLink]="['/submissions', item.id]">
                 <strong>{{ current.labels[item.problemVersionId]?.title ?? 'Problem' }}</strong>
                 <minos-status-badge [tone]="outcomeTone(item.status, item.verdict)">{{ outcomeLabel(item.status, item.verdict) }}</minos-status-badge>
-                <span class="mobile-history-meta">@if (current.labels[item.problemVersionId]?.versionNumber; as version) { Version {{ version }} · }
+                <span class="mobile-history-meta">
                   <time [attr.datetime]="item.createdAtUtc">{{ item.createdAtUtc | date:'MMM d, y, HH:mm:ss' }}</time></span>
               </a></li>
             }
@@ -23,7 +23,7 @@
             <table class="history-table"><caption class="visually-hidden">Your submissions, newest first</caption><thead><tr><th scope="col">Problem</th><th scope="col">Result</th><th scope="col">Submitted</th><th scope="col"><span class="visually-hidden">Details</span></th></tr></thead>
               <tbody>@for (item of current.data.items; track item.id) {
                 <tr><th scope="row"><a [routerLink]="['/submissions', item.id]">{{ current.labels[item.problemVersionId]?.title ?? 'Problem' }}</a>
-                  @if (current.labels[item.problemVersionId]?.versionNumber; as version) { <span class="row-version">Version {{ version }}</span> }</th>
+                </th>
                   <td><minos-status-badge [tone]="outcomeTone(item.status, item.verdict)">{{ outcomeLabel(item.status, item.verdict) }}</minos-status-badge></td>
                   <td><time [attr.datetime]="item.createdAtUtc">{{ item.createdAtUtc | date:'MMM d, y, HH:mm:ss' }}</time></td>
                   <td><a class="detail-link" [routerLink]="['/submissions', item.id]" [attr.aria-label]="'View submission for ' + (current.labels[item.problemVersionId]?.title ?? 'problem') + ' submitted ' + (item.createdAtUtc | date:'medium')">View</a></td></tr>

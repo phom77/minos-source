@@ -1,66 +1,139 @@
-<article class="page">
-  <header class="practice-banner">
-    <minos-forest-landscape />
-    <div class="banner-content">
-      <minos-section-heading tone="dark" heading="Problems" />
+<article class="page problem-library-page">
+  <h1 class="visually-hidden">Problems</h1>
+  <section id="problem-library" aria-labelledby="catalog-heading" tabindex="-1">
+    <h2 id="catalog-heading" class="visually-hidden">Problem library</h2>
+    <minos-problem-topic-browser [topics]="rankedTopics()" [selectedTopic]="query()?.topic ?? null" [excluded]="isNot('topic')" (topicSelected)="$event === null ? updateFilter('topic', '') : selectTopic($event)" />
+    @if (topics().error) { <p class="topic-error" role="status">Topics could not be loaded. <button class="text-action" type="button" (click)="retryTopics()">Retry topics</button></p> }
+    <div class="library-toolbar">
+      <form class="search-form" role="search" (submit)="submitSearch($event, search.value)">
+        <button class="search-submit" type="submit" aria-label="Search problems"><minos-icon name="search" /></button>
+        <input #search type="search" name="q" aria-label="Search" maxlength="120" placeholder="Search questions" [value]="query()?.q ?? ''" (input)="searchChanged(search.value)" />
+      </form>
+      <button class="round-action" type="button" aria-label="Sort problems" aria-controls="library-sort" [attr.aria-expanded]="sortOpen()" [class.active]="query()?.sort && query()?.sort !== 'Number'" (click)="openPanel('sort', $event)"><minos-icon name="sort" /></button>
+      <button class="round-action filter-trigger" type="button" aria-label="Filter problems" aria-controls="library-filters" [attr.aria-expanded]="filterOpen()" [class.active]="activeFilters().length" (click)="openPanel('filter', $event)"><minos-icon name="filter" />@if (activeFilters().length) { <span class="filter-indicator" aria-hidden="true"></span> }</button>
+      <div class="toolbar-progress">
+        @if (state(); as current) { @if (current.status === 'ready') { @if (session.account() && current.data.progress; as progress) {
+          <div class="library-progress"><span class="progress-ring" aria-hidden="true" [style.--solved]="(progress.solved / maximumProgress(progress.total) * 100) + '%'"></span><span>{{ progress.solved }} / {{ progress.total }} Solved</span>
+            <progress class="visually-hidden" [value]="progress.solved" [max]="maximumProgress(progress.total)" aria-label="Problems solved"></progress>
+          </div>
+        } } }
+        @if (!session.account()) { <button class="text-action" type="button" (click)="auth.open()">Sign in for progress</button> }
+      </div>
     </div>
-  </header>
-
-  <div class="content-grid">
-    <section id="problem-library" class="panel" aria-labelledby="catalog-heading" tabindex="-1">
-      <header class="panel-header">
-        <h2 id="catalog-heading">Problem library</h2>
-        @if (state(); as current) { @if (current.status === 'ready') { <minos-status-badge>{{ current.data.total }} published</minos-status-badge> } }
-      </header>
-      @if (state(); as current) {
-        @switch (current.status) {
-          @case ('loading') { <minos-state-panel kind="loading" heading="Loading problems…" /> }
-          @case ('invalid') {
-            <minos-state-panel kind="error" heading="Check this catalog link." description="Use a positive page number and a page size between 1 and 100.">
-              <a class="button" [routerLink]="[]" [queryParams]="{ page: 1, pageSize: 20 }" queryParamsHandling="merge">Reset pagination</a>
+    @if (activeFilters().length) {
+      <div class="active-filters" aria-label="Active filters">
+        @if (activeFilters().length > 1) { <span class="match-summary">Match {{ query()?.match === 'Any' ? 'any' : 'all' }}</span> }
+        @for (filter of activeFilters(); track filter.field) {
+          <button class="active-chip" type="button" (click)="updateFilter(filter.field, '')" [attr.aria-label]="'Remove ' + filter.label">{{ filter.label }}<minos-icon name="close" /></button>
+        }
+        <button class="text-action clear-filters" type="button" (click)="clearFilters()">Clear all</button>
+      </div>
+    }
+    <div #sortPanel id="library-sort" class="library-popover sort-popover" popover="auto" role="dialog" aria-labelledby="sort-heading" (toggle)="panelToggled('sort', $event)" (keydown.escape)="dismissPanel($event)">
+      <div class="popover-heading"><h3 id="sort-heading">Sort by</h3><button class="icon-action" type="button" aria-label="Close sort" (click)="closePanels()"><minos-icon name="close" /></button></div>
+      <div role="group" aria-label="Sort order">@for (sort of sorts; track sort.value) {
+        <button class="sort-option" type="button" [attr.aria-pressed]="(query()?.sort ?? 'Number') === sort.value" (click)="selectSort(sort.value)">{{ sort.label }}@if ((query()?.sort ?? 'Number') === sort.value) { <span aria-hidden="true">✓</span> }</button>
+      }</div>
+    </div>
+    <div #filterPanel id="library-filters" class="library-popover filter-popover" popover="auto" role="dialog" aria-labelledby="filter-heading" (toggle)="panelToggled('filter', $event)" (keydown.escape)="dismissPanel($event)">
+      <div class="popover-heading"><h3 id="filter-heading">Filter problems</h3><button class="icon-action" type="button" aria-label="Close filters" (click)="closePanels()"><minos-icon name="close" /></button></div>
+      <div class="filter-body">
+        <label class="match-control">Match <select aria-label="Match filters" [value]="query()?.match ?? 'All'" (change)="updateMatch($any($event.target).value)"><option value="All">All</option><option value="Any">Any</option></select> of the following filters:</label>
+        <div class="filter-rows">@for (field of fields; track field.key) { @if (visibleFilters().includes(field.key)) {
+          <div class="filter-row">
+            <label class="filter-name" [for]="'filter-' + field.key"><minos-icon [name]="field.icon" />{{ field.label }}</label>
+            <select class="operator-select" [attr.aria-label]="field.label + ' operator'" [value]="isNot(field.key) ? 'true' : 'false'" [disabled]="!query()?.[field.key]" (change)="updateOperator(field.key, $any($event.target).value)"><option value="false">is</option><option value="true">is not</option></select>
+            <select class="filter-value" [id]="'filter-' + field.key" [name]="field.key" [attr.aria-label]="field.key === 'topic' ? 'Topic' : field.label" [value]="query()?.[field.key] ?? ''" (change)="updateFilter(field.key, $any($event.target).value)">
+              <option value="">Select {{ field.key === 'topic' ? 'topic' : field.key }}</option>
+              @switch (field.key) {
+                @case ('status') { <option value="NotAttempted">Not attempted</option><option value="Attempted">Attempted</option><option value="Solved">Solved</option> }
+                @case ('difficulty') { <option value="Easy">Easy</option><option value="Medium">Medium</option><option value="Hard">Hard</option><option value="Unclassified">Unclassified</option> }
+                @case ('topic') {
+                  @if (missingSelectedTopic()) { <option [value]="query()?.topic" selected>Selected topic unavailable</option> }
+                  @for (topic of topics().items; track topic.slug) { <option [value]="topic.slug" [selected]="query()?.topic === topic.slug">{{ topic.displayName }}</option> }
+                }
+              }
+            </select>
+            <button class="icon-action remove-filter" type="button" [attr.aria-label]="'Remove ' + field.label + ' filter'" (click)="removeFilter(field.key)"><minos-icon name="minus" /></button>
+          </div>
+        } }</div>
+        <div class="add-filters">@for (field of fields; track field.key) { @if (!visibleFilters().includes(field.key)) {
+          <button class="text-action" type="button" [attr.data-add-filter]="field.key" (click)="addFilter(field.key)"><minos-icon name="plus" />Add {{ field.label }}</button>
+        } }</div>
+        @if (!session.account()) { <p class="filter-sign-in">Sign in to use your submission status. <button class="text-action" type="button" (click)="closePanels(); auth.open()">Sign in</button></p> }
+      </div>
+      <footer class="filter-footer"><button class="reset-filters" type="button" (click)="resetFilters()"><minos-icon name="reset" />Reset filters</button><button class="button" type="button" (click)="closePanels()">Done</button></footer>
+    </div>
+    @if (state(); as current) {
+      @switch (current.status) {
+        @case ('loading') { <minos-state-panel kind="loading" heading="Loading problems…" /> }
+        @case ('invalid') {
+          <minos-state-panel kind="error" heading="Check this catalog link." description="Use valid filters and pagination.">
+            <a class="button" routerLink="/problems">Reset the library</a>
+          </minos-state-panel>
+        }
+        @case ('sign-in') {
+          <minos-state-panel heading="Sign in to filter your progress.">
+            <button class="button" type="button" (click)="auth.open()">Sign in</button>
+            <button class="button button--secondary" type="button" (click)="clearFilters()">Browse all problems</button>
+          </minos-state-panel>
+        }
+        @case ('error') {
+          <minos-state-panel kind="error" heading="The problem library could not be reached." description="Check your connection and try again.">
+            <button class="button" type="button" (click)="retry()">Retry loading problems</button>
+            @if (hasFilters()) { <button class="button button--secondary" type="button" (click)="clearFilters()">Clear filters</button> }
+          </minos-state-panel>
+        }
+        @case ('ready') {
+          <div class="catalog-tools">
+            <div class="catalog-count"><p role="status" aria-live="polite">{{ current.data.total }} {{ current.data.total === 1 ? 'problem' : 'problems' }}</p>
+              @if (hasFilters() && !activeFilters().length) { <button class="text-action clear-filters" type="button" (click)="clearFilters()">Clear all</button> }
+            </div>
+            <div class="catalog-display"><label class="topic-toggle"><input type="checkbox" [checked]="showTopics()" (change)="showTopics.set(!showTopics())" />Show topics</label>
+              <label>Per page<select aria-label="Per page" [value]="current.data.pageSize" (change)="changePageSize($event)">
+                @if (!pageSizes.includes(current.data.pageSize)) { <option [value]="current.data.pageSize" selected>{{ current.data.pageSize }}</option> }
+                @for (size of pageSizes; track size) { <option [value]="size" [selected]="size === current.data.pageSize">{{ size }}</option> }
+              </select></label>
+            </div>
+          </div>
+          @if (current.data.items.length) {
+            <div class="catalog-scroll" role="region" aria-label="Problem library" tabindex="0">
+              <table>
+                <caption class="visually-hidden">Choose a problem to start solving.</caption>
+                <colgroup>@if (session.account()) { <col class="status-column" /> }<col /><col class="difficulty-column" /></colgroup>
+                <thead class="visually-hidden"><tr>@if (session.account()) { <th scope="col" class="status-column">Status</th> }<th scope="col">Problem</th><th scope="col" class="difficulty-column">Difficulty</th></tr></thead>
+                <tbody>@for (problem of current.data.items; track problem.problemId) {
+                  <tr>
+                    @if (session.account()) { <td class="status-column"><span class="solve-status" [class.solved]="problem.solveStatus === 'Solved'" [class.attempted]="problem.solveStatus === 'Attempted'">
+                      <span aria-hidden="true">{{ problem.solveStatus === 'Solved' ? '✓' : problem.solveStatus === 'Attempted' ? '◐' : '—' }}</span>
+                      <span class="status-label">{{ problem.solveStatus === 'Solved' ? 'Solved' : problem.solveStatus === 'Attempted' ? 'Attempted' : problem.solveStatus === 'NotAttempted' ? 'Not attempted' : 'Unavailable' }}</span>
+                    </span></td> }
+                    <th scope="row"><a [routerLink]="['/problems', problem.problemId]" [queryParams]="{ library: libraryReturnUrl() }"><span class="problem-number">{{ problem.publicNumber }}.</span> {{ problem.title }}</a>
+                      @if (showTopics() && problem.classification.topics.length) { <div class="problem-topics">
+                        @for (topic of problem.classification.topics; track topic.slug) {
+                          <button type="button" class="topic-chip" (click)="selectTopic(topic.slug)" [attr.aria-label]="'Filter by ' + topic.displayName">{{ topic.displayName }}</button>
+                        }
+                      </div> }
+                    </th>
+                    <td class="difficulty-column"><span class="difficulty-badge" [class.easy]="problem.classification.difficulty === 'Easy'" [class.medium]="problem.classification.difficulty === 'Medium'" [class.hard]="problem.classification.difficulty === 'Hard'">{{ problem.classification.difficulty ?? 'Unclassified' }}</span>
+                      @if (problem.classification.needsReassessment) { <span class="reassessment" title="The problem changed after its difficulty was assessed.">May have changed</span> }
+                    </td>
+                  </tr>
+                }</tbody>
+              </table>
+            </div>
+            <minos-pagination [page]="current.data.page" [pageSize]="current.data.pageSize" [total]="current.data.total" />
+          } @else if (current.data.total > 0) {
+            <minos-state-panel heading="There are no problems on this page.">
+              <a class="button" [routerLink]="[]" [queryParams]="{ page: 1, pageSize: current.data.pageSize }" queryParamsHandling="merge">Back to the first page</a>
             </minos-state-panel>
-          }
-          @case ('error') {
-            <minos-state-panel kind="error" heading="The problem library could not be reached." description="Check your connection and try again.">
-              <button class="button" type="button" (click)="retry()">Retry loading problems</button>
-            </minos-state-panel>
-          }
-          @case ('ready') {
-            @if (current.data.items.length) {
-              <div class="catalog-tools">
-                <p role="status">{{ current.data.total }} published {{ current.data.total === 1 ? 'problem' : 'problems' }} · Page {{ current.data.page }}</p>
-                <label>Per page <select [value]="current.data.pageSize" (change)="changePageSize($event)">
-                  @if (!pageSizes.includes(current.data.pageSize)) { <option [value]="current.data.pageSize" selected>{{ current.data.pageSize }}</option> }
-                  @for (size of pageSizes; track size) { <option [value]="size" [selected]="size === current.data.pageSize">{{ size }}</option> }
-                </select></label>
-              </div>
-              <div class="catalog-scroll" role="region" aria-label="Published problems, horizontally scrollable" tabindex="0">
-                <table>
-                  <caption class="visually-hidden">Open a problem title to read it, or a version to read that published edition.</caption>
-                  <thead><tr><th scope="col">#</th><th scope="col">Title</th><th scope="col">Version</th><th scope="col">Published (UTC)</th></tr></thead>
-                  <tbody>@for (problem of current.data.items; track problem.problemId) {
-                    <tr><td>{{ (current.data.page - 1) * current.data.pageSize + $index + 1 }}</td>
-                      <th scope="row"><a [routerLink]="['/problems', problem.problemId]">{{ problem.title }}</a></th>
-                      <td><a class="version-link" [routerLink]="['/problems/versions', problem.versionId]" [attr.aria-label]="problem.title + ', published version ' + problem.versionNumber">v{{ problem.versionNumber }}</a></td>
-                      <td><time [attr.datetime]="problem.publishedAtUtc">{{ problem.publishedAtUtc | date:'mediumDate':'UTC' }}</time></td></tr>
-                  }</tbody>
-                </table>
-              </div>
-              <minos-pagination [page]="current.data.page" [pageSize]="current.data.pageSize" [total]="current.data.total" />
-            } @else if (current.data.total > 0) {
-              <minos-state-panel heading="There are no problems on this page." description="The page is beyond the current library. Return to the first page to keep browsing.">
-                <a class="button" [routerLink]="[]" [queryParams]="{ page: 1, pageSize: current.data.pageSize }" queryParamsHandling="merge">Back to the first page</a>
-              </minos-state-panel>
-            } @else {
-              <minos-state-panel heading="No problems yet." description="Published problems will appear here.">
-                <button class="button button--secondary" type="button" (click)="retry()">Refresh the library</button>
-              </minos-state-panel>
-            }
+          } @else if (hasFilters()) {
+            <minos-state-panel heading="No problems match your filters." />
+          } @else {
+            <minos-state-panel heading="No problems yet."><button class="button button--secondary" type="button" (click)="retry()">Refresh the library</button></minos-state-panel>
           }
         }
       }
-    </section>
-
-  </div>
-
+    }
+  </section>
 </article>

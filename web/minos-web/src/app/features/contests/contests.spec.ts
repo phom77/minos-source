@@ -26,7 +26,10 @@ describe('contest workflows', () => {
     ])] });
     TestBed.inject(SessionService).signedIn(account); http = TestBed.inject(HttpTestingController);
   });
-  afterEach(() => http.verify());
+  afterEach(() => {
+    http.match(request => request.url.endsWith('/comments')).forEach(request => { if (!request.cancelled) request.flush({ items: [], nextCursor: null }); });
+    http.verify();
+  });
   function catalog() { http.expectOne('/api/problems?page=1&pageSize=20').flush({ items: [], page: 1, pageSize: 20, total: 0 }); }
   it('shows organizer entry points only for Setter/Admin', async () => {
     TestBed.inject(SessionService).signedIn({ ...account, role: 'Solver' });

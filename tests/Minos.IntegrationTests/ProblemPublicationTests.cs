@@ -300,12 +300,31 @@ public sealed class ProblemPublicationTests
                 problem.AddTestCase(Artifact("input.bin"), Artifact("output.bin"), DateTimeOffset.UtcNow);
             var oldVersion = problem.Publish(owner.Id, new(true, true, true), DateTimeOffset.UtcNow);
             database.Accounts.Add(owner);
-            database.Problems.Add(problem);
+            await database.SaveChangesAsync(token);
+            // Seed the pre-number schema explicitly rather than using a future generated column.
+            await database.Database.ExecuteSqlInterpolatedAsync($"""
+                INSERT INTO problems.problems(id,owner_account_id,title,statement,time_limit_ms,memory_limit_mb,checker,
+                    latest_published_version,is_archived,revision,created_at_utc,updated_at_utc)
+                VALUES ({problem.Id},{owner.Id},{problem.Title},{problem.Statement},{1000},{64},{0},
+                    {problem.LatestPublishedVersion},{false},{problem.Revision},{problem.CreatedAtUtc},{problem.UpdatedAtUtc})
+                """, token);
+            foreach (var sample in problem.Samples)
+            {
+                database.Set<ProblemSample>().Add(sample);
+                database.Entry(sample).Property("problem_id").CurrentValue = problem.Id;
+            }
+            foreach (var test in problem.TestCases)
+            {
+                database.ProblemTestCases.Add(test);
+                database.Entry(test).Property("problem_id").CurrentValue = problem.Id;
+            }
             database.PublishedProblemVersions.Add(oldVersion);
             await database.SaveChangesAsync(token);
 
             await database.Database.MigrateAsync(token);
             await database.Database.MigrateAsync(token);
+            problem = await database.Problems.Include(value => value.Samples).Include(value => value.TestCases)
+                .SingleAsync(value => value.Id == problem.Id, token);
             for (var order = 101; order <= 1500; order++)
                 problem.AddTestCase(Artifact("input.bin"), Artifact("output.bin"), DateTimeOffset.UtcNow);
             var largeVersion = problem.Publish(owner.Id, new(true, true, true), DateTimeOffset.UtcNow);
@@ -386,7 +405,7 @@ public sealed class ProblemPublicationTests
     public async Task Abandoned_unreferenced_artifacts_are_cleaned_after_the_safety_window()
     {
         var root = Environment.GetEnvironmentVariable("Minos__Artifacts__Root")
-            ?? throw new InvalidOperationException("Run scripts/check-foundation.sh; Minos__Artifacts__Root is required.");
+            ?? throw new InvalidOperationException("Run scripts/checks/backend.sh; Minos__Artifacts__Root is required.");
         var abandoned = Path.Combine(root, "problem-artifacts", "tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(abandoned);
         await File.WriteAllTextAsync(Path.Combine(abandoned, "input.bin"), "orphan", TestContext.Current.CancellationToken);

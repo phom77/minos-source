@@ -9,12 +9,14 @@ import { SessionService } from '../../core/auth/session.service';
 import { StatePanel } from '../../shared/ui/state-panel';
 import { FormFeedback } from '../accounts/form-feedback';
 import { CodeEditor } from '../submissions/code-editor/code-editor';
+import { ProblemStatement } from '../../shared/ui/problem-statement';
+import { ProblemComments } from '../comments/problem-comments';
 import { sourceError } from '../submissions/data-access/submission.models';
 import { SubmissionDraft } from '../submissions/data-access/submission-draft';
 import { isProblemId, PublishedProblem } from '../problems/data-access/problems-api';
 import { Contest, contestError, ContestsApi } from './data-access/contests-api';
 type SolveState = { kind: string; data: { contest: Contest; problem: PublishedProblem; contestProblemId: string } | null };
-@Component({ selector: 'minos-contest-solve', imports: [DatePipe, ReactiveFormsModule, RouterLink, StatePanel, CodeEditor],
+@Component({ selector: 'minos-contest-solve', imports: [DatePipe, ReactiveFormsModule, RouterLink, StatePanel, CodeEditor, ProblemStatement, ProblemComments],
   changeDetection: ChangeDetectionStrategy.OnPush, templateUrl: './contest-solve.html', styleUrl: './contests.css' })
 export class ContestSolve {
   private readonly api = inject(ContestsApi); private readonly route = inject(ActivatedRoute); private readonly session = inject(SessionService);

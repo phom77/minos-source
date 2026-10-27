@@ -1,0 +1,34 @@
+{
+  "version": "codeforces-v1",
+  "easyMaxRating": 1200,
+  "mediumMaxRating": 1900,
+  "topics": {
+    "binary search": "binary-search",
+    "bitmasks": "bitmasks",
+    "brute force": "brute-force",
+    "combinatorics": "combinatorics",
+    "constructive algorithms": "constructive-algorithms",
+    "data structures": "data-structures",
+    "dfs and similar": "graph-traversal",
+    "divide and conquer": "divide-and-conquer",
+    "dp": "dynamic-programming",
+    "games": "game-theory",
+    "geometry": "geometry",
+    "graph matchings": "graph-matching",
+    "graphs": "graphs",
+    "greedy": "greedy",
+    "implementation": "implementation",
+    "math": "math",
+    "matrices": "matrices",
+    "number theory": "number-theory",
+    "shortest paths": "shortest-paths",
+    "sortings": "sorting",
+    "strings": "strings",
+    "ternary search": "ternary-search",
+    "trees": "trees",
+    "two pointers": "two-pointers"
+  },
+  "excludedTags": {
+    "*special": "Source classification marker, not an algorithm topic."
+  }
+}

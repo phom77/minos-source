@@ -41,7 +41,8 @@ public sealed record SubmissionResultResponse(
     long? MaximumMemoryBytes,
     DateTimeOffset CompletedAtUtc,
     IReadOnlyList<SubmissionTestResultResponse> Tests,
-    SubmissionTestSummaryResponse? TestSummary);
+    SubmissionTestSummaryResponse? TestSummary,
+    bool ComparisonEligible = false);
 public sealed record SubmissionTestSummaryResponse(int TotalTests, int ExecutedTests, int PassedTests, int FailedTests);
 public sealed record SubmissionSummaryResponse(
     Guid Id,
@@ -56,3 +57,9 @@ public sealed record SubmissionPageResponse(
     int Page,
     int PageSize,
     int Total);
+
+public sealed record SubmissionPerformanceResponse(Guid SubmissionId, string Status, long SampleCount, int MinimumSampleCount,
+    PerformanceMetricResponse? Runtime, PerformanceMetricResponse? Memory);
+public sealed record PerformanceMetricResponse(long Value, decimal? BeatsPercentage, long? EqualCount, decimal RangeMaximum,
+    IReadOnlyList<PerformanceBucketResponse> Buckets);
+public sealed record PerformanceBucketResponse(int Index, long Count);

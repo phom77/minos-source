@@ -7,6 +7,8 @@ import { combineLatest, distinctUntilChanged, map, of, scan, startWith, Subject,
 import { SessionService } from '../../../core/auth/session.service';
 import { AuthPrompt } from '../../../core/auth/auth-prompt.service';
 import { StatePanel } from '../../../shared/ui/state-panel';
+import { CppHighlight } from '../../../shared/ui/cpp-highlight';
+import { SubmissionPerformanceView } from '../submission-performance/submission-performance';
 import { isProblemId } from '../../problems/data-access/problems-api';
 import { SubmissionsApi } from '../data-access/submissions-api';
 import { SubmissionDraft } from '../data-access/submission-draft';
@@ -17,7 +19,7 @@ import { ProblemLabel, ProblemLabels } from '../data-access/problem-labels';
 
 type DetailState = { readonly status: 'loading' | 'invalid' | 'missing' | 'denied' | 'error' | 'guest' | 'unavailable' }
   | { readonly status: 'ready'; readonly data: Submission; readonly label: ProblemLabel | null; readonly interrupted: boolean };
-@Component({ selector: 'minos-submission-detail-page', imports: [DatePipe, RouterLink, StatePanel, SubmissionResultView],
+@Component({ selector: 'minos-submission-detail-page', imports: [DatePipe, RouterLink, StatePanel, SubmissionResultView, CppHighlight, SubmissionPerformanceView],
   changeDetection: ChangeDetectionStrategy.OnPush, templateUrl: './submission-detail-page.html', styleUrl: '../submission-pages.css' })
 export class SubmissionDetailPage {
   readonly session = inject(SessionService);

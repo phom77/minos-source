@@ -21,7 +21,10 @@ describe('owner submission journeys', () => {
     ])] });
     TestBed.inject(SessionService).signedIn(account); http = TestBed.inject(HttpTestingController);
   });
-  afterEach(() => http.verify({ ignoreCancelled: true }));
+  afterEach(() => {
+    http.match(request => request.url.endsWith('/comments')).forEach(request => { if (!request.cancelled) request.flush({ items: [], nextCursor: null }); });
+    http.verify({ ignoreCancelled: true });
+  });
   async function render(harness: RouterTestingHarness) { harness.detectChanges(); await harness.fixture.whenStable(); harness.detectChanges(); }
   function label() { http.expectOne('/api/problems/versions/' + publishedProblem.versionId).flush(publishedProblem); }
   async function detail(data = completed) {
@@ -48,18 +51,31 @@ describe('owner submission journeys', () => {
     const harness = await detail({ ...completed, result: { ...completed.result!, verdict } }); const element = harness.routeNativeElement!;
     expect(element.querySelector('h1')?.textContent).toBe(publishedProblem.title);
     expect(element.textContent).not.toContain(submission.id); expect(element.textContent).not.toContain(submission.problemVersionId);
-    expect(element.textContent).not.toContain('gcc-cpp20-pinned'); expect(element.textContent).toContain('12 ms'); expect(element.textContent).toContain('2 MiB');
+    expect(element.textContent).not.toMatch(/Version \d/);
+    expect(element.textContent).not.toContain('gcc-cpp20-pinned');
+    expect(element.querySelector('.result-panel')?.textContent).not.toMatch(/CPU|wall time|peak memory|MiB|Limits:|\d+ ms/i);
+    expect(element.querySelector('.performance-panel') !== null).toBe(verdict !== 'CompilationError');
     expect(element.querySelector('[aria-label="Submitted C++20 source code"] code')?.textContent).toBe(submission.source);
     expect(element.querySelector('a.button')?.getAttribute('href')).toBe('/problems/versions/' + submission.problemVersionId);
-    expect(element.querySelectorAll('table tbody tr')).toHaveLength(2);
+    expect(element.querySelector('table')).toBeNull();
+    expect(element.querySelector('.test-summary')?.textContent?.trim()).toBe(verdict === 'CompilationError' ? undefined : '2 / 2 tests passed');
+    expect(element.querySelector('.submitted-source .hljs-type')?.textContent).toBe('int');
   });
-  it('renders diagnostics as plaintext, opens compiler errors and distinguishes unexecuted measurements from zero', async () => {
+  it('renders diagnostics as plaintext and opens compiler errors without implying tests ran', async () => {
     const harness = await detail({ ...completed, result: { ...completed.result!, verdict: 'CompilationError', compilerDiagnostics: '<script>private code</script>\nerror: missing ;',
       tests: [{ order: 1, status: 'NotExecuted', cpuTimeMilliseconds: null, wallTimeMilliseconds: null, memoryPeakBytes: null }],
       maximumCpuTimeMilliseconds: null, maximumWallTimeMilliseconds: null, maximumMemoryBytes: null } });
     const element = harness.routeNativeElement!; expect(element.querySelector('details')?.open).toBe(true); expect(element.querySelector('pre script')).toBeNull();
-    expect(element.querySelector('pre code')?.textContent).toContain('<script>'); expect(element.querySelector('tbody')?.textContent).toContain('Not run');
-    expect(element.querySelector('tbody')?.textContent).not.toContain('0 ms');
+    expect(element.querySelector('pre code')?.textContent).toContain('<script>');
+    expect(element.querySelector('.test-summary')).toBeNull(); expect(element.querySelector('table')).toBeNull();
+    expect(element.textContent).not.toContain('0 ms');
+  });
+  it('keeps historical unexecuted tests distinct in the passed/total summary', async () => {
+    const harness = await detail({ ...completed, result: { ...completed.result!, verdict: 'WrongAnswer',
+      tests: [completed.result!.tests[0], { order: 2, status: 'WrongAnswer', cpuTimeMilliseconds: 2, wallTimeMilliseconds: 3, memoryPeakBytes: 1024 },
+        { order: 3, status: 'NotExecuted', cpuTimeMilliseconds: null, wallTimeMilliseconds: null, memoryPeakBytes: null }] } });
+    expect(harness.routeNativeElement!.querySelector('.test-summary')?.textContent).toContain('1 / 3 tests passed · 1 not run');
+    expect(harness.routeNativeElement!.querySelector('table')).toBeNull();
   });
   it.each(['Completed', 'SystemFailed'] as const)('preserves %s without inventing a verdict', async status => {
     const harness = await detail({ ...submission, status });
@@ -96,6 +112,7 @@ describe('owner submission journeys', () => {
     label(); await render(harness); const element = harness.routeNativeElement!;
     expect(element.querySelector<HTMLSelectElement>('select')?.value).toBe('7'); expect(element.querySelectorAll('tbody tr')).toHaveLength(2);
     expect(element.textContent).not.toContain(submission.source); expect(element.textContent).not.toContain(submission.problemVersionId);
+    expect(element.textContent).not.toMatch(/Version \d/);
     expect(element.querySelector('tbody th a')?.textContent).toBe(publishedProblem.title);
     expect(element.querySelector('a[aria-label="Next page"]')?.getAttribute('href')).toBe('/submissions?page=3&pageSize=7');
     const select = element.querySelector('select')!; select.value = '50'; select.dispatchEvent(new Event('change')); await render(harness);
@@ -114,19 +131,19 @@ describe('owner submission journeys', () => {
     const harness = await detail();
     harness.routeNativeElement!.querySelector<HTMLButtonElement>('.page-heading button')!.click(); await render(harness);
     http.expectOne('/api/problems/' + submission.problemId).flush(publishedProblem); await render(harness);
-    const source = harness.routeNativeElement!.querySelector<HTMLTextAreaElement>('textarea')!;
+    const source = harness.routeNativeElement!.querySelector<HTMLTextAreaElement>('#submission-source')!;
     expect(source.value).toBe(submission.source); expect(document.activeElement).toBe(source);
   });
   it('expands and restores the editing workspace without losing source or editor focus', async () => {
     const harness = await RouterTestingHarness.create('/problems/' + submission.problemId); await render(harness);
     http.expectOne('/api/problems/' + submission.problemId).flush(publishedProblem); await render(harness);
-    const source = harness.routeNativeElement!.querySelector<HTMLTextAreaElement>('textarea')!;
+    const source = harness.routeNativeElement!.querySelector<HTMLTextAreaElement>('#submission-source')!;
     source.value = submission.source; source.dispatchEvent(new Event('input')); await render(harness);
     harness.routeNativeElement!.querySelector<HTMLAnchorElement>('.code-jump')!.click(); await render(harness);
     expect(document.activeElement).toBe(source); expect(TestBed.inject(Router).url).toBe('/problems/' + submission.problemId);
     harness.routeNativeElement!.querySelector<HTMLButtonElement>('[aria-label="Expand editor"]')!.click(); await render(harness);
     expect(harness.routeNativeElement!.querySelector('.solve-layout--expanded')).not.toBeNull();
-    expect(harness.routeNativeElement!.querySelector('textarea')).toBe(source); expect(source.value).toBe(submission.source); expect(document.activeElement).toBe(source);
+    expect(harness.routeNativeElement!.querySelector('#submission-source')).toBe(source); expect(source.value).toBe(submission.source); expect(document.activeElement).toBe(source);
     harness.routeNativeElement!.querySelector<HTMLButtonElement>('[aria-label="Restore split view"]')!.click(); await render(harness);
     expect(harness.routeNativeElement!.querySelector('.solve-layout--expanded')).toBeNull(); expect(source.value).toBe(submission.source);
     http.expectNone(request => request.method === 'POST');

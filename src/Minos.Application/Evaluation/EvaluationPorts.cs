@@ -9,7 +9,7 @@ public interface ISubmissionRepository
     Task<bool> AdmitAsync(Submission submission, JudgeJob job, int maximumActive, CancellationToken token);
     Task<(Submission Submission, IReadOnlyList<JudgingAttempt> Attempts, SubmissionResult? Result)?> FindAsync(Guid id, CancellationToken token);
     Task<(IReadOnlyList<(Submission Submission, SubmissionVerdict? Verdict)> Items, int Total)> ListByOwnerAsync(
-        Guid ownerAccountId, int offset, int limit, CancellationToken token);
+        Guid ownerAccountId, int offset, int limit, CancellationToken token, Guid? problemId = null);
 }
 
 public interface IJudgeJobRepository

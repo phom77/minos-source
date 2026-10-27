@@ -64,7 +64,8 @@ public sealed record SubmissionResultDetails(
     long? MaximumMemoryBytes,
     DateTimeOffset CompletedAtUtc,
     IReadOnlyList<SubmissionTestResultDetails> Tests,
-    SubmissionTestSummary? TestSummary);
+    SubmissionTestSummary? TestSummary,
+    bool ComparisonEligible = false);
 
 public sealed record SubmissionTestSummary(int TotalTests, int ExecutedTests, int PassedTests, int FailedTests);
 

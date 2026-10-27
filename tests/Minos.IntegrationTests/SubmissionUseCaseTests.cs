@@ -69,6 +69,33 @@ public sealed class SubmissionUseCaseTests
             useCases.ListMineAsync(int.MaxValue, 100, TestContext.Current.CancellationToken));
     }
 
+    [Fact]
+    public async Task Problem_history_passes_the_active_owner_and_problem_filter_before_pagination()
+    {
+        var account = Account.Create("Solver", DateTimeOffset.UtcNow);
+        var version = Published(account.Id);
+        var repository = new RecordingSubmissionRepository();
+        await Cases(account, version, repository).ListMineAsync(2, 20, TestContext.Current.CancellationToken, version.ProblemId);
+        Assert.Equal((account.Id, (Guid?)version.ProblemId, 20, 20), repository.HistoryQuery);
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
+            Cases(account, version, repository).ListMineAsync(1, 20, TestContext.Current.CancellationToken, Guid.Empty));
+    }
+
+    [Fact]
+    public async Task Problem_history_requires_an_active_account_even_outside_http()
+    {
+        var account = Account.Create("Solver", DateTimeOffset.UtcNow);
+        var version = Published(account.Id);
+        var repository = new RecordingSubmissionRepository();
+        var cases = new SubmissionUseCases(repository, new ProblemRepositoryStub(version),
+            new(new AppAccountStore(account), new TestCurrentAccount(null), TimeProvider.System), TimeProvider.System);
+        await Assert.ThrowsAsync<AccountAuthenticationException>(() => cases.ListMineAsync(1, 20, TestContext.Current.CancellationToken, version.ProblemId));
+        account.Disable();
+        await Assert.ThrowsAsync<AccountAuthenticationException>(() =>
+            Cases(account, version, repository).ListMineAsync(1, 20, TestContext.Current.CancellationToken, version.ProblemId));
+        Assert.Null(repository.HistoryQuery);
+    }
+
     private static SubmissionUseCases Cases(
         Account account,
         PublishedProblemVersion version,
@@ -93,6 +120,7 @@ public sealed class SubmissionUseCaseTests
         public bool Accept { get; init; } = true;
         public Submission? Submission { get; set; }
         public JudgeJob? Job { get; private set; }
+        public (Guid Owner, Guid? Problem, int Offset, int Limit)? HistoryQuery { get; private set; }
         public Task<Guid?> FindRequestAsync(Guid ownerAccountId, SubmissionRequestIdentity request, CancellationToken token) => Task.FromResult<Guid?>(null);
         public async Task<Guid?> AdmitOnceAsync(Submission submission, JudgeJob job, int maximumActive, SubmissionRequestIdentity request, CancellationToken token) =>
             await AdmitAsync(submission, job, maximumActive, token) ? submission.Id : null;
@@ -105,8 +133,11 @@ public sealed class SubmissionUseCaseTests
         public Task<(Submission Submission, IReadOnlyList<JudgingAttempt> Attempts, SubmissionResult? Result)?> FindAsync(Guid id, CancellationToken token) =>
             Task.FromResult<(Submission, IReadOnlyList<JudgingAttempt>, SubmissionResult?)?>(Submission is null ? null : (Submission, [], null));
         public Task<(IReadOnlyList<(Submission Submission, SubmissionVerdict? Verdict)> Items, int Total)> ListByOwnerAsync(
-            Guid ownerAccountId, int offset, int limit, CancellationToken token) =>
-            Task.FromResult(((IReadOnlyList<(Submission, SubmissionVerdict?)>)(Submission is null ? [] : [(Submission, null)]), Submission is null ? 0 : 1));
+            Guid ownerAccountId, int offset, int limit, CancellationToken token, Guid? problemId = null)
+        {
+            HistoryQuery = (ownerAccountId, problemId, offset, limit);
+            return Task.FromResult(((IReadOnlyList<(Submission, SubmissionVerdict?)>)(Submission is null ? [] : [(Submission, null)]), Submission is null ? 0 : 1));
+        }
     }
 
     private sealed class ProblemRepositoryStub(PublishedProblemVersion version) : IProblemRepository
@@ -117,7 +148,8 @@ public sealed class SubmissionUseCaseTests
         public Task<Problem?> FindForAuthoringAsync(Guid id, CancellationToken token) => throw new NotSupportedException();
         public Task SaveAsync(Problem problem, CancellationToken token) => throw new NotSupportedException();
         public Task PublishAsync(Problem problem, PublishedProblemVersion published, CancellationToken token) => throw new NotSupportedException();
-        public Task<(IReadOnlyList<PublishedProblemSummary> Items, int Total)> ListPublishedAsync(int offset, int limit, CancellationToken token) => throw new NotSupportedException();
+        public Task<IReadOnlyList<ProblemTopicCountSummary>> ListTopicCountsAsync(CancellationToken token) => Task.FromResult<IReadOnlyList<ProblemTopicCountSummary>>([]);
+        public Task<ProblemCatalogResult> ListPublishedAsync(ProblemCatalogQuery query, Guid? accountId, CancellationToken token) => throw new NotSupportedException();
         public Task<PublishedProblemVersion?> FindPublishedVersionAsync(Guid versionId, CancellationToken token) =>
             Task.FromResult<PublishedProblemVersion?>(version.Id == versionId ? version : null);
         public Task<IReadOnlySet<string>> ReferencedArtifactKeysAsync(CancellationToken token) => throw new NotSupportedException();

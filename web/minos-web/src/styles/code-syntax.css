@@ -1,0 +1,34 @@
+/* Shared by the editable C++ overlay and the submitted source view. */
+.cpp-code {
+  --code-keyword: #78429a;
+  --code-type: #126491;
+  --code-title: #765c12;
+  --code-string: #a33c26;
+  --code-number: #43632c;
+  --code-comment: #666666;
+  --code-meta: #765036;
+  --code-variable: #126877;
+  color: var(--color-text);
+  tab-size: 4;
+  font-variant-ligatures: none;
+}
+:root[data-theme='dark'] .cpp-code {
+  --code-keyword: #d9a0e5;
+  --code-type: #79bfff;
+  --code-title: #e5d69c;
+  --code-string: #efb399;
+  --code-number: #c4cea5;
+  --code-comment: #a0a0a0;
+  --code-meta: #c5b5a6;
+  --code-variable: #74d4d5;
+}
+.cpp-code .hljs-keyword, .cpp-code .hljs-literal { color: var(--code-keyword); }
+.cpp-code .hljs-type, .cpp-code .hljs-built_in { color: var(--code-type); }
+.cpp-code .hljs-title { color: var(--code-title); }
+.cpp-code .hljs-title.class_ { color: var(--code-variable); }
+.cpp-code .hljs-string, .cpp-code .hljs-char.escape_ { color: var(--code-string); }
+.cpp-code .hljs-number { color: var(--code-number); }
+.cpp-code .hljs-comment { color: var(--code-comment); }
+.cpp-code .hljs-meta { color: var(--code-meta); }
+.cpp-code .hljs-meta .hljs-keyword { color: var(--code-keyword); }
+.cpp-code .hljs-variable { color: var(--code-variable); }

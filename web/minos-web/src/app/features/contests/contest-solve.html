@@ -3,9 +3,10 @@
     <a [routerLink]="['/contests', data.contest.id]">← {{ data.contest.title }}</a>
     <header class="page-heading"><h1>{{ data.problem.title }}</h1><span>{{ data.contest.state }} · Ends {{ data.contest.endsAtUtc | date:'medium' }}</span></header>
     <div class="solve-grid">
-      <article class="panel panel-body stack" aria-label="Problem statement"><p class="muted">{{ data.problem.timeLimitMilliseconds }} ms · {{ data.problem.memoryLimitMegabytes }} MiB</p><div class="statement">{{ data.problem.statement }}</div>
+      <article class="panel panel-body stack" aria-label="Problem statement"><p class="muted">{{ data.problem.timeLimitMilliseconds }} ms · {{ data.problem.memoryLimitMegabytes }} MiB</p><minos-problem-statement [statement]="data.problem.statement" />
         @for (sample of data.problem.samples; track $index) { <section><h2>Example {{ $index + 1 }}</h2><h3>Input</h3><pre>{{ sample.input }}</pre><h3>Expected output</h3><pre>{{ sample.output }}</pre></section> }
         <p class="muted">Output must match exactly, including whitespace and line endings.</p>
+        <minos-problem-comments [problemId]="data.problem.problemId" [publishedVersionId]="data.problem.versionId" />
       </article>
       <section class="panel" aria-labelledby="contest-code-heading">
         @if (data.contest.isRegistered) {

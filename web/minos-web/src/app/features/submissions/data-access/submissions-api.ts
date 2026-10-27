@@ -4,6 +4,7 @@ import { map, shareReplay } from 'rxjs';
 import { MINOS_API_REQUEST } from '../../../core/http/api-url.interceptor';
 import { SESSION_REQUIRED } from '../../../core/http/session-error.interceptor';
 import { isSubmission, isSubmissionSummary, record, SubmissionPage } from './submission.models';
+import { isSubmissionPerformance } from './submission-performance.models';
 
 @Injectable({ providedIn: 'root' })
 export class SubmissionsApi {
@@ -22,10 +23,17 @@ export class SubmissionsApi {
       return value;
     }));
   }
-  list(page: number, pageSize: number) {
-    return this.http.get<unknown>('/api/me/submissions', { params: { page, pageSize }, context: this.context(), timeout: 15_000 }).pipe(map(value => {
+  performance(id: string) {
+    return this.http.get<unknown>(`/api/submissions/${id}/performance`, { context: this.context(), timeout: 15_000 }).pipe(map(value => {
+      if (!isSubmissionPerformance(value, id)) throw new Error('Invalid performance response.');
+      return value;
+    }));
+  }
+  list(page: number, pageSize: number, problemId?: string) {
+    return this.http.get<unknown>('/api/me/submissions', { params: { page, pageSize, ...(problemId ? { problemId } : {}) }, context: this.context(), timeout: 15_000 }).pipe(map(value => {
       if (!record(value) || value['page'] !== page || value['pageSize'] !== pageSize || !Number.isSafeInteger(value['total']) ||
-          Number(value['total']) < 0 || !Array.isArray(value['items']) || value['items'].length > pageSize || !value['items'].every(isSubmissionSummary)) {
+          Number(value['total']) < 0 || !Array.isArray(value['items']) || value['items'].length > pageSize || !value['items'].every(isSubmissionSummary) ||
+          (problemId && value['items'].some(item => item.problemId.toLowerCase() !== problemId.toLowerCase()))) {
         throw new Error('Invalid submission history response.');
       }
       return value as unknown as SubmissionPage;

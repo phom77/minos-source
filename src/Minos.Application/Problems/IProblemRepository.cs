@@ -8,7 +8,8 @@ public interface IProblemRepository
     Task<Problem?> FindForAuthoringAsync(Guid id, CancellationToken token);
     Task SaveAsync(Problem problem, CancellationToken token);
     Task PublishAsync(Problem problem, PublishedProblemVersion version, CancellationToken token);
-    Task<(IReadOnlyList<PublishedProblemSummary> Items, int Total)> ListPublishedAsync(int offset, int limit, CancellationToken token);
+    Task<ProblemCatalogResult> ListPublishedAsync(ProblemCatalogQuery query, Guid? accountId, CancellationToken token);
+    Task<IReadOnlyList<ProblemTopicCountSummary>> ListTopicCountsAsync(CancellationToken token);
     Task<PublishedProblemVersion?> FindLatestPublishedAsync(Guid problemId, CancellationToken token);
     Task<PublishedProblemVersion?> FindPublishedVersionAsync(Guid versionId, CancellationToken token);
     Task<IReadOnlySet<string>> ReferencedArtifactKeysAsync(CancellationToken token);

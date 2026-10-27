@@ -6,6 +6,7 @@ const pid = '22222222-2222-4222-8222-222222222222', vid = '33333333-3333-4333-83
 const sid = '44444444-4444-4444-8444-444444444444', aid = '55555555-5555-4555-8555-555555555555';
 const now = new Date().toISOString();
 const problem = { problemId: pid, versionId: vid, versionNumber: 1, title: 'Browser sum', statement: 'Print the sum.',
+  publicNumber: 42, classification: { difficulty: 'Easy', topics: [{ slug: 'math', displayName: 'Math' }], needsReassessment: false }, solveStatus: 'Solved',
   timeLimitMilliseconds: 1000, memoryLimitMegabytes: 64, checker: 'Exact', privateTestCount: 1, publishedAtUtc: now, samples: [{ input: '1 2\n', output: '3\n' }] };
 const completed = { id: sid, problemId: pid, problemVersionId: vid, language: 'cpp20', toolchainId: 'pinned-fixture', source: 'int main(){' + '/* long fixture source */'.repeat(20) + '}',
   status: 'Completed', createdAtUtc: now, completedAtUtc: now, attempts: [{ id: aid, number: 1, status: 'Succeeded', failureKind: null, startedAtUtc: now, finishedAtUtc: now }],
@@ -23,6 +24,7 @@ const completed = { id: sid, problemId: pid, problemVersionId: vid, language: 'c
       : { id: aid, displayName: 'Browser solver', role: 'Solver', createdAtUtc: now } }));
     await page.route('**/api/**', async route => {
       const req = route.request(), url = new URL(req.url());
+      if (url.pathname.endsWith('/comments') && req.method() === 'GET') return route.fulfill({ json: { items: [], nextCursor: null } });
       if (req.method() === 'POST' && url.pathname === `/api/problems/${pid}/submissions`) {
         const body = req.postDataJSON(); assert.equal(body.language, 'cpp20'); assert.equal(body.source, completed.source); assert.match(body.requestKey, /^[0-9a-f-]{36}$/);
         keys.push(body.requestKey);
@@ -32,6 +34,7 @@ const completed = { id: sid, problemId: pid, problemVersionId: vid, language: 'c
       }
       if (url.pathname === `/api/submissions/${sid}`) return route.fulfill({ json: completed });
       if (url.pathname === '/api/me/submissions') return route.fulfill({ json: { page: 1, pageSize: 20, total: 1, items: [{ ...completed, verdict: 'Accepted' }] } });
+      if (url.pathname === '/api/problems/topics') return route.fulfill({ json: [{ slug: 'math', displayName: 'Math', problemCount: 1 }] });
       if (url.pathname === '/api/problems') return route.fulfill({ json: { page: 1, pageSize: 20, total: 1, items: [problem] } });
       if (url.pathname === `/api/problems/${pid}` || url.pathname === `/api/problems/versions/${vid}`) return route.fulfill({ json: problem });
       throw new Error(`Unexpected browser fixture request: ${req.method()} ${url.pathname}`);
@@ -61,8 +64,12 @@ const completed = { id: sid, problemId: pid, problemVersionId: vid, language: 'c
     for (const width of [320, 768, 1024, 1440]) {
       await page.setViewportSize({ width, height: 1000 });
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `owner result overflows at ${width}`);
-      await page.getByRole('region', { name: 'Test results' }).focus();
-      assert.equal(await page.evaluate(() => document.activeElement.getAttribute('aria-label')), 'Test results');
+      assert.equal(await page.locator('.result-panel table, .result-panel .metrics').count(), 0);
+      assert.match(await page.locator('.test-summary').innerText(), /1 \/ 1 tests passed/);
+      await page.getByLabel('Submitted C++20 source code').focus();
+      assert.equal(await page.evaluate(() => document.activeElement.getAttribute('aria-label')), 'Submitted C++20 source code');
+      assert.equal(await page.locator('.submitted-source code').textContent(), completed.source);
+      assert.ok(await page.locator('.submitted-source .hljs-type').count() > 0);
     }
     await page.getByRole('link', { name: 'Submission history', exact: false }).click();
     await page.waitForURL('**/submissions'); await page.getByText('Browser sum', { exact: true }).filter({ visible: true }).first().waitFor();

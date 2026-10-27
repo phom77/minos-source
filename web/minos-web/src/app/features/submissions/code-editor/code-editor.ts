@@ -2,8 +2,9 @@ import { afterNextRender, ChangeDetectionStrategy, Component, computed, DestroyR
 import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { startWith, switchMap } from 'rxjs';
+import { CppHighlight } from '../../../shared/ui/cpp-highlight';
 
-@Component({ selector: 'minos-code-editor', imports: [ReactiveFormsModule], changeDetection: ChangeDetectionStrategy.OnPush,
+@Component({ selector: 'minos-code-editor', imports: [ReactiveFormsModule, CppHighlight], changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './code-editor.html', styleUrl: './code-editor.css' })
 export class CodeEditor {
   readonly control = input.required<FormControl<string>>();
@@ -12,8 +13,12 @@ export class CodeEditor {
   readonly blurred = output<void>();
   private readonly destroyRef = inject(DestroyRef);
   private readonly editor = viewChild.required<ElementRef<HTMLTextAreaElement>>('editor');
-  private readonly text = toSignal(toObservable(this.control).pipe(switchMap(control => control.valueChanges.pipe(startWith(control.value)))), { initialValue: '' });
+  readonly text = toSignal(toObservable(this.control).pipe(switchMap(control => control.valueChanges.pipe(startWith(control.value)))), { initialValue: '' });
   private readonly scrollTop = signal(0);
+  private readonly scrollLeft = signal(0);
+  readonly viewport = signal<{ width: number; height: number } | null>(null);
+  readonly composing = signal(false);
+  readonly highlightOffset = computed(() => `translate(${-this.scrollLeft()}px, ${-this.scrollTop()}px)`);
   private readonly visibleRows = signal(40);
   readonly cursor = signal({ line: 1, column: 1 });
   private readonly firstLine = computed(() => Math.floor(this.scrollTop() / 24));
@@ -38,5 +43,7 @@ export class CodeEditor {
   scroll(): void {
     const editor = this.editor().nativeElement;
     this.scrollTop.set(editor.scrollTop); this.visibleRows.set(Math.ceil(editor.clientHeight / 24) + 2);
+    this.scrollLeft.set(editor.scrollLeft);
+    this.viewport.set({ width: editor.clientWidth, height: editor.clientHeight });
   }
 }

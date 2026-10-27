@@ -1,0 +1,18 @@
+minos-problem-statement { display: block; min-width: 0; }
+.problem-statement { overflow-wrap: anywhere; font-size: var(--text-label); line-height: 1.75; }
+.problem-statement p { margin: 0 0 1.15em; }
+.problem-statement h3 { margin: 1.75em 0 .75em; font-size: 1rem; font-weight: 650; }
+.problem-statement > :first-child { margin-top: 0; }
+.problem-statement > :last-child { margin-bottom: 0; }
+.problem-statement ul, .problem-statement ol { padding-inline-start: 1.5rem; }
+.problem-statement li + li { margin-top: .4em; }
+.problem-statement pre { max-width: 100%; overflow: auto; padding: var(--space-3); background: var(--color-surface-subtle); border-radius: var(--radius-small); }
+.problem-statement code { padding: .1em .3em; background: var(--color-surface-subtle); border-radius: .2rem; font-size: .95em; }
+.problem-statement pre code { padding: 0; }
+.problem-statement blockquote { margin-inline: 0; padding-inline-start: var(--space-4); border-inline-start: 2px solid var(--color-border); }
+.problem-statement table { display: block; max-width: 100%; overflow: auto; border-collapse: collapse; }
+.problem-statement th, .problem-statement td { padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); }
+.problem-statement a { overflow-wrap: anywhere; }
+.problem-statement .math-display { display: block; max-width: 100%; overflow-x: auto; padding-block: var(--space-2); margin-block: var(--space-4); }
+.problem-statement .math-display .katex-display { margin: 0; }
+.problem-statement .katex { font-size: 1.05em; }

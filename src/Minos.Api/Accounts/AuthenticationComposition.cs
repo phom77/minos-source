@@ -130,6 +130,18 @@ internal static class AuthenticationComposition
             options.AddPolicy("authentication", context => RateLimitPartition.GetFixedWindowLimiter(
                 context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = 20, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+            options.AddPolicy("comments", context => RateLimitPartition.GetFixedWindowLimiter(
+                context.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = 20, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+            options.OnRejected = async (context, token) =>
+            {
+                context.HttpContext.Response.Headers.RetryAfter = "60";
+                await context.HttpContext.RequestServices.GetRequiredService<IProblemDetailsService>().TryWriteAsync(new()
+                {
+                    HttpContext = context.HttpContext,
+                    ProblemDetails = new() { Status = 429, Title = "Too many requests. Try again shortly." }
+                });
+            };
         });
         // Identity may include submitted email in validation logs. Keep credential diagnostics private.
         builder.Logging.AddFilter("Microsoft.AspNetCore.Identity", LogLevel.None);
